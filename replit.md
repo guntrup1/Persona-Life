@@ -1,0 +1,50 @@
+# Gamified Life OS — Persona 5 Royal Style
+
+A full-featured gamified productivity application inspired by the visual style of Persona 5 Royal. Built with React, TypeScript, and a Persona 5-inspired black/red/white aesthetic.
+
+## Features
+
+- **Main Hub** — Animated character that changes state based on Berlin time (UTC+1), market session display, daily task progress
+- **Task System** — Three task types: Routine (daily templates), Today Tasks, Goal Tasks
+- **Routine Templates** — Load daily routines into the task list without duplication
+- **Goals** — Hierarchical Year → Month → Week goal system with XP rewards
+- **Focus Timer** — Pomodoro (25min), Deep Work (90min), Custom timer modes with XP rewards
+- **Statistics** — Day/Week/Month/All-time XP charts, category breakdown, streaks
+- **Trading Notes** — Quick notes with asset (GER40/EUR/XAU/GBP), timeframe, tags (мысль/идея/ошибка)
+- **Financial News** — Forex Factory-style news calendar with impact levels (UTC+1)
+- **Calendar** — Day/Week/Month views with task management
+
+## Technical Stack
+
+- **Frontend**: React + TypeScript + Vite
+- **UI**: Shadcn/ui components + Tailwind CSS
+- **State**: localStorage-based reactive store (no backend required for MVP)
+- **Fonts**: Oxanium (display), Space Grotesk (body), JetBrains Mono (code)
+- **Animations**: CSS animations + framer-motion ready
+- **Charts**: Recharts
+- **Routing**: Wouter
+
+## Design
+
+- Dark-only theme with Persona 5-inspired colors (black/red/white)
+- Geometric shapes, sharp corners, comic-style UI
+- Smooth animations and visual feedback for XP gains
+- All UI in Russian language
+
+## XP System
+
+- **Routine XP**: 5–20 XP per task, max 50/day
+- **Daily Task XP**: Low=10, Medium=25, High=50 XP
+- **Goal XP**: Week=100, Month=250, Year=1000 XP
+- **Focus XP**: 25min=5, 60min=15, 90min=25 XP
+
+## State Management
+
+State is stored in localStorage under key `lifeos_v1`. The store is a simple reactive singleton with listeners.
+
+## Architecture
+
+- `client/src/lib/store.ts` — Main state management (localStorage)
+- `client/src/pages/` — All page components
+- `client/src/components/app-sidebar.tsx` — Sidebar navigation
+- `server/routes.ts` — Minimal Express backend (not used in MVP)
