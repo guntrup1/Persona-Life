@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Newspaper, AlertTriangle, Clock, RefreshCw, Loader2 } from "lucide-react";
+import { Newspaper, AlertTriangle, Clock, RefreshCw, Loader2, CalendarDays } from "lucide-react";
 import { getBerlinTime } from "@/lib/store";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -33,13 +33,26 @@ const CURRENCY_STYLE: Record<string, { badge: string; dot: string }> = {
   USD: { badge: "bg-blue-500/15 border-blue-500/40 text-blue-400", dot: "bg-blue-500" },
 };
 
-function formatNextLabel(dateStr: string): string {
-  if (!dateStr) return "Ближайший день";
+function msTillMidnightBerlin(): number {
+  const now = new Date();
+  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+  const berlinMs = utc + 3600000;
+  const berlinNow = new Date(berlinMs);
+  const berlinMidnight = new Date(berlinNow);
+  berlinMidnight.setHours(24, 0, 0, 0);
+  return berlinMidnight.getTime() - berlinNow.getTime();
+}
+
+function formatFullDate(dateStr: string): { weekday: string; full: string } {
+  if (!dateStr) return { weekday: "", full: "" };
   try {
     const d = new Date(dateStr + "T12:00:00Z");
-    return d.toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
+    return {
+      weekday: d.toLocaleDateString("ru-RU", { weekday: "long" }),
+      full: d.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" }),
+    };
   } catch {
-    return dateStr;
+    return { weekday: "", full: dateStr };
   }
 }
 
@@ -50,10 +63,10 @@ function NewsRow({ item }: { item: NewsItem }) {
       className="flex items-center gap-3 py-3 border-b border-card-border last:border-0"
       data-testid={`news-row-${item.currency}-${item.time}`}
     >
-      <div className="flex-shrink-0 w-16 text-right">
+      <div className="flex-shrink-0 w-[60px] text-right">
         <span className="font-mono text-sm font-bold text-foreground">{item.time}</span>
       </div>
-      <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${style.dot} animate-pulse`} />
+      <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${style.dot}`} />
       <Badge
         variant="outline"
         className={`flex-shrink-0 font-mono text-xs font-bold px-2 py-0 h-5 border ${style.badge}`}
@@ -65,21 +78,12 @@ function NewsRow({ item }: { item: NewsItem }) {
   );
 }
 
-function EmptyCard({ message }: { message: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-      <Newspaper className="w-8 h-8 opacity-15" />
-      <p className="text-sm text-muted-foreground font-display">{message}</p>
-    </div>
-  );
-}
-
 function SkeletonRows() {
   return (
-    <div className="space-y-0">
-      {[1, 2, 3, 4].map(i => (
+    <div>
+      {[1, 2, 3].map(i => (
         <div key={i} className="flex items-center gap-3 py-3 border-b border-card-border last:border-0 animate-pulse">
-          <div className="w-16 h-4 bg-muted rounded ml-auto" />
+          <div className="w-14 h-4 bg-muted rounded ml-auto flex-shrink-0" />
           <div className="w-1.5 h-1.5 rounded-full bg-muted flex-shrink-0" />
           <div className="w-10 h-5 bg-muted rounded-full flex-shrink-0" />
           <div className="flex-1 h-4 bg-muted rounded" />
@@ -91,13 +95,13 @@ function SkeletonRows() {
 
 export default function NewsPage() {
   const [berlinTime, setBerlinTime] = useState(getBerlinTime());
-  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const { toast } = useToast();
 
-  const { data, isLoading: queryLoading } = useQuery<NewsResponse>({
+  const { data, isLoading, isFetching } = useQuery<NewsResponse>({
     queryKey: ["/api/news"],
-    enabled: false,
-    staleTime: Infinity,
+    staleTime: msTillMidnightBerlin(),
+    gcTime: msTillMidnightBerlin() + 60000,
     select: (raw: unknown) => {
       if (Array.isArray(raw)) return { items: raw as NewsItem[], todayStr: "", nextStr: "" };
       return raw as NewsResponse;
@@ -113,32 +117,31 @@ export default function NewsPage() {
 
   const items = data?.items || [];
   const nextStr = data?.nextStr || "";
-
   const todayItems = items.filter(n => n.day === "today");
   const nextItems = items.filter(n => n.day === "next");
-  const nextLabel = formatNextLabel(nextStr);
+  const nextDate = formatFullDate(nextStr);
+
+  const isSpinning = isLoading || isFetching || refreshing;
 
   const handleRefresh = async () => {
-    setLoading(true);
+    setRefreshing(true);
     try {
       await apiRequest("POST", "/api/news/refresh");
       await queryClient.invalidateQueries({ queryKey: ["/api/news"] });
       await queryClient.refetchQueries({ queryKey: ["/api/news"] });
-      toast({ title: "Данные обновлены", description: "Новости загружены с Forex Factory" });
+      toast({ title: "Обновлено", description: "Данные загружены с Forex Factory" });
     } catch {
-      toast({ variant: "destructive", title: "Ошибка", description: "Не удалось получить данные" });
+      toast({ variant: "destructive", title: "Ошибка", description: "Не удалось загрузить данные" });
     } finally {
-      setLoading(false);
+      setRefreshing(false);
     }
   };
-
-  const isLoading = loading || queryLoading;
-  const hasData = items.length > 0;
 
   return (
     <div className="h-full overflow-auto">
       <div className="max-w-2xl mx-auto p-4 space-y-4">
 
+        {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h1 className="font-display text-xl font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
             <Newspaper className="w-5 h-5 text-primary" />
@@ -151,96 +154,96 @@ export default function NewsPage() {
             </div>
             <Button
               onClick={handleRefresh}
-              disabled={isLoading}
+              disabled={isSpinning}
               className="h-8 gap-1.5 rounded-full text-xs font-display uppercase tracking-widest"
               data-testid="button-refresh-news"
             >
-              {isLoading ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <RefreshCw className="w-3.5 h-3.5" />
-              )}
+              {isSpinning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
               Обновить
             </Button>
           </div>
         </div>
 
-        {!isLoading && hasData && todayItems.length > 0 && (
+        {/* Alert if events today */}
+        {!isLoading && todayItems.length > 0 && (
           <Card className="p-3 bg-red-500/10 border-red-500/30 rounded-xl flex items-center gap-3">
-            <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
+            <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 animate-pulse" />
             <div>
               <div className="font-display text-sm font-bold text-foreground uppercase tracking-tight">
                 {todayItems.length} важных событий сегодня
               </div>
-              <div className="text-xs text-muted-foreground">Ожидается высокая волатильность EUR/USD</div>
+              <div className="text-xs text-muted-foreground">Высокая волатильность по EUR/USD</div>
             </div>
           </Card>
         )}
 
-        {!hasData && !isLoading && (
-          <Card className="p-6 border-dashed border-border bg-muted/5 rounded-2xl text-center space-y-3">
-            <Newspaper className="w-10 h-10 mx-auto opacity-15" />
-            <div className="space-y-1">
-              <p className="font-display text-sm font-bold text-foreground uppercase tracking-wider">Нет данных</p>
-              <p className="text-xs text-muted-foreground">Нажми «Обновить» чтобы загрузить новости с Forex Factory</p>
-            </div>
-            <Button
-              onClick={handleRefresh}
-              disabled={isLoading}
-              variant="outline"
-              className="rounded-full text-xs font-display gap-2"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              Загрузить данные
-            </Button>
-          </Card>
-        )}
+        {/* Tabs — always visible */}
+        <Tabs defaultValue="today">
+          <TabsList className="w-full rounded-xl h-10">
+            <TabsTrigger value="today" className="flex-1 font-display text-xs gap-1.5" data-testid="tab-today">
+              Сегодня
+              {!isLoading && todayItems.length > 0 && (
+                <Badge variant="secondary" className="font-mono text-[10px] h-4 px-1.5 rounded-full">{todayItems.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="next" className="flex-1 font-display text-xs gap-1.5 min-w-0" data-testid="tab-next">
+              {isLoading || !nextStr ? (
+                <span>Ближайший день</span>
+              ) : (
+                <span className="capitalize truncate">{nextDate.weekday}</span>
+              )}
+              {!isLoading && nextItems.length > 0 && (
+                <Badge variant="secondary" className="font-mono text-[10px] h-4 px-1.5 rounded-full flex-shrink-0">{nextItems.length}</Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
 
-        {(hasData || isLoading) && (
-          <Tabs defaultValue="today">
-            <TabsList className="w-full rounded-xl h-10">
-              <TabsTrigger value="today" className="flex-1 font-display text-xs gap-1.5" data-testid="tab-today">
-                Сегодня
-                {hasData && todayItems.length > 0 && (
-                  <Badge variant="secondary" className="font-mono text-[10px] h-4 px-1.5 rounded-full">{todayItems.length}</Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="next" className="flex-1 font-display text-xs gap-1.5 min-w-0" data-testid="tab-next">
-                <span className="truncate">{nextStr ? nextLabel : "Ближайший"}</span>
-                {hasData && nextItems.length > 0 && (
-                  <Badge variant="secondary" className="font-mono text-[10px] h-4 px-1.5 rounded-full flex-shrink-0">{nextItems.length}</Badge>
-                )}
-              </TabsTrigger>
-            </TabsList>
+          {/* Today */}
+          <TabsContent value="today" className="mt-3">
+            <Card className="px-4 py-1 border-card-border rounded-2xl">
+              {isLoading ? (
+                <SkeletonRows />
+              ) : todayItems.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-2 text-center">
+                  <Newspaper className="w-7 h-7 opacity-15" />
+                  <p className="text-sm text-muted-foreground font-display">Важных новостей по EUR/USD сегодня нет</p>
+                </div>
+              ) : (
+                todayItems.map((n, i) => <NewsRow key={`today-${i}`} item={n} />)
+              )}
+            </Card>
+          </TabsContent>
 
-            <TabsContent value="today" className="mt-3">
-              <Card className="px-4 py-1 border-card-border rounded-2xl">
-                {isLoading ? (
-                  <SkeletonRows />
-                ) : todayItems.length === 0 ? (
-                  <EmptyCard message="Важных новостей по EUR/USD на сегодня нет" />
-                ) : (
-                  todayItems.map((n, i) => <NewsRow key={`today-${i}`} item={n} />)
-                )}
-              </Card>
-            </TabsContent>
+          {/* Next day */}
+          <TabsContent value="next" className="mt-3 space-y-3">
+            {/* Date header */}
+            {!isLoading && nextStr && (
+              <div className="flex items-center gap-3 px-1">
+                <CalendarDays className="w-4 h-4 text-primary flex-shrink-0" />
+                <div>
+                  <div className="font-display text-sm font-bold text-foreground capitalize">{nextDate.weekday}</div>
+                  <div className="text-xs text-muted-foreground font-mono">{nextDate.full}</div>
+                </div>
+              </div>
+            )}
 
-            <TabsContent value="next" className="mt-3">
-              <Card className="px-4 py-1 border-card-border rounded-2xl">
-                {isLoading ? (
-                  <SkeletonRows />
-                ) : nextItems.length === 0 ? (
-                  <EmptyCard message="Нет предстоящих важных новостей по EUR/USD" />
-                ) : (
-                  nextItems.map((n, i) => <NewsRow key={`next-${i}`} item={n} />)
-                )}
-              </Card>
-            </TabsContent>
-          </Tabs>
-        )}
+            <Card className="px-4 py-1 border-card-border rounded-2xl">
+              {isLoading ? (
+                <SkeletonRows />
+              ) : nextItems.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-2 text-center">
+                  <Newspaper className="w-7 h-7 opacity-15" />
+                  <p className="text-sm text-muted-foreground font-display">Нет предстоящих важных новостей по EUR/USD</p>
+                </div>
+              ) : (
+                nextItems.map((n, i) => <NewsRow key={`next-${i}`} item={n} />)
+              )}
+            </Card>
+          </TabsContent>
+        </Tabs>
 
-        <p className="text-center text-[10px] text-muted-foreground uppercase tracking-widest font-mono pt-1">
-          Источник: Forex Factory · HIGH IMPACT · EUR &amp; USD
+        <p className="text-center text-[10px] text-muted-foreground uppercase tracking-widest font-mono">
+          Forex Factory · HIGH IMPACT · EUR &amp; USD · Обновляется ежедневно
         </p>
       </div>
     </div>
