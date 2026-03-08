@@ -48,6 +48,7 @@ export interface RoutineTemplate {
   category: LifeArea;
   xp: number;
   enabled: boolean;
+  goalId?: string;
 }
 
 export interface TodayTask {
@@ -65,6 +66,7 @@ export interface TodayTask {
   weekGoalId?: string;
   startTime?: string;
   endTime?: string;
+  noDeadline?: boolean;
   completedAt?: string;
 }
 
@@ -77,6 +79,7 @@ export interface Goal {
   completed: boolean;
   xp: number;
   linkedTaskIds: string[];
+  taskWeights?: Record<string, number>;
   year?: number;
   month?: number;
   week?: number;
@@ -166,13 +169,15 @@ const DEFAULT_XP: XPData = {
   totalXP: 0,
 };
 
+const DEFAULT_ROUTINE_TEMPLATES: RoutineTemplate[] = [
+  { id: "r1", name: "Тренировка", category: "Body", xp: 10, enabled: true },
+  { id: "r2", name: "Чтение", category: "Mind", xp: 10, enabled: true },
+  { id: "r3", name: "Медитация", category: "Mind", xp: 5, enabled: true },
+  { id: "r4", name: "Дневник", category: "Creativity", xp: 5, enabled: true },
+];
+
 const DEFAULT_STATE: AppState = {
-  routineTemplates: [
-    { id: "r1", name: "Тренировка", category: "Body", xp: 10, enabled: true },
-    { id: "r2", name: "Чтение", category: "Mind", xp: 10, enabled: true },
-    { id: "r3", name: "Медитация", category: "Mind", xp: 5, enabled: true },
-    { id: "r4", name: "Дневник", category: "Creativity", xp: 5, enabled: true },
-  ],
+  routineTemplates: DEFAULT_ROUTINE_TEMPLATES,
   todayTasks: [],
   goals: [
     {
@@ -223,6 +228,7 @@ function loadState(): AppState {
       ...parsed,
       dailyBiases: parsed.dailyBiases || [],
       dayNotes: parsed.dayNotes || [],
+      routineTemplates: parsed.routineTemplates?.length > 0 ? parsed.routineTemplates : DEFAULT_STATE.routineTemplates,
       xp: { ...DEFAULT_XP, ...parsed.xp, categoryXP: { ...DEFAULT_XP.categoryXP, ...(parsed.xp?.categoryXP || {}) } },
       streak: { ...DEFAULT_STATE.streak, ...parsed.streak },
     };
@@ -252,6 +258,16 @@ export function getBerlinHour(): number {
   return getBerlinTime().getHours();
 }
 
+export function getBerlinDateString(): string {
+  return getBerlinTime().toISOString().split("T")[0];
+}
+
+export function getTomorrowBerlinDate(): string {
+  const berlin = getBerlinTime();
+  berlin.setDate(berlin.getDate() + 1);
+  return berlin.toISOString().split("T")[0];
+}
+
 export function getMarketSession(): { name: string; active: boolean; color: string } {
   const hour = getBerlinHour();
   const min = getBerlinTime().getMinutes();
@@ -263,13 +279,13 @@ export function getMarketSession(): { name: string; active: boolean; color: stri
   return { name: "Закрыто", active: false, color: "text-muted-foreground" };
 }
 
-export function getCharacterState(): { state: string; label: string } {
+export function getCharacterState(): { state: string; label: string; emoji: string } {
   const hour = getBerlinHour();
-  if (hour >= 0 && hour < 6) return { state: "sleeping", label: "Сон" };
-  if (hour >= 6 && hour < 9) return { state: "morning", label: "Утро" };
-  if (hour >= 9 && hour < 14) return { state: "working", label: "Работа" };
-  if (hour >= 14 && hour < 21) return { state: "resting", label: "Отдых" };
-  return { state: "evening", label: "Вечер" };
+  if (hour >= 0 && hour < 6) return { state: "sleeping", label: "Сон", emoji: "😴" };
+  if (hour >= 6 && hour < 9) return { state: "morning", label: "Утро", emoji: "🌅" };
+  if (hour >= 9 && hour < 14) return { state: "working", label: "Работа", emoji: "💪" };
+  if (hour >= 14 && hour < 21) return { state: "resting", label: "Отдых", emoji: "☕" };
+  return { state: "evening", label: "Вечер", emoji: "🌙" };
 }
 
 export function xpForDifficulty(difficulty: TaskDifficulty): number {
@@ -290,23 +306,53 @@ export function xpForFocus(duration: number): number {
 
 export function getGoalProgress(goal: Goal, state: AppState): { completed: number; total: number; percent: number } {
   if (goal.type === "week") {
-    const linked = state.todayTasks.filter(t => t.weekGoalId === goal.id);
-    const total = linked.length;
-    const completed = linked.filter(t => t.completed).length;
-    return { completed, total, percent: total > 0 ? Math.round((completed / total) * 100) : 0 };
+    const weights = goal.taskWeights || {};
+
+    const allLinkedTasks = state.todayTasks.filter(t => t.weekGoalId === goal.id || t.goalId === goal.id);
+
+    const routineLinked = state.routineTemplates
+      .filter(r => r.goalId === goal.id)
+      .map(r => {
+        const todayTask = state.todayTasks.find(t => t.routineId === r.id && t.date === getTodayDate());
+        return todayTask || null;
+      })
+      .filter(Boolean) as TodayTask[];
+
+    const allTasks = [...allLinkedTasks, ...routineLinked.filter(rt => !allLinkedTasks.find(t => t.id === rt.id))];
+
+    if (allTasks.length === 0) return { completed: 0, total: 0, percent: 0 };
+
+    let totalWeight = 0;
+    let completedWeight = 0;
+    for (const t of allTasks) {
+      const w = weights[t.id] ?? 1;
+      totalWeight += w;
+      if (t.completed) completedWeight += w;
+    }
+
+    return {
+      completed: completedWeight,
+      total: totalWeight,
+      percent: totalWeight > 0 ? Math.round((completedWeight / totalWeight) * 100) : 0,
+    };
   }
+
   if (goal.type === "month") {
     const childGoals = state.goals.filter(g => g.parentId === goal.id);
-    const total = childGoals.length;
-    const completed = childGoals.filter(g => g.completed).length;
-    return { completed, total, percent: total > 0 ? Math.round((completed / total) * 100) : 0 };
+    if (childGoals.length === 0) return { completed: 0, total: 0, percent: 0 };
+    const totalPercent = childGoals.reduce((sum, g) => sum + getGoalProgress(g, state).percent, 0);
+    const avg = Math.round(totalPercent / childGoals.length);
+    return { completed: avg, total: 100, percent: avg };
   }
+
   if (goal.type === "year") {
     const childGoals = state.goals.filter(g => g.parentId === goal.id);
-    const total = childGoals.length;
-    const completed = childGoals.filter(g => g.completed).length;
-    return { completed, total, percent: total > 0 ? Math.round((completed / total) * 100) : 0 };
+    if (childGoals.length === 0) return { completed: 0, total: 0, percent: 0 };
+    const totalPercent = childGoals.reduce((sum, g) => sum + getGoalProgress(g, state).percent, 0);
+    const avg = Math.round(totalPercent / childGoals.length);
+    return { completed: avg, total: 100, percent: avg };
   }
+
   return { completed: 0, total: 0, percent: 0 };
 }
 
@@ -368,7 +414,40 @@ function checkAndUpdateStreak(state: AppState): StreakData {
   };
 }
 
+function autoLoadRoutine(state: AppState): AppState {
+  const today = getTodayDate();
+  const hasRoutineToday = state.todayTasks.some(t => t.date === today && t.type === "routine");
+  if (hasRoutineToday) return state;
+
+  const enabledRoutines = state.routineTemplates.filter(r => r.enabled);
+  if (enabledRoutines.length === 0) return state;
+
+  const newTasks: TodayTask[] = enabledRoutines.map(r => ({
+    id: crypto.randomUUID(),
+    name: r.name,
+    description: r.description,
+    category: r.category,
+    xp: r.xp,
+    completed: false,
+    date: today,
+    type: "routine" as TaskType,
+    routineId: r.id,
+    weekGoalId: r.goalId,
+    noDeadline: true,
+  }));
+
+  return {
+    ...state,
+    todayTasks: [...state.todayTasks, ...newTasks],
+    routineLoadedDates: [...state.routineLoadedDates.filter(d => d !== today), today],
+  };
+}
+
 let globalState = loadState();
+globalState = autoLoadRoutine(globalState);
+globalState = { ...globalState, xp: recalcXP(globalState) };
+saveState(globalState);
+
 const listeners = new Set<() => void>();
 
 function notify() { listeners.forEach(l => l()); }
@@ -405,25 +484,28 @@ export function useStore() {
     }, []),
 
     loadRoutineForToday: useCallback(() => {
-      const today = getTodayDate();
       mutate(s => {
-        if (s.routineLoadedDates.includes(today)) return s;
-        const enabledRoutines = s.routineTemplates.filter(r => r.enabled);
-        const existingRoutineIds = s.todayTasks.filter(t => t.date === today && t.type === "routine").map(t => t.routineId);
-        const newTasks = enabledRoutines
-          .filter(r => !existingRoutineIds.includes(r.id))
-          .map(r => ({
-            id: crypto.randomUUID(), name: r.name, description: r.description,
-            category: r.category, xp: r.xp, completed: false,
-            date: today, type: "routine" as TaskType, routineId: r.id,
-          }));
-        return { ...s, todayTasks: [...s.todayTasks, ...newTasks], routineLoadedDates: [...s.routineLoadedDates, today] };
+        const today = getTodayDate();
+        const existing = s.todayTasks.filter(t => t.date === today && t.type === "routine");
+        const existingRoutineIds = existing.map(t => t.routineId);
+        const enabledRoutines = s.routineTemplates.filter(r => r.enabled && !existingRoutineIds.includes(r.id));
+        if (enabledRoutines.length === 0) return s;
+        const newTasks: TodayTask[] = enabledRoutines.map(r => ({
+          id: crypto.randomUUID(), name: r.name, description: r.description,
+          category: r.category, xp: r.xp, completed: false,
+          date: today, type: "routine" as TaskType, routineId: r.id,
+          weekGoalId: r.goalId, noDeadline: true,
+        }));
+        return {
+          ...s,
+          todayTasks: [...s.todayTasks, ...newTasks],
+          routineLoadedDates: [...s.routineLoadedDates.filter(d => d !== today), today],
+        };
       });
     }, []),
 
-    addTodayTask: useCallback((task: Omit<TodayTask, "id" | "date" | "completed">) => {
-      const today = getTodayDate();
-      mutate(s => ({ ...s, todayTasks: [...s.todayTasks, { ...task, id: crypto.randomUUID(), date: today, completed: false }] }));
+    addTodayTask: useCallback((task: Omit<TodayTask, "id" | "completed">) => {
+      mutate(s => ({ ...s, todayTasks: [...s.todayTasks, { ...task, id: crypto.randomUUID(), completed: false }] }));
     }, []),
 
     updateTask: useCallback((id: string, updates: Partial<TodayTask>) => {
@@ -457,12 +539,25 @@ export function useStore() {
     addGoal: useCallback((goal: Omit<Goal, "id" | "completed" | "linkedTaskIds" | "xp">) => {
       mutate(s => ({
         ...s,
-        goals: [...s.goals, { ...goal, id: crypto.randomUUID(), completed: false, linkedTaskIds: [], xp: xpForGoal(goal.type) }],
+        goals: [...s.goals, {
+          ...goal, id: crypto.randomUUID(), completed: false, linkedTaskIds: [],
+          xp: xpForGoal(goal.type), taskWeights: {},
+        }],
       }));
     }, []),
 
     updateGoal: useCallback((id: string, updates: Partial<Goal>) => {
       mutate(s => ({ ...s, goals: s.goals.map(g => g.id === id ? { ...g, ...updates } : g) }));
+    }, []),
+
+    setGoalTaskWeight: useCallback((goalId: string, taskId: string, weight: number) => {
+      mutate(s => ({
+        ...s,
+        goals: s.goals.map(g => g.id === goalId
+          ? { ...g, taskWeights: { ...(g.taskWeights || {}), [taskId]: weight } }
+          : g
+        ),
+      }));
     }, []),
 
     toggleGoal: useCallback((id: string) => {

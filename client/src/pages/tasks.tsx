@@ -37,6 +37,8 @@ function AddTaskDialog({ onAdd, taskToEdit, open: externalOpen, onOpenChange }: 
   const [weekGoalId, setWeekGoalId] = useState<string>("none");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
+  const [noDeadline, setNoDeadline] = useState(true);
+  const [date, setDate] = useState(getTodayDate());
 
   const { state } = useStore();
   const weekGoals = state.goals.filter(g => g.type === "week" && !g.completed);
@@ -51,6 +53,8 @@ function AddTaskDialog({ onAdd, taskToEdit, open: externalOpen, onOpenChange }: 
       setWeekGoalId(taskToEdit.weekGoalId || "none");
       setStartTime(taskToEdit.startTime || "");
       setEndTime(taskToEdit.endTime || "");
+      setNoDeadline(taskToEdit.noDeadline ?? !taskToEdit.startTime);
+      setDate(taskToEdit.date || getTodayDate());
     } else if (!taskToEdit && open) {
       setName("");
       setDescription("");
@@ -60,6 +64,8 @@ function AddTaskDialog({ onAdd, taskToEdit, open: externalOpen, onOpenChange }: 
       setWeekGoalId("none");
       setStartTime("");
       setEndTime("");
+      setNoDeadline(true);
+      setDate(getTodayDate());
     }
   }, [taskToEdit, open]);
 
@@ -81,8 +87,10 @@ function AddTaskDialog({ onAdd, taskToEdit, open: externalOpen, onOpenChange }: 
       difficulty,
       xp,
       weekGoalId: weekGoalId === "none" ? undefined : weekGoalId,
-      startTime: startTime || undefined,
-      endTime: endTime || undefined,
+      startTime: noDeadline ? undefined : (startTime || undefined),
+      endTime: noDeadline ? undefined : (endTime || undefined),
+      noDeadline,
+      date,
       type: taskToEdit?.type || "today"
     };
 
@@ -171,6 +179,16 @@ function AddTaskDialog({ onAdd, taskToEdit, open: externalOpen, onOpenChange }: 
           </div>
 
           <div className="space-y-1.5">
+            <Label>Дата выполнения</Label>
+            <Input
+              type="date"
+              value={date}
+              onChange={e => setDate(e.target.value)}
+              data-testid="input-task-date"
+            />
+          </div>
+
+          <div className="space-y-1.5">
             <Label>Привязать к цели недели</Label>
             <Select value={weekGoalId} onValueChange={setWeekGoalId}>
               <SelectTrigger data-testid="select-task-goal">
@@ -185,28 +203,43 @@ function AddTaskDialog({ onAdd, taskToEdit, open: externalOpen, onOpenChange }: 
             </Select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="start-time">Начало</Label>
-              <Input
-                id="start-time"
-                type="time"
-                value={startTime}
-                onChange={e => setStartTime(e.target.value)}
-                data-testid="input-task-start-time"
-              />
+          <div className="flex items-center justify-between py-1">
+            <div className="space-y-0.5">
+              <Label htmlFor="no-deadline-toggle">Без срока</Label>
+              <div className="text-[10px] text-muted-foreground">Не указывать время начала и конца</div>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="end-time">Конец</Label>
-              <Input
-                id="end-time"
-                type="time"
-                value={endTime}
-                onChange={e => setEndTime(e.target.value)}
-                data-testid="input-task-end-time"
-              />
-            </div>
+            <Switch
+              id="no-deadline-toggle"
+              checked={noDeadline}
+              onCheckedChange={setNoDeadline}
+              data-testid="switch-no-deadline"
+            />
           </div>
+
+          {!noDeadline && (
+            <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-1 duration-200">
+              <div className="space-y-1.5">
+                <Label htmlFor="start-time">Начало</Label>
+                <Input
+                  id="start-time"
+                  type="time"
+                  value={startTime}
+                  onChange={e => setStartTime(e.target.value)}
+                  data-testid="input-task-start-time"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="end-time">Конец</Label>
+                <Input
+                  id="end-time"
+                  type="time"
+                  value={endTime}
+                  onChange={e => setEndTime(e.target.value)}
+                  data-testid="input-task-end-time"
+                />
+              </div>
+            </div>
+          )}
 
           <div className="flex gap-2 pt-2">
             <Button type="submit" className="flex-1" data-testid="button-task-submit">
@@ -233,6 +266,10 @@ function AddRoutineDialog({ onAdd, routineToEdit, open: externalOpen, onOpenChan
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<LifeArea>("Body");
   const [xp, setXp] = useState(10);
+  const [goalId, setGoalId] = useState<string>("none");
+
+  const { state } = useStore();
+  const goals = state.goals.filter(g => !g.completed);
 
   useEffect(() => {
     if (routineToEdit && open) {
@@ -240,11 +277,13 @@ function AddRoutineDialog({ onAdd, routineToEdit, open: externalOpen, onOpenChan
       setDescription(routineToEdit.description || "");
       setCategory(routineToEdit.category);
       setXp(routineToEdit.xp);
+      setGoalId(routineToEdit.goalId || "none");
     } else if (!routineToEdit && open) {
       setName("");
       setDescription("");
       setCategory("Body");
       setXp(10);
+      setGoalId("none");
     }
   }, [routineToEdit, open]);
 
@@ -256,6 +295,7 @@ function AddRoutineDialog({ onAdd, routineToEdit, open: externalOpen, onOpenChan
       description: description.trim() || undefined,
       category, 
       xp, 
+      goalId: goalId === "none" ? undefined : goalId,
       enabled: routineToEdit ? routineToEdit.enabled : true 
     });
     setOpen(false);
@@ -320,6 +360,20 @@ function AddRoutineDialog({ onAdd, routineToEdit, open: externalOpen, onOpenChan
                 <SelectItem value="15">15 XP</SelectItem>
                 <SelectItem value="20">20 XP</SelectItem>
                 <SelectItem value="25">25 XP</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Привязать к цели</Label>
+            <Select value={goalId} onValueChange={setGoalId}>
+              <SelectTrigger data-testid="select-routine-goal">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Без цели</SelectItem>
+                {goals.map(g => (
+                  <SelectItem key={g.id} value={g.id}>{g.title}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -449,58 +503,66 @@ export default function TasksPage() {
               </Card>
             ) : (
               <div className="space-y-2">
-                {state.routineTemplates.map(routine => (
-                  <Card key={routine.id} className="p-3 border-card-border hover-elevate" data-testid={`routine-${routine.id}`}>
-                    <div className="flex items-center gap-3">
-                      <Switch
-                        checked={routine.enabled}
-                        onCheckedChange={(checked) => actions.updateRoutineTemplate(routine.id, { enabled: checked })}
-                        data-testid={`routine-toggle-${routine.id}`}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="font-display text-sm text-foreground">{routine.name}</div>
-                        {routine.description && (
-                          <div className="text-xs text-muted-foreground truncate">{routine.description}</div>
-                        )}
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className={`text-xs ${LIFE_AREA_COLORS[routine.category]}`}>{routine.category}</span>
+                {state.routineTemplates.map(routine => {
+                  const linkedGoal = routine.goalId ? state.goals.find(g => g.id === routine.goalId) : null;
+                  return (
+                    <Card key={routine.id} className="p-3 border-card-border hover-elevate" data-testid={`routine-${routine.id}`}>
+                      <div className="flex items-center gap-3">
+                        <Switch
+                          checked={routine.enabled}
+                          onCheckedChange={(checked) => actions.updateRoutineTemplate(routine.id, { enabled: checked })}
+                          data-testid={`routine-toggle-${routine.id}`}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-display text-sm text-foreground">{routine.name}</div>
+                          {routine.description && (
+                            <div className="text-xs text-muted-foreground truncate">{routine.description}</div>
+                          )}
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            <span className={`text-xs ${LIFE_AREA_COLORS[routine.category]}`}>{routine.category}</span>
+                            {linkedGoal && (
+                              <Badge variant="outline" className="text-[10px] py-0 h-3.5 border-primary/30 text-primary/70">
+                                {linkedGoal.title}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="font-mono text-xs text-primary font-bold">+{routine.xp} XP</span>
+                          <Button 
+                            size="icon" 
+                            variant="ghost" 
+                            onClick={() => setEditingRoutine(routine)}
+                            data-testid={`routine-edit-${routine.id}`}
+                          >
+                            <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button size="icon" variant="ghost" data-testid={`routine-delete-${routine.id}`}>
+                                <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Удалить рутину?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Шаблон "{routine.name}" будет удалён из рутины.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Отмена</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => actions.deleteRoutineTemplate(routine.id)}>
+                                  Удалить
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <span className="font-mono text-xs text-primary font-bold">+{routine.xp} XP</span>
-                        <Button 
-                          size="icon" 
-                          variant="ghost" 
-                          onClick={() => setEditingRoutine(routine)}
-                          data-testid={`routine-edit-${routine.id}`}
-                        >
-                          <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button size="icon" variant="ghost" data-testid={`routine-delete-${routine.id}`}>
-                              <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Удалить рутину?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Шаблон "{routine.name}" будет удалён из рутины.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Отмена</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => actions.deleteRoutineTemplate(routine.id)}>
-                                Удалить
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
+                    </Card>
+                  );
+                })}
               </div>
             )}
 
@@ -590,7 +652,7 @@ function TaskRow({ task, onToggle, onDelete, onEdit }: {
                 {weekGoal.title}
               </Badge>
             )}
-            {(task.startTime || task.endTime) && (
+            {(task.startTime || task.endTime) && !task.noDeadline && (
               <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                 <Clock className="w-2.5 h-2.5" />
                 {task.startTime || "??"} - {task.endTime || "??"}

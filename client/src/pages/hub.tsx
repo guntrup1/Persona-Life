@@ -20,134 +20,78 @@ import {
 import { CheckCircle, Circle, Trash2, RefreshCw, Flame, Zap, Star, Target, Clock, Newspaper, FileText, TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-function CharacterSVG({ state }: { state: string }) {
-  const bodyColor = "#1a1a1a";
-  const skinColor = "#f5d0a9";
-  const hairColor = "#1a1a1a";
-  const jacketColor = state === "working" ? "#8B0000" : state === "morning" ? "#2d5a8e" : state === "sleeping" ? "#2a2a3a" : state === "evening" ? "#3a2a4a" : "#2a4a2a";
+function CharacterEmoji({ state }: { state: string }) {
+  const getEmoji = () => {
+    switch (state) {
+      case "sleeping": return "😴";
+      case "morning": return "🌅";
+      case "working": return "💪";
+      case "resting": return "☕";
+      case "evening": return "🌙";
+      default: return "😎";
+    }
+  };
 
-  if (state === "sleeping") {
-    return (
-      <svg viewBox="0 0 120 160" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-        <g className="animate-pulse">
-          <ellipse cx="60" cy="80" rx="28" ry="35" fill="#2a2a3a" opacity="0.9" />
-          <circle cx="60" cy="52" r="22" fill={skinColor} />
-          <ellipse cx="60" cy="42" rx="18" ry="14" fill={hairColor} />
-          <line x1="48" y1="60" x2="55" y2="60" stroke="#666" strokeWidth="2" strokeLinecap="round" />
-          <line x1="65" y1="60" x2="72" y2="60" stroke="#666" strokeWidth="2" strokeLinecap="round" />
-          <path d="M53 67 Q60 64 67 67" stroke="#c0887a" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-        </g>
-        <text x="90" y="35" fontSize="12" fill="#8B0000" fontFamily="Oxanium" opacity="0.8">Z</text>
-        <text x="98" y="22" fontSize="9" fill="#8B0000" fontFamily="Oxanium" opacity="0.6">Z</text>
-        <text x="104" y="12" fontSize="7" fill="#8B0000" fontFamily="Oxanium" opacity="0.4">Z</text>
-      </svg>
-    );
-  }
-
-  if (state === "morning") {
-    return (
-      <svg viewBox="0 0 120 200" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-        <g className="animate-bounce" style={{ animationDuration: '3s' }}>
-          <rect x="32" y="75" width="56" height="75" rx="6" fill={jacketColor} />
-          <rect x="22" y="80" width="18" height="55" rx="6" fill={jacketColor} />
-          <rect x="80" y="80" width="18" height="55" rx="6" fill={jacketColor} />
-          <rect x="42" y="150" width="16" height="40" rx="5" fill="#2a2a3a" />
-          <rect x="62" y="150" width="16" height="40" rx="5" fill="#2a2a3a" />
-          <circle cx="60" cy="55" r="24" fill={skinColor} />
-          <ellipse cx="60" cy="38" rx="20" ry="15" fill={hairColor} />
-          <circle cx="51" cy="55" r="4" fill="white" />
-          <circle cx="69" cy="55" r="4" fill="white" />
-          <circle cx="52" cy="55" r="2" fill="#3a3a3a" />
-          <circle cx="70" cy="55" r="2" fill="#3a3a3a" />
-          <path d="M53 65 Q60 70 67 65" stroke="#c0887a" strokeWidth="2" fill="none" strokeLinecap="round" />
-          <circle cx="25" cy="20" r="12" fill="#FFD700" opacity="0.8" />
-          {[0,45,90,135,180,225,270,315].map((deg, i) => (
-            <line key={i}
-              x1={25 + Math.cos(deg * Math.PI/180) * 14}
-              y1={20 + Math.sin(deg * Math.PI/180) * 14}
-              x2={25 + Math.cos(deg * Math.PI/180) * 18}
-              y2={20 + Math.sin(deg * Math.PI/180) * 18}
-              stroke="#FFD700" strokeWidth="2" opacity="0.6"
-            />
-          ))}
-        </g>
-      </svg>
-    );
-  }
-
-  if (state === "working") {
-    return (
-      <svg viewBox="0 0 120 200" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-        <g>
-          <rect x="32" y="75" width="56" height="75" rx="4" fill={jacketColor} />
-          <rect x="22" y="75" width="16" height="60" rx="4" fill={jacketColor} />
-          <rect x="82" y="75" width="16" height="40" rx="4" fill={jacketColor} />
-          <rect x="42" y="150" width="15" height="42" rx="5" fill="#1a1a2a" />
-          <rect x="63" y="150" width="15" height="42" rx="5" fill="#1a1a2a" />
-          <rect x="92" y="85" width="24" height="18" rx="2" fill="#0a0a1a" />
-          <rect x="94" y="87" width="20" height="14" rx="1" fill="#1a3a5a" />
-          <line x1="98" y1="92" x2="110" y2="92" stroke="#00ff88" strokeWidth="0.8" opacity="0.7" className="animate-pulse" />
-          <line x1="98" y1="95" x2="107" y2="95" stroke="#00ff88" strokeWidth="0.8" opacity="0.5" className="animate-pulse" />
-          <line x1="98" y1="98" x2="112" y2="98" stroke="#00ff88" strokeWidth="0.8" opacity="0.7" className="animate-pulse" />
-          <circle cx="60" cy="52" r="24" fill={skinColor} />
-          <ellipse cx="60" cy="36" rx="21" ry="16" fill={hairColor} />
-          <rect x="52" y="48" width="6" height="4" rx="1" fill="#c0887a" opacity="0.3" />
-          <rect x="62" y="48" width="6" height="4" rx="1" fill="#c0887a" opacity="0.3" />
-          <circle cx="52" cy="52" r="3.5" fill="white" />
-          <circle cx="68" cy="52" r="3.5" fill="white" />
-          <circle cx="53" cy="52" r="2" fill="#2a2a3a" />
-          <circle cx="69" cy="52" r="2" fill="#2a2a3a" />
-          <path d="M53 63 Q60 60 67 63" stroke="#c0887a" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-        </g>
-      </svg>
-    );
-  }
-
-  if (state === "resting") {
-    return (
-      <svg viewBox="0 0 120 200" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-        <g className="animate-pulse">
-          <rect x="30" y="85" width="60" height="70" rx="8" fill={jacketColor} />
-          <rect x="18" y="90" width="18" height="50" rx="8" fill={jacketColor} />
-          <rect x="84" y="90" width="18" height="50" rx="8" fill={jacketColor} />
-          <rect x="10" y="130" width="14" height="8" rx="4" fill={jacketColor} />
-          <rect x="40" y="155" width="16" height="38" rx="6" fill="#2a2a3a" />
-          <rect x="64" y="155" width="16" height="38" rx="6" fill="#2a2a3a" />
-          <circle cx="60" cy="58" r="25" fill={skinColor} />
-          <ellipse cx="60" cy="42" rx="21" ry="15" fill={hairColor} />
-          <circle cx="50" cy="58" r="4" fill="white" />
-          <circle cx="70" cy="58" r="4" fill="white" />
-          <circle cx="51" cy="58" r="2.5" fill="#3a3a3a" />
-          <circle cx="71" cy="58" r="2.5" fill="#3a3a3a" />
-          <path d="M52 69 Q60 74 68 69" stroke="#c0887a" strokeWidth="2" fill="none" strokeLinecap="round" />
-          <circle cx="20" cy="40" r="5" fill="#8B4513" opacity="0.9" />
-          <path d="M15 30 Q12 20 16 15 Q18 12 20 15 Q22 12 24 15 Q28 20 25 30" fill="#8B4513" opacity="0.8" />
-          <path d="M17 30 Q17 35 20 38 Q23 35 23 30" fill={skinColor} opacity="0.7" />
-        </g>
-      </svg>
-    );
-  }
+  const emoji = getEmoji();
 
   return (
-    <svg viewBox="0 0 120 200" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-      <g className="animate-pulse">
-        <rect x="33" y="80" width="54" height="72" rx="5" fill={jacketColor} />
-        <rect x="22" y="83" width="17" height="55" rx="5" fill={jacketColor} />
-        <rect x="81" y="83" width="17" height="55" rx="5" fill={jacketColor} />
-        <rect x="40" y="152" width="16" height="40" rx="5" fill="#2a2a3a" />
-        <rect x="64" y="152" width="16" height="40" rx="5" fill="#2a2a3a" />
-        <circle cx="60" cy="54" r="24" fill={skinColor} />
-        <ellipse cx="60" cy="38" rx="20" ry="15" fill={hairColor} />
-        <circle cx="50" cy="55" r="4" fill="white" />
-        <circle cx="70" cy="55" r="4" fill="white" />
-        <circle cx="51" cy="55" r="2.5" fill="#3a3a3a" />
-        <circle cx="71" cy="55" r="2.5" fill="#3a3a3a" />
-        <path d="M52 66 Q60 71 68 66" stroke="#c0887a" strokeWidth="2" fill="none" strokeLinecap="round" />
-        <circle cx="85" cy="20" r="8" fill="#FFD700" opacity="0.3" />
-        <circle cx="90" cy="30" r="5" fill="#c0c0c0" opacity="0.4" />
-        <circle cx="95" cy="15" r="4" fill="#c0c0c0" opacity="0.3" />
-      </g>
-    </svg>
+    <div className="relative flex items-center justify-center w-full h-full select-none">
+      <style>
+        {`
+          @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+          }
+          @keyframes pulse-glow {
+            0%, 100% { filter: drop-shadow(0 0 10px rgba(255,255,255,0.2)); transform: scale(1); }
+            50% { filter: drop-shadow(0 0 25px rgba(255,255,255,0.5)); transform: scale(1.05); }
+          }
+          @keyframes sway {
+            0%, 100% { transform: rotate(-5deg); }
+            50% { transform: rotate(5deg); }
+          }
+          @keyframes bounce-custom {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-15px) scale(1.1); }
+          }
+          @keyframes z-float {
+            0% { transform: translate(0, 0) opacity(0); }
+            20% { opacity: 0.8; }
+            100% { transform: translate(20px, -60px) opacity(0); }
+          }
+          .animate-float { animation: float 3s ease-in-out infinite; }
+          .animate-glow { animation: pulse-glow 2s ease-in-out infinite; }
+          .animate-sway { animation: sway 4s ease-in-out infinite; }
+          .animate-bounce-custom { animation: bounce-custom 1s ease-in-out infinite; }
+          .z-letter { 
+            position: absolute;
+            font-family: 'Oxanium', sans-serif;
+            font-weight: bold;
+            color: #8B0000;
+            opacity: 0;
+            pointer-events: none;
+          }
+        `}
+      </style>
+      
+      <div className={`text-8xl flex items-center justify-center
+        ${state === 'sleeping' ? 'animate-glow' : ''}
+        ${state === 'morning' ? 'animate-float' : ''}
+        ${state === 'working' ? 'animate-bounce-custom' : ''}
+        ${state === 'resting' ? 'animate-sway' : ''}
+        ${state === 'evening' ? 'animate-glow' : ''}
+      `}>
+        {emoji}
+        
+        {state === 'sleeping' && (
+          <>
+            <span className="z-letter text-2xl" style={{ animation: 'z-float 3s infinite 0s', left: '60%', top: '20%' }}>Z</span>
+            <span className="z-letter text-xl" style={{ animation: 'z-float 3s infinite 1s', left: '70%', top: '10%' }}>Z</span>
+            <span className="z-letter text-lg" style={{ animation: 'z-float 3s infinite 2s', left: '80%', top: '0%' }}>Z</span>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -202,6 +146,12 @@ export default function HubPage() {
     prevCompleted.current = completedToday;
   }, [completedToday, todayTasks]);
 
+  useEffect(() => {
+    if (!isRoutineLoaded) {
+      actions.loadRoutineForToday();
+    }
+  }, [isRoutineLoaded, actions]);
+
   const charState = getCharacterState();
   const session = getMarketSession();
 
@@ -252,7 +202,7 @@ export default function HubPage() {
       <div className="max-w-7xl mx-auto p-4 space-y-4">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Card className="p-4 bg-card border-card-border">
+            <Card className="p-4 bg-card border-card-border rounded-2xl">
               <div className="space-y-1">
                 <div className="font-mono text-4xl font-bold text-foreground tracking-tight">{timeStr}</div>
                 <div className="text-muted-foreground text-sm capitalize">{dateStr}</div>
@@ -264,7 +214,7 @@ export default function HubPage() {
               </div>
             </Card>
 
-            <Card className="p-4 bg-card border-card-border">
+            <Card className="p-4 bg-card border-card-border rounded-2xl">
               <div className="text-xs text-muted-foreground font-display uppercase tracking-wider mb-3">Торговые сессии</div>
               <div className="space-y-2">
                 {allSessions.map(s => {
@@ -283,7 +233,7 @@ export default function HubPage() {
               </div>
             </Card>
 
-            <Card className="p-4 bg-card border-card-border sm:col-span-2">
+            <Card className="p-4 bg-card border-card-border sm:col-span-2 rounded-2xl">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
                   <TrendingUp className="w-5 h-5 text-primary" />
@@ -332,11 +282,11 @@ export default function HubPage() {
           </div>
 
           <div className="flex flex-col gap-4">
-            <Card className="p-4 bg-card border-card-border w-full flex-1">
+            <Card className="p-4 bg-card border-card-border w-full flex-1 rounded-3xl">
               <div className="flex flex-col items-center gap-2">
                 <div className="text-xs font-display text-muted-foreground uppercase tracking-widest">{charState.label}</div>
-                <div className="w-36 h-44 character-container overflow-visible">
-                  <CharacterSVG state={charState.state} />
+                <div className="w-36 h-44 character-container overflow-visible flex items-center justify-center">
+                  <CharacterEmoji state={charState.state} />
                 </div>
                 <div className="font-display text-sm text-muted-foreground">Уровень {level}</div>
                 <div className="w-full space-y-1">
@@ -351,7 +301,7 @@ export default function HubPage() {
               </div>
             </Card>
 
-            <Card className="p-4 bg-card border-card-border w-full">
+            <Card className="p-4 bg-card border-card-border w-full rounded-2xl">
               <div className="flex items-center gap-2 mb-3">
                 <Newspaper className="w-4 h-4 text-primary" />
                 <div className="font-display text-xs font-bold uppercase tracking-wider">Новости сегодня</div>
@@ -375,7 +325,7 @@ export default function HubPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <Card className="p-4 bg-card border-card-border">
+          <Card className="p-4 bg-card border-card-border rounded-2xl">
             <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
               <div className="font-display text-base font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
                 <Zap className="w-4 h-4 text-primary" />
@@ -388,7 +338,7 @@ export default function HubPage() {
                     variant="outline"
                     onClick={handleLoadRoutine}
                     data-testid="button-load-routine"
-                    className="gap-1 h-8"
+                    className="gap-1 h-8 rounded-full"
                   >
                     <RefreshCw className="w-3 h-3" />
                     Загрузить рутину
@@ -397,12 +347,12 @@ export default function HubPage() {
                 {todayTasks.length > 0 && (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button size="sm" variant="outline" data-testid="button-clear-tasks" className="gap-1 text-destructive h-8">
+                      <Button size="sm" variant="outline" data-testid="button-clear-tasks" className="gap-1 text-destructive h-8 rounded-full">
                         <Trash2 className="w-3 h-3" />
                         Очистить
                       </Button>
                     </AlertDialogTrigger>
-                    <AlertDialogContent>
+                    <AlertDialogContent className="rounded-2xl">
                       <AlertDialogHeader>
                         <AlertDialogTitle>Очистить список задач?</AlertDialogTitle>
                         <AlertDialogDescription>
@@ -410,8 +360,8 @@ export default function HubPage() {
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>Отмена</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleClearTasks} className="bg-destructive text-destructive-foreground">
+                        <AlertDialogCancel className="rounded-full">Отмена</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleClearTasks} className="bg-destructive text-destructive-foreground rounded-full">
                           Очистить
                         </AlertDialogAction>
                       </AlertDialogFooter>
@@ -432,7 +382,7 @@ export default function HubPage() {
                 {todayTasks.map((task) => (
                   <div
                     key={task.id}
-                    className={`flex items-center gap-3 p-3 rounded-md border transition-all cursor-pointer hover-elevate ${
+                    className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer hover-elevate ${
                       task.completed
                         ? "bg-muted/50 border-border opacity-60"
                         : "bg-card border-card-border"
@@ -455,10 +405,10 @@ export default function HubPage() {
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                         <span className={`text-xs ${LIFE_AREA_COLORS[task.category]}`}>{task.category}</span>
                         {task.type === "routine" && (
-                          <Badge variant="secondary" className="text-xs py-0 h-4">Рутина</Badge>
+                          <Badge variant="secondary" className="text-xs py-0 h-4 rounded-full">Рутина</Badge>
                         )}
                         {task.difficulty && (
-                          <Badge variant="outline" className={`text-xs py-0 h-4 ${
+                          <Badge variant="outline" className={`text-xs py-0 h-4 rounded-full ${
                             task.difficulty === "high" ? "border-red-500/50 text-red-400" :
                             task.difficulty === "medium" ? "border-yellow-500/50 text-yellow-400" :
                             "border-green-500/50 text-green-400"
@@ -480,7 +430,7 @@ export default function HubPage() {
             )}
           </Card>
 
-          <Card className="p-4 bg-card border-card-border flex flex-col">
+          <Card className="p-4 bg-card border-card-border rounded-2xl flex flex-col">
             <div className="flex items-center gap-2 mb-4">
               <FileText className="w-4 h-4 text-primary" />
               <div className="font-display text-base font-bold uppercase tracking-wider text-foreground">Заметка дня</div>
@@ -488,13 +438,13 @@ export default function HubPage() {
             <div className="flex-1 flex flex-col gap-3">
               <Textarea
                 placeholder="Как прошел твой день? Краткие выводы или мысли..."
-                className="flex-1 min-h-[150px] resize-none border-card-border focus-visible:ring-primary bg-muted/30"
+                className="flex-1 min-h-[150px] resize-none border-card-border focus-visible:ring-primary bg-muted/30 rounded-xl"
                 value={noteContent}
                 onChange={(e) => setNoteContent(e.target.value)}
               />
               <Button
                 onClick={handleSaveNote}
-                className="w-full font-display uppercase tracking-widest text-xs h-9"
+                className="w-full font-display uppercase tracking-widest text-xs h-9 rounded-full"
               >
                 Сохранить заметку
               </Button>

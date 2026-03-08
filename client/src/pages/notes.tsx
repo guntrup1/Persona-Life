@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useStore, type TradeAsset, type NoteTag, type BiasDirection, getTodayDate } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { FileText, Plus, Trash2, Clock, Tag, TrendingUp, ArrowUpRight, ArrowDownRight, MoveRight, Camera, X } from "lucide-react";
+import { FileText, Plus, Trash2, Clock, Tag, TrendingUp, ArrowUpRight, ArrowDownRight, MoveRight, Camera, X, Pencil } from "lucide-react";
 
 const ASSETS: TradeAsset[] = ["GER40", "EUR", "XAU", "GBP"];
 const TIMEFRAMES = ["M1", "M5", "M15", "M30", "H1", "H4", "D1"];
@@ -19,14 +19,24 @@ const TAGS: { value: NoteTag; label: string; color: string }[] = [
   { value: "ошибка", label: "Ошибка", color: "text-red-400 border-red-500/30" },
 ];
 
-function AddBiasDialog({ onAdd }: { onAdd: (b: any) => void }) {
+function AddBiasDialog({ onAdd, editBias }: { onAdd: (b: any) => void; editBias?: any }) {
   const [open, setOpen] = useState(false);
-  const [asset, setAsset] = useState<TradeAsset>("GER40");
-  const [direction, setDirection] = useState<BiasDirection>("bullish");
-  const [pros, setPros] = useState("");
-  const [cons, setCons] = useState("");
-  const [screenshotUrl, setScreenshotUrl] = useState<string | undefined>();
+  const [asset, setAsset] = useState<TradeAsset>(editBias?.asset || "GER40");
+  const [direction, setDirection] = useState<BiasDirection>(editBias?.direction || "bullish");
+  const [pros, setPros] = useState(editBias?.pros || "");
+  const [cons, setCons] = useState(editBias?.cons || "");
+  const [screenshotUrl, setScreenshotUrl] = useState<string | undefined>(editBias?.screenshotUrl);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editBias) {
+      setAsset(editBias.asset);
+      setDirection(editBias.direction);
+      setPros(editBias.pros);
+      setCons(editBias.cons);
+      setScreenshotUrl(editBias.screenshotUrl);
+    }
+  }, [editBias]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -42,32 +52,40 @@ function AddBiasDialog({ onAdd }: { onAdd: (b: any) => void }) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onAdd({
-      date: getTodayDate(),
+      date: editBias?.date || getTodayDate(),
       asset,
       direction,
       pros,
       cons,
       screenshotUrl,
     });
-    setAsset("GER40");
-    setDirection("bullish");
-    setPros("");
-    setCons("");
-    setScreenshotUrl(undefined);
+    if (!editBias) {
+      setAsset("GER40");
+      setDirection("bullish");
+      setPros("");
+      setCons("");
+      setScreenshotUrl(undefined);
+    }
     setOpen(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-1" data-testid="button-add-bias">
-          <Plus className="w-3.5 h-3.5" />
-          Bias
-        </Button>
+        {editBias ? (
+          <Button size="icon" variant="ghost" className="h-8 w-8" data-testid={`bias-edit-${editBias.id}`}>
+            <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+          </Button>
+        ) : (
+          <Button variant="outline" size="sm" className="gap-1" data-testid="button-add-bias">
+            <Plus className="w-3.5 h-3.5" />
+            Bias
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-display">Дневной BIAS</DialogTitle>
+          <DialogTitle className="font-display">{editBias ? "Редактировать BIAS" : "Дневной BIAS"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
@@ -167,14 +185,39 @@ function AddBiasDialog({ onAdd }: { onAdd: (b: any) => void }) {
   );
 }
 
-function AddNoteDialog({ onAdd, testId = "button-add-note" }: { onAdd: (n: any) => void; testId?: string }) {
+function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd: (n: any) => void; editNote?: any; testId?: string }) {
   const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState("");
-  const [asset, setAsset] = useState<TradeAsset>("GER40");
-  const [timeframe, setTimeframe] = useState("H1");
-  const [tag, setTag] = useState<NoteTag>("мысль");
-  const [text, setText] = useState("");
-  const [time, setTime] = useState(new Date().toTimeString().slice(0, 5));
+  const [title, setTitle] = useState(editNote?.title || "");
+  const [asset, setAsset] = useState<TradeAsset>(editNote?.asset || "GER40");
+  const [timeframe, setTimeframe] = useState(editNote?.timeframe || "H1");
+  const [tag, setTag] = useState<NoteTag>(editNote?.tag || "мысль");
+  const [text, setText] = useState(editNote?.text || "");
+  const [time, setTime] = useState(editNote?.time || new Date().toTimeString().slice(0, 5));
+  const [screenshotUrl, setScreenshotUrl] = useState<string | undefined>(editNote?.screenshotUrl);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editNote) {
+      setTitle(editNote.title || "");
+      setAsset(editNote.asset);
+      setTimeframe(editNote.timeframe);
+      setTag(editNote.tag);
+      setText(editNote.text);
+      setTime(editNote.time);
+      setScreenshotUrl(editNote.screenshotUrl);
+    }
+  }, [editNote]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setScreenshotUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -186,24 +229,34 @@ function AddNoteDialog({ onAdd, testId = "button-add-note" }: { onAdd: (n: any) 
       timeframe,
       tag,
       text: text.trim(),
-      date: getTodayDate(),
+      screenshotUrl,
+      date: editNote?.date || getTodayDate(),
     });
-    setTitle("");
-    setText("");
+    if (!editNote) {
+      setTitle("");
+      setText("");
+      setScreenshotUrl(undefined);
+    }
     setOpen(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" className="gap-1" data-testid={testId}>
-          <Plus className="w-3.5 h-3.5" />
-          Добавить заметку
-        </Button>
+        {editNote ? (
+          <Button size="icon" variant="ghost" className="h-8 w-8" data-testid={`note-edit-${editNote.id}`}>
+            <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+          </Button>
+        ) : (
+          <Button size="sm" className="gap-1" data-testid={testId}>
+            <Plus className="w-3.5 h-3.5" />
+            Добавить заметку
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle className="font-display">Торговая заметка</DialogTitle>
+          <DialogTitle className="font-display">{editNote ? "Редактировать заметку" : "Торговая заметка"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
@@ -273,6 +326,45 @@ function AddNoteDialog({ onAdd, testId = "button-add-note" }: { onAdd: (n: any) 
               data-testid="input-note-text"
               autoFocus
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Скриншот (опционально)</Label>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full gap-2"
+                onClick={() => fileInputRef.current?.click()}
+                data-testid="button-note-upload-screenshot"
+              >
+                <Camera className="w-4 h-4" />
+                {screenshotUrl ? "Изменить скриншот" : "Загрузить скриншот"}
+              </Button>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept="image/*"
+                className="hidden"
+              />
+              {screenshotUrl && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setScreenshotUrl(undefined)}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+            {screenshotUrl && (
+              <div className="mt-2 rounded-md overflow-hidden border border-border aspect-video relative">
+                <img src={screenshotUrl} alt="Note screenshot" className="object-cover w-full h-full" />
+              </div>
+            )}
           </div>
 
           <Button type="submit" className="w-full" data-testid="button-note-submit">
@@ -363,15 +455,23 @@ export default function NotesPage() {
                       </Badge>
                       {directionBadge(bias.direction)}
                     </div>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => actions.deleteDailyBias(bias.id)}
-                      data-testid={`bias-delete-${bias.id}`}
-                    >
-                      <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      {bias.date === today && (
+                        <AddBiasDialog
+                          onAdd={(updates) => actions.updateDailyBias(bias.id, updates)}
+                          editBias={bias}
+                        />
+                      )}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => actions.deleteDailyBias(bias.id)}
+                        data-testid={`bias-delete-${bias.id}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
+                      </Button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 text-xs">
@@ -490,24 +590,47 @@ export default function NotesPage() {
                         <h3 className="text-sm font-bold text-foreground mb-1">{note.title}</h3>
                       )}
                       <p className="text-sm text-foreground leading-relaxed">{note.text}</p>
+                      {note.screenshotUrl && (
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <div className="cursor-pointer rounded-md overflow-hidden border border-border aspect-video mt-3 relative hover:opacity-90 transition-opacity w-48">
+                              <img src={note.screenshotUrl} alt="Note screenshot" className="object-cover w-full h-full" />
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity">
+                                <Camera className="w-5 h-5 text-white" />
+                              </div>
+                            </div>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-4xl p-0 overflow-hidden border-none bg-transparent">
+                            <img src={note.screenshotUrl} alt="Note screenshot" className="w-full h-auto" />
+                          </DialogContent>
+                        </Dialog>
+                      )}
                     </div>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button size="icon" variant="ghost" className="flex-shrink-0" data-testid={`note-delete-${note.id}`}>
-                          <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Удалить заметку?</AlertDialogTitle>
-                          <AlertDialogDescription>Эта заметка будет удалена навсегда.</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Отмена</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => actions.deleteTradingNote(note.id)}>Удалить</AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                    <div className="flex items-center gap-1">
+                      {note.date === today && (
+                        <AddNoteDialog
+                          onAdd={(updates) => actions.updateTradingNote(note.id, updates)}
+                          editNote={note}
+                        />
+                      )}
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="icon" variant="ghost" className="flex-shrink-0" data-testid={`note-delete-${note.id}`}>
+                            <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Удалить заметку?</AlertDialogTitle>
+                            <AlertDialogDescription>Эта заметка будет удалена навсегда.</AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Отмена</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => actions.deleteTradingNote(note.id)}>Удалить</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
                   </div>
                 </Card>
               );

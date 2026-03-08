@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useStore, LIFE_AREAS, LIFE_AREA_COLORS, type LifeArea, type GoalType, xpForGoal, getGoalProgress, type Goal } from "@/lib/store";
+import { useState, useEffect } from "react";
+import { useStore, LIFE_AREAS, LIFE_AREA_COLORS, type LifeArea, type GoalType, xpForGoal, getGoalProgress, type Goal, getTodayDate, type TodayTask } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,9 +9,106 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { CheckCircle, Circle, Plus, Trash2, Target, ChevronRight, Trophy, Calendar, Zap } from "lucide-react";
+import { CheckCircle, Circle, Plus, Trash2, Target, ChevronRight, Trophy, Calendar, Zap, Edit2, Save, Weight } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
+import { Slider } from "@/components/ui/slider";
+
+function EditGoalDialog({ goal, onUpdate }: { goal: Goal; onUpdate: (id: string, g: any) => void }) {
+  const { state } = useStore();
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState(goal.title);
+  const [category, setCategory] = useState<LifeArea>(goal.category);
+  const [description, setDescription] = useState(goal.description || "");
+  const [parentId, setParentId] = useState(goal.parentId || "none");
+
+  const typeLabels: Record<GoalType, string> = { year: "Годовая", month: "Месячная", week: "Недельная" };
+
+  const possibleParents = state.goals.filter(g => {
+    if (goal.type === "month") return g.type === "year";
+    if (goal.type === "week") return g.type === "month";
+    return false;
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) return;
+    onUpdate(goal.id, {
+      title: title.trim(),
+      category,
+      parentId: parentId === "none" ? undefined : parentId,
+      description: description.trim(),
+    });
+    setOpen(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="icon" variant="ghost" data-testid={`button-edit-goal-${goal.id}`}>
+          <Edit2 className="w-3.5 h-3.5 text-muted-foreground" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="font-display text-lg">Редактировать {typeLabels[goal.type]} цель</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+          <div className="space-y-1.5">
+            <Label>Название цели</Label>
+            <Input
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="Чего хочешь достичь?"
+              data-testid="input-edit-goal-title"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Описание (опционально)</Label>
+            <Textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="Подробности..."
+              className="min-h-[80px]"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Сфера жизни</Label>
+            <Select value={category} onValueChange={(v) => setCategory(v as LifeArea)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LIFE_AREAS.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {(goal.type === "month" || goal.type === "week") && (
+            <div className="space-y-1.5">
+              <Label>{goal.type === "month" ? "Годовая цель" : "Месячная цель"}</Label>
+              <Select value={parentId} onValueChange={setParentId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Выберите родительскую цель" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Нет</SelectItem>
+                  {possibleParents.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          <Button type="submit" className="w-full mt-2" data-testid="button-edit-goal-submit">
+            Сохранить изменения
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function AddGoalDialog({ parentId, parentType, onAdd, forcedType }: {
   parentId?: string;
@@ -129,12 +226,14 @@ function AddGoalDialog({ parentId, parentType, onAdd, forcedType }: {
   );
 }
 
-function GoalCard({ goal, goals, onToggle, onDelete, onAdd, state }: {
+function GoalCard({ goal, goals, onToggle, onDelete, onAdd, onUpdate, setGoalTaskWeight, state }: {
   goal: Goal;
   goals: Goal[];
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
   onAdd: (g: any) => void;
+  onUpdate: (id: string, g: any) => void;
+  setGoalTaskWeight: (goalId: string, taskId: string, weight: number) => void;
   state: any;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -148,6 +247,18 @@ function GoalCard({ goal, goals, onToggle, onDelete, onAdd, state }: {
   const childGoals = goals.filter(g => g.parentId === goal.id);
   const progress = getGoalProgress(goal, state);
   const parentGoal = goal.parentId ? goals.find(g => g.id === goal.parentId) : null;
+
+  // Find linked tasks (including routine tasks for today)
+  const linkedTasks = state.todayTasks.filter((t: TodayTask) => t.weekGoalId === goal.id || t.goalId === goal.id);
+  const routineLinked = state.routineTemplates
+    .filter((r: any) => r.goalId === goal.id)
+    .map((r: any) => {
+      const todayTask = state.todayTasks.find((t: TodayTask) => t.routineId === r.id && t.date === getTodayDate());
+      return todayTask || null;
+    })
+    .filter(Boolean) as TodayTask[];
+
+  const allTasks = [...linkedTasks, ...routineLinked.filter(rt => !linkedTasks.find((t: TodayTask) => t.id === rt.id))];
 
   return (
     <div className="space-y-2">
@@ -188,44 +299,78 @@ function GoalCard({ goal, goals, onToggle, onDelete, onAdd, state }: {
             <div className="mt-3 space-y-1.5">
               <div className="flex justify-between text-[10px] text-muted-foreground">
                 <span>Прогресс</span>
-                <span>{progress.completed}/{progress.total}</span>
+                <span>{progress.percent}% ({progress.completed}/{progress.total} ед.)</span>
               </div>
               <Progress value={progress.percent} className="h-1" />
             </div>
+
+            {goal.type === "week" && allTasks.length > 0 && (
+              <div className="mt-4 pt-3 border-t border-border/50 space-y-3">
+                <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  <Weight className="w-3 h-3" />
+                  Веса задач
+                </div>
+                <div className="space-y-3">
+                  {allTasks.map(task => (
+                    <div key={task.id} className="space-y-1.5">
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className={`truncate mr-2 ${task.completed ? "text-muted-foreground line-through" : "text-foreground"}`}>
+                          {task.name}
+                        </span>
+                        <span className="font-mono font-bold text-primary shrink-0">
+                          w: {goal.taskWeights?.[task.id] ?? 1}
+                        </span>
+                      </div>
+                      <Slider
+                        value={[goal.taskWeights?.[task.id] ?? 1]}
+                        min={1}
+                        max={10}
+                        step={1}
+                        onValueChange={([val]) => setGoalTaskWeight(goal.id, task.id, val)}
+                        className="py-1"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex flex-col items-center gap-1 flex-shrink-0">
             <span className={`font-mono text-xs font-bold ${goal.completed ? "text-muted-foreground" : "text-primary"}`}>
               +{goal.xp} XP
             </span>
-            {childGoals.length > 0 && (
-              <button
-                onClick={() => setExpanded(!expanded)}
-                className="text-muted-foreground transition-transform"
-                style={{ transform: expanded ? "rotate(90deg)" : "rotate(0deg)" }}
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            )}
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button size="icon" variant="ghost" data-testid={`goal-delete-${goal.id}`}>
-                  <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Удалить цель?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Цель и все вложенные подцели будут удалены.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Отмена</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => onDelete(goal.id)}>Удалить</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <div className="flex flex-col gap-0.5">
+              <EditGoalDialog goal={goal} onUpdate={onUpdate} />
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button size="icon" variant="ghost" data-testid={`goal-delete-${goal.id}`}>
+                    <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Удалить цель?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Цель и все вложенные подцели будут удалены.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Отмена</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => onDelete(goal.id)}>Удалить</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+              {childGoals.length > 0 && (
+                <button
+                  onClick={() => setExpanded(!expanded)}
+                  className="p-2 text-muted-foreground transition-transform self-center"
+                  style={{ transform: expanded ? "rotate(90deg)" : "rotate(0deg)" }}
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </Card>
@@ -240,6 +385,8 @@ function GoalCard({ goal, goals, onToggle, onDelete, onAdd, state }: {
               onToggle={onToggle}
               onDelete={onDelete}
               onAdd={onAdd}
+              onUpdate={onUpdate}
+              setGoalTaskWeight={setGoalTaskWeight}
               state={state}
             />
           ))}
@@ -313,6 +460,8 @@ export default function GoalsPage() {
                   onToggle={actions.toggleGoal}
                   onDelete={actions.deleteGoal}
                   onAdd={actions.addGoal}
+                  onUpdate={actions.updateGoal}
+                  setGoalTaskWeight={actions.setGoalTaskWeight}
                   state={state}
                 />
               ))
@@ -331,6 +480,8 @@ export default function GoalsPage() {
                   onToggle={actions.toggleGoal}
                   onDelete={actions.deleteGoal}
                   onAdd={actions.addGoal}
+                  onUpdate={actions.updateGoal}
+                  setGoalTaskWeight={actions.setGoalTaskWeight}
                   state={state}
                 />
               ))
@@ -349,6 +500,8 @@ export default function GoalsPage() {
                   onToggle={actions.toggleGoal}
                   onDelete={actions.deleteGoal}
                   onAdd={actions.addGoal}
+                  onUpdate={actions.updateGoal}
+                  setGoalTaskWeight={actions.setGoalTaskWeight}
                   state={state}
                 />
               ))

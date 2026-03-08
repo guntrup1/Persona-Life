@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useStore, LIFE_AREAS, LIFE_AREA_COLORS, type LifeArea, type TaskDifficulty, xpForDifficulty, type DailyBias, type TradingNote, type DayNote } from "@/lib/store";
+import { useStore, LIFE_AREAS, LIFE_AREA_COLORS, type LifeArea, type TaskDifficulty, xpForDifficulty, type DailyBias, type TradingNote, type DayNote, type TodayTask } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { ChevronLeft, ChevronRight, Plus, CalendarDays, CheckCircle, Circle, ArrowUpCircle, ArrowDownCircle, MinusCircle, FileText, TrendingUp, Image as ImageIcon } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { ChevronLeft, ChevronRight, Plus, CalendarDays, CheckCircle, Circle, ArrowUpCircle, ArrowDownCircle, MinusCircle, FileText, TrendingUp, Image as ImageIcon, Edit2 } from "lucide-react";
 import { getTodayDate } from "@/lib/store";
 
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
@@ -39,8 +40,15 @@ export default function CalendarPage() {
   const [view, setView] = useState<"month" | "week" | "day">("month");
   const [addTaskOpen, setAddTaskOpen] = useState(false);
   const [taskName, setTaskName] = useState("");
+  const [taskDescription, setTaskDescription] = useState("");
   const [taskCategory, setTaskCategory] = useState<LifeArea>("Mind");
   const [taskDifficulty, setTaskDifficulty] = useState<TaskDifficulty>("medium");
+  const [taskGoalId, setTaskGoalId] = useState<string>("");
+  const [noDeadline, setNoDeadline] = useState(true);
+  const [startTime, setStartTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("10:00");
+
+  const [editingTask, setEditingTask] = useState<TodayTask | null>(null);
 
   const todayStr = getTodayDate();
   const daysInMonth = getDaysInMonth(currentYear, currentMonth);
@@ -62,19 +70,53 @@ export default function CalendarPage() {
     e.preventDefault();
     if (!taskName.trim()) return;
 
-    const isToday = selectedDate === todayStr;
-    if (isToday) {
-      actions.addTodayTask({
-        name: taskName.trim(),
-        category: taskCategory,
-        difficulty: taskDifficulty,
-        xp: xpForDifficulty(taskDifficulty),
-        type: "today",
-      });
+    const taskData = {
+      name: taskName.trim(),
+      description: taskDescription.trim(),
+      category: taskCategory,
+      difficulty: taskDifficulty,
+      xp: xpForDifficulty(taskDifficulty),
+      type: "today" as const,
+      date: selectedDate,
+      weekGoalId: taskGoalId || undefined,
+      noDeadline,
+      startTime: noDeadline ? undefined : startTime,
+      endTime: noDeadline ? undefined : endTime,
+    };
+
+    if (editingTask) {
+      actions.updateTask(editingTask.id, taskData);
+    } else {
+      actions.addTodayTask(taskData);
     }
 
-    setTaskName("");
+    resetForm();
     setAddTaskOpen(false);
+  };
+
+  const resetForm = () => {
+    setTaskName("");
+    setTaskDescription("");
+    setTaskCategory("Mind");
+    setTaskDifficulty("medium");
+    setTaskGoalId("");
+    setNoDeadline(true);
+    setStartTime("09:00");
+    setEndTime("10:00");
+    setEditingTask(null);
+  };
+
+  const handleEditTask = (task: TodayTask) => {
+    setEditingTask(task);
+    setTaskName(task.name);
+    setTaskDescription(task.description || "");
+    setTaskCategory(task.category);
+    setTaskDifficulty(task.difficulty || "medium");
+    setTaskGoalId(task.weekGoalId || "");
+    setNoDeadline(task.noDeadline ?? true);
+    setStartTime(task.startTime || "09:00");
+    setEndTime(task.endTime || "10:00");
+    setAddTaskOpen(true);
   };
 
   const selectedTasks = getTasksForDate(selectedDate);
@@ -118,6 +160,7 @@ export default function CalendarPage() {
           <div className="flex items-center gap-0.5 flex-wrap justify-center">
             {tasks.length > 0 && (
               <>
+                <div className="w-1 h-1 rounded-full bg-primary/40" />
                 {completedCount > 0 && <div className="w-1 h-1 rounded-full bg-primary" />}
                 {tasks.length - completedCount > 0 && <div className="w-1 h-1 rounded-full bg-muted-foreground" />}
                 {hasHighImpact && <div className="w-1 h-1 rounded-full bg-red-400" />}
@@ -282,16 +325,37 @@ export default function CalendarPage() {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {selectedTasks.map(task => (
-                        <div key={task.id} className={`flex items-center gap-3 p-3 rounded-md border ${task.completed ? "opacity-60 bg-muted/50" : "bg-card"} border-card-border`}>
-                          <button onClick={() => actions.toggleTask(task.id)}>
-                            {task.completed ? <CheckCircle className="w-4 h-4 text-primary" /> : <Circle className="w-4 h-4 text-muted-foreground" />}
-                          </button>
-                          <span className={`font-display text-sm flex-1 ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>{task.name}</span>
-                          <span className={`text-xs ${LIFE_AREA_COLORS[task.category]}`}>{task.category}</span>
-                          <span className="font-mono text-xs text-primary">+{task.xp}</span>
-                        </div>
-                      ))}
+                      {selectedTasks.map(task => {
+                        const isPast = selectedDate < todayStr;
+                        return (
+                          <div key={task.id} className={`flex items-center gap-3 p-3 rounded-md border ${task.completed ? "opacity-60 bg-muted/50" : "bg-card"} border-card-border`}>
+                            <button onClick={() => actions.toggleTask(task.id)} disabled={isPast}>
+                              {task.completed ? <CheckCircle className="w-4 h-4 text-primary" /> : <Circle className="w-4 h-4 text-muted-foreground" />}
+                            </button>
+                            <div className="flex-1 min-w-0">
+                              <div className={`font-display text-sm ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                                {task.name}
+                                {task.startTime && task.endTime && (
+                                  <span className="ml-2 text-[10px] text-muted-foreground">({task.startTime}-{task.endTime})</span>
+                                )}
+                              </div>
+                              {task.description && <div className="text-[10px] text-muted-foreground truncate">{task.description}</div>}
+                            </div>
+                            <span className={`text-xs ${LIFE_AREA_COLORS[task.category]}`}>{task.category}</span>
+                            <span className="font-mono text-xs text-primary">+{task.xp}</span>
+                            {!isPast && (
+                              <div className="flex gap-1 ml-1">
+                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleEditTask(task)}>
+                                  <Edit2 className="w-3 h-3" />
+                                </Button>
+                                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => actions.deleteTask(task.id)}>
+                                  <MinusCircle className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </Card>
@@ -312,8 +376,11 @@ export default function CalendarPage() {
                     {selectedTasks.filter(t => t.completed).length}/{selectedTasks.length} задач
                   </div>
                 </div>
-                {selectedDate === todayStr && (
-                  <Dialog open={addTaskOpen} onOpenChange={setAddTaskOpen}>
+                {selectedDate >= todayStr && (
+                  <Dialog open={addTaskOpen} onOpenChange={(open) => {
+                    setAddTaskOpen(open);
+                    if (!open) resetForm();
+                  }}>
                     <DialogTrigger asChild>
                       <Button size="icon" variant="outline" data-testid="button-calendar-add">
                         <Plus className="w-4 h-4" />
@@ -321,7 +388,7 @@ export default function CalendarPage() {
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
-                        <DialogTitle className="font-display">Новая задача</DialogTitle>
+                        <DialogTitle className="font-display">{editingTask ? "Редактировать задачу" : "Новая задача"}</DialogTitle>
                       </DialogHeader>
                       <form onSubmit={handleAddTask} className="space-y-4">
                         <div className="space-y-1.5">
@@ -335,26 +402,75 @@ export default function CalendarPage() {
                           />
                         </div>
                         <div className="space-y-1.5">
-                          <Label>Сфера</Label>
-                          <Select value={taskCategory} onValueChange={(v) => setTaskCategory(v as LifeArea)}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              {LIFE_AREAS.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
+                          <Label>Описание (опционально)</Label>
+                          <Textarea
+                            value={taskDescription}
+                            onChange={e => setTaskDescription(e.target.value)}
+                            placeholder="Подробности..."
+                            className="h-20"
+                          />
                         </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <Label>Сфера</Label>
+                            <Select value={taskCategory} onValueChange={(v) => setTaskCategory(v as LifeArea)}>
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {LIFE_AREAS.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label>Сложность</Label>
+                            <Select value={taskDifficulty} onValueChange={(v) => setTaskDifficulty(v as TaskDifficulty)}>
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="low">Лёгкая — 10 XP</SelectItem>
+                                <SelectItem value="medium">Средняя — 25 XP</SelectItem>
+                                <SelectItem value="high">Сложная — 50 XP</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
                         <div className="space-y-1.5">
-                          <Label>Сложность</Label>
-                          <Select value={taskDifficulty} onValueChange={(v) => setTaskDifficulty(v as TaskDifficulty)}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
+                          <Label>Привязать к цели</Label>
+                          <Select value={taskGoalId} onValueChange={setTaskGoalId}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Выберите цель" />
+                            </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="low">Лёгкая — 10 XP</SelectItem>
-                              <SelectItem value="medium">Средняя — 25 XP</SelectItem>
-                              <SelectItem value="high">Сложная — 50 XP</SelectItem>
+                              <SelectItem value="none">Без цели</SelectItem>
+                              {state.goals.filter(g => g.type === "week").map(g => (
+                                <SelectItem key={g.id} value={g.id}>{g.title}</SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         </div>
-                        <Button type="submit" className="w-full">Добавить</Button>
+
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <Label>Указать время</Label>
+                            <Switch checked={!noDeadline} onCheckedChange={(checked: boolean) => setNoDeadline(!checked)} />
+                          </div>
+
+                          {!noDeadline && (
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-1.5">
+                                <Label>Начало</Label>
+                                <Input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label>Конец</Label>
+                                <Input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        <Button type="submit" className="w-full">
+                          {editingTask ? "Сохранить изменения" : "Добавить"}
+                        </Button>
                       </form>
                     </DialogContent>
                   </Dialog>
