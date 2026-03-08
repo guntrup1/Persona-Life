@@ -1,25 +1,12 @@
 import { Link, useLocation } from "wouter";
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarFooter,
-  SidebarHeader,
+  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
+  SidebarMenu, SidebarMenuItem, SidebarMenuButton,
+  SidebarFooter, SidebarHeader,
 } from "@/components/ui/sidebar";
 import {
-  LayoutDashboard,
-  CheckSquare,
-  Target,
-  Timer,
-  BarChart3,
-  FileText,
-  Newspaper,
-  CalendarDays,
-  Zap,
+  LayoutDashboard, CheckSquare, Target, Timer,
+  BarChart3, FileText, Newspaper, CalendarDays, Zap,
 } from "lucide-react";
 import { useStore, getBerlinTime, getMarketSession } from "@/lib/store";
 import { useState, useEffect } from "react";
@@ -46,28 +33,26 @@ export function AppSidebar() {
   }, []);
 
   const session = getMarketSession();
-  const timeStr = now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const timeStr = now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
 
   const level = Math.floor(state.xp.totalXP / 100) + 1;
   const xpInLevel = state.xp.totalXP % 100;
 
   return (
     <Sidebar>
-      <SidebarHeader className="p-4 border-b border-sidebar-border">
-        <div className="flex items-center gap-3">
-          <div className="relative w-9 h-9 flex-shrink-0">
-            <div className="w-9 h-9 bg-primary rounded-md flex items-center justify-center p5-glow-sm">
-              <Zap className="w-5 h-5 text-primary-foreground" />
-            </div>
+      <SidebarHeader className="px-3 py-3 border-b border-sidebar-border flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center flex-shrink-0">
+            <Zap className="w-4 h-4 text-primary-foreground" />
           </div>
           <div className="min-w-0">
-            <div className="font-display font-bold text-sm text-foreground tracking-wide">LIFE OS</div>
-            <div className="text-xs text-muted-foreground font-mono">Persona Mode</div>
+            <div className="font-display font-bold text-sm text-foreground tracking-wide truncate">LIFE OS</div>
+            <div className="text-xs text-muted-foreground font-mono truncate">Persona Mode</div>
           </div>
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="flex-1 overflow-y-auto overflow-x-hidden">
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -75,20 +60,14 @@ export function AppSidebar() {
                 const isActive = location === item.url;
                 return (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive}
-                      data-testid={item.testId}
-                    >
+                    <SidebarMenuButton asChild isActive={isActive} data-testid={item.testId}>
                       <Link href={item.url}>
                         <div className={`flex items-center gap-3 w-full px-1 py-0.5 rounded-md transition-all ${isActive ? "text-primary" : "text-sidebar-foreground"}`}>
                           <item.icon className={`w-4 h-4 flex-shrink-0 ${isActive ? "text-primary" : ""}`} />
-                          <span className={`font-display text-sm tracking-wide ${isActive ? "text-primary font-semibold" : ""}`}>
+                          <span className={`font-display text-sm tracking-wide truncate ${isActive ? "text-primary font-semibold" : ""}`}>
                             {item.title}
                           </span>
-                          {isActive && (
-                            <div className="ml-auto w-1 h-4 bg-primary rounded-full" />
-                          )}
+                          {isActive && <div className="ml-auto w-1 h-4 bg-primary rounded-full flex-shrink-0" />}
                         </div>
                       </Link>
                     </SidebarMenuButton>
@@ -100,33 +79,25 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-3 border-t border-sidebar-border space-y-3">
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <span className="font-display text-xs text-muted-foreground">Уровень {level}</span>
-            <span className="font-mono text-xs text-primary">{xpInLevel}/100 XP</span>
+      <SidebarFooter className="border-t border-sidebar-border flex-shrink-0 p-3 space-y-2 overflow-hidden">
+        <div className="space-y-1 overflow-hidden">
+          <div className="flex items-center justify-between gap-1 overflow-hidden">
+            <span className="font-display text-xs text-muted-foreground truncate">Ур. {level}</span>
+            <span className="font-mono text-xs text-primary flex-shrink-0">{xpInLevel}/100</span>
           </div>
-          <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-            <div
-              className="h-full bg-primary rounded-full transition-all duration-500"
-              style={{ width: `${xpInLevel}%` }}
-            />
+          <div className="w-full h-1 bg-muted rounded-full overflow-hidden">
+            <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${xpInLevel}%` }} />
           </div>
-          <div className="text-xs text-muted-foreground font-mono">{state.xp.totalXP} total XP</div>
         </div>
 
-        <div className="bg-card border border-card-border rounded-md p-2 space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="font-mono text-xs text-muted-foreground">Берлин</span>
-            <span className="font-mono text-xs text-foreground">{timeStr}</span>
+        <div className="grid grid-cols-2 gap-1 text-[10px] sm:text-xs overflow-hidden leading-tight">
+          <div className="min-w-0">
+            <div className="text-muted-foreground font-mono truncate">{timeStr} UTC+1</div>
+            <div className={`font-display font-bold truncate ${session.color}`}>{session.name}</div>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="font-mono text-xs text-muted-foreground">Сессия</span>
-            <span className={`font-mono text-xs font-bold ${session.color}`}>{session.name}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="font-mono text-xs text-muted-foreground">Стрик</span>
-            <span className="font-mono text-xs text-orange-400 font-bold">{state.streak.currentStreak} дн.</span>
+          <div className="text-right min-w-0">
+            <div className="text-muted-foreground font-mono truncate">Стрик</div>
+            <div className="font-mono font-bold text-orange-400 truncate">{state.streak.currentStreak}д</div>
           </div>
         </div>
       </SidebarFooter>

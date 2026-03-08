@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { useStore, getBerlinTime, getMarketSession, getCharacterState, getTodayDate, LIFE_AREA_COLORS, LIFE_AREA_BG } from "@/lib/store";
+import { useStore, getBerlinTime, getMarketSession, getCharacterState, getTodayDate, LIFE_AREA_COLORS, LIFE_AREA_BG, getGoalProgress } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Textarea } from "@/components/ui/textarea";
+import { useQuery } from "@tanstack/react-query";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,7 +17,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { CheckCircle, Circle, Trash2, RefreshCw, Flame, Zap, Star, Target, Clock } from "lucide-react";
+import { CheckCircle, Circle, Trash2, RefreshCw, Flame, Zap, Star, Target, Clock, Newspaper, FileText, TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 function CharacterSVG({ state }: { state: string }) {
@@ -27,7 +29,7 @@ function CharacterSVG({ state }: { state: string }) {
   if (state === "sleeping") {
     return (
       <svg viewBox="0 0 120 160" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-        <g className="animate-breathe">
+        <g className="animate-pulse">
           <ellipse cx="60" cy="80" rx="28" ry="35" fill="#2a2a3a" opacity="0.9" />
           <circle cx="60" cy="52" r="22" fill={skinColor} />
           <ellipse cx="60" cy="42" rx="18" ry="14" fill={hairColor} />
@@ -45,7 +47,7 @@ function CharacterSVG({ state }: { state: string }) {
   if (state === "morning") {
     return (
       <svg viewBox="0 0 120 200" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-        <g className="animate-float">
+        <g className="animate-bounce" style={{ animationDuration: '3s' }}>
           <rect x="32" y="75" width="56" height="75" rx="6" fill={jacketColor} />
           <rect x="22" y="80" width="18" height="55" rx="6" fill={jacketColor} />
           <rect x="80" y="80" width="18" height="55" rx="6" fill={jacketColor} />
@@ -84,9 +86,9 @@ function CharacterSVG({ state }: { state: string }) {
           <rect x="63" y="150" width="15" height="42" rx="5" fill="#1a1a2a" />
           <rect x="92" y="85" width="24" height="18" rx="2" fill="#0a0a1a" />
           <rect x="94" y="87" width="20" height="14" rx="1" fill="#1a3a5a" />
-          <line x1="98" y1="92" x2="110" y2="92" stroke="#00ff88" strokeWidth="0.8" opacity="0.7" />
-          <line x1="98" y1="95" x2="107" y2="95" stroke="#00ff88" strokeWidth="0.8" opacity="0.5" />
-          <line x1="98" y1="98" x2="112" y2="98" stroke="#00ff88" strokeWidth="0.8" opacity="0.7" />
+          <line x1="98" y1="92" x2="110" y2="92" stroke="#00ff88" strokeWidth="0.8" opacity="0.7" className="animate-pulse" />
+          <line x1="98" y1="95" x2="107" y2="95" stroke="#00ff88" strokeWidth="0.8" opacity="0.5" className="animate-pulse" />
+          <line x1="98" y1="98" x2="112" y2="98" stroke="#00ff88" strokeWidth="0.8" opacity="0.7" className="animate-pulse" />
           <circle cx="60" cy="52" r="24" fill={skinColor} />
           <ellipse cx="60" cy="36" rx="21" ry="16" fill={hairColor} />
           <rect x="52" y="48" width="6" height="4" rx="1" fill="#c0887a" opacity="0.3" />
@@ -104,7 +106,7 @@ function CharacterSVG({ state }: { state: string }) {
   if (state === "resting") {
     return (
       <svg viewBox="0 0 120 200" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-        <g className="animate-breathe">
+        <g className="animate-pulse">
           <rect x="30" y="85" width="60" height="70" rx="8" fill={jacketColor} />
           <rect x="18" y="90" width="18" height="50" rx="8" fill={jacketColor} />
           <rect x="84" y="90" width="18" height="50" rx="8" fill={jacketColor} />
@@ -128,7 +130,7 @@ function CharacterSVG({ state }: { state: string }) {
 
   return (
     <svg viewBox="0 0 120 200" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-      <g className="animate-breathe">
+      <g className="animate-pulse">
         <rect x="33" y="80" width="54" height="72" rx="5" fill={jacketColor} />
         <rect x="22" y="83" width="17" height="55" rx="5" fill={jacketColor} />
         <rect x="81" y="83" width="17" height="55" rx="5" fill={jacketColor} />
@@ -139,7 +141,7 @@ function CharacterSVG({ state }: { state: string }) {
         <circle cx="50" cy="55" r="4" fill="white" />
         <circle cx="70" cy="55" r="4" fill="white" />
         <circle cx="51" cy="55" r="2.5" fill="#3a3a3a" />
-        <circle cx="71" cy="55" r="2.5" fill="#3a3a3a" className="animate-blink" />
+        <circle cx="71" cy="55" r="2.5" fill="#3a3a3a" />
         <path d="M52 66 Q60 71 68 66" stroke="#c0887a" strokeWidth="2" fill="none" strokeLinecap="round" />
         <circle cx="85" cy="20" r="8" fill="#FFD700" opacity="0.3" />
         <circle cx="90" cy="30" r="5" fill="#c0c0c0" opacity="0.4" />
@@ -168,11 +170,22 @@ function XPNotification({ xp, visible, onHide }: { xp: number; visible: boolean;
 }
 
 export default function HubPage() {
-  const { state, actions, todayTasks, completedToday, totalToday, isRoutineLoaded } = useStore();
+  const { state, actions, todayTasks, completedToday, totalToday, isRoutineLoaded, todayNote } = useStore();
   const [berlinTime, setBerlinTime] = useState(getBerlinTime());
   const [xpNotif, setXpNotif] = useState<{ xp: number; visible: boolean }>({ xp: 0, visible: false });
+  const [noteContent, setNoteContent] = useState(todayNote?.content || "");
   const { toast } = useToast();
   const prevCompleted = useRef(completedToday);
+
+  const { data: todayNews, isLoading: isNewsLoading } = useQuery<{ title: string; currency: string; impact: string; time: string }[]>({
+    queryKey: ["/api/news/today"],
+  });
+
+  useEffect(() => {
+    if (todayNote) {
+      setNoteContent(todayNote.content);
+    }
+  }, [todayNote]);
 
   useEffect(() => {
     const interval = setInterval(() => setBerlinTime(getBerlinTime()), 1000);
@@ -215,6 +228,11 @@ export default function HubPage() {
     toast({ title: "Список очищен", description: "Все задачи на сегодня удалены." });
   };
 
+  const handleSaveNote = () => {
+    actions.upsertDayNote(getTodayDate(), noteContent);
+    toast({ title: "Заметка сохранена", description: "Ваша заметка на сегодня обновлена." });
+  };
+
   const level = Math.floor(state.xp.totalXP / 100) + 1;
   const xpInLevel = state.xp.totalXP % 100;
 
@@ -225,6 +243,8 @@ export default function HubPage() {
     { name: "Нью-Йорк", start: "14:00", end: "17:00", color: "text-red-400" },
   ];
 
+  const weekGoals = state.goals.filter(g => g.type === "week" && !g.completed);
+
   return (
     <div className="h-full overflow-auto">
       <XPNotification xp={xpNotif.xp} visible={xpNotif.visible} onHide={() => setXpNotif(p => ({ ...p, visible: false }))} />
@@ -232,7 +252,7 @@ export default function HubPage() {
       <div className="max-w-7xl mx-auto p-4 space-y-4">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Card className="p-4 bg-card border-card-border animate-slide-in-left">
+            <Card className="p-4 bg-card border-card-border">
               <div className="space-y-1">
                 <div className="font-mono text-4xl font-bold text-foreground tracking-tight">{timeStr}</div>
                 <div className="text-muted-foreground text-sm capitalize">{dateStr}</div>
@@ -244,7 +264,7 @@ export default function HubPage() {
               </div>
             </Card>
 
-            <Card className="p-4 bg-card border-card-border animate-slide-in-right">
+            <Card className="p-4 bg-card border-card-border">
               <div className="text-xs text-muted-foreground font-display uppercase tracking-wider mb-3">Торговые сессии</div>
               <div className="space-y-2">
                 {allSessions.map(s => {
@@ -265,9 +285,12 @@ export default function HubPage() {
 
             <Card className="p-4 bg-card border-card-border sm:col-span-2">
               <div className="flex items-center justify-between mb-3">
-                <div>
-                  <div className="font-display text-xs uppercase tracking-wider text-muted-foreground">Прогресс дня</div>
-                  <div className="font-display text-2xl font-bold text-foreground">{completedToday}/{totalToday}</div>
+                <div className="flex items-center gap-3">
+                  <TrendingUp className="w-5 h-5 text-primary" />
+                  <div>
+                    <div className="font-display text-xs uppercase tracking-wider text-muted-foreground">Прогресс дня</div>
+                    <div className="font-display text-2xl font-bold text-foreground">{completedToday}/{totalToday}</div>
+                  </div>
                 </div>
                 <div className="text-right">
                   <div className="text-xs text-muted-foreground">XP сегодня</div>
@@ -282,18 +305,37 @@ export default function HubPage() {
                   style={{ width: `${progress}%` }}
                 />
               </div>
-              <div className="mt-2 flex gap-3 text-xs text-muted-foreground font-mono">
+
+              {weekGoals.length > 0 && (
+                <div className="mt-4 space-y-3 pt-3 border-t">
+                  <div className="text-xs font-display text-muted-foreground uppercase tracking-wider">Цели недели</div>
+                  {weekGoals.slice(0, 2).map(goal => {
+                    const progress = getGoalProgress(goal, state);
+                    return (
+                      <div key={goal.id} className="space-y-1">
+                        <div className="flex justify-between text-xs font-display">
+                          <span className="text-foreground truncate max-w-[200px]">{goal.title}</span>
+                          <span className="text-muted-foreground">{progress.completed}/{progress.total}</span>
+                        </div>
+                        <Progress value={progress.percent} className="h-1.5" />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="mt-3 flex gap-3 text-xs text-muted-foreground font-mono">
                 <span>Стрик: <span className="text-orange-400 font-bold">{state.streak.currentStreak} дн.</span></span>
                 <span>Рекорд: <span className="text-yellow-400 font-bold">{state.streak.longestStreak} дн.</span></span>
               </div>
             </Card>
           </div>
 
-          <div className="flex flex-col items-center justify-center gap-3">
-            <Card className="p-4 bg-card border-card-border w-full">
+          <div className="flex flex-col gap-4">
+            <Card className="p-4 bg-card border-card-border w-full flex-1">
               <div className="flex flex-col items-center gap-2">
                 <div className="text-xs font-display text-muted-foreground uppercase tracking-widest">{charState.label}</div>
-                <div className="w-36 h-44 character-container">
+                <div className="w-36 h-44 character-container overflow-visible">
                   <CharacterSVG state={charState.state} />
                 </div>
                 <div className="font-display text-sm text-muted-foreground">Уровень {level}</div>
@@ -309,136 +351,156 @@ export default function HubPage() {
               </div>
             </Card>
 
-            <Card className="p-3 bg-card border-card-border w-full">
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div>
-                  <div className="text-xs text-muted-foreground font-display">Рутина</div>
-                  <div className="font-mono text-sm font-bold text-blue-400">{state.xp.routineXP}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground font-display">Задачи</div>
-                  <div className="font-mono text-sm font-bold text-green-400">{state.xp.taskXP}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground font-display">Цели</div>
-                  <div className="font-mono text-sm font-bold text-yellow-400">{state.xp.goalXP}</div>
-                </div>
+            <Card className="p-4 bg-card border-card-border w-full">
+              <div className="flex items-center gap-2 mb-3">
+                <Newspaper className="w-4 h-4 text-primary" />
+                <div className="font-display text-xs font-bold uppercase tracking-wider">Новости сегодня</div>
+              </div>
+              <div className="space-y-2">
+                {isNewsLoading ? (
+                  <div className="text-xs text-muted-foreground animate-pulse">Загрузка...</div>
+                ) : todayNews && todayNews.length > 0 ? (
+                  todayNews.map((news, i) => (
+                    <div key={i} className="flex items-start gap-2 text-xs border-l-2 border-red-500 pl-2 py-1">
+                      <div className="font-mono text-muted-foreground whitespace-nowrap">{news.time}</div>
+                      <div className="flex-1 font-display font-medium leading-tight">{news.title}</div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-xs text-muted-foreground italic">Важных новостей нет</div>
+                )}
               </div>
             </Card>
           </div>
         </div>
 
-        <Card className="p-4 bg-card border-card-border">
-          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-            <div className="font-display text-base font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
-              <Zap className="w-4 h-4 text-primary" />
-              Задачи на сегодня
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              {!isRoutineLoaded && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleLoadRoutine}
-                  data-testid="button-load-routine"
-                  className="gap-1"
-                >
-                  <RefreshCw className="w-3 h-3" />
-                  Загрузить рутину
-                </Button>
-              )}
-              {todayTasks.length > 0 && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button size="sm" variant="outline" data-testid="button-clear-tasks" className="gap-1 text-destructive">
-                      <Trash2 className="w-3 h-3" />
-                      Очистить
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Очистить список задач?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Все задачи на сегодня будут удалены. Это действие нельзя отменить.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Отмена</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleClearTasks} className="bg-destructive text-destructive-foreground">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <Card className="p-4 bg-card border-card-border">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+              <div className="font-display text-base font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
+                <Zap className="w-4 h-4 text-primary" />
+                Задачи на сегодня
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {!isRoutineLoaded && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleLoadRoutine}
+                    data-testid="button-load-routine"
+                    className="gap-1 h-8"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    Загрузить рутину
+                  </Button>
+                )}
+                {todayTasks.length > 0 && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button size="sm" variant="outline" data-testid="button-clear-tasks" className="gap-1 text-destructive h-8">
+                        <Trash2 className="w-3 h-3" />
                         Очистить
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Очистить список задач?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Все задачи на сегодня будут удалены. Это действие нельзя отменить.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Отмена</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleClearTasks} className="bg-destructive text-destructive-foreground">
+                          Очистить
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+              </div>
             </div>
-          </div>
 
-          {todayTasks.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Target className="w-8 h-8 mx-auto mb-2 opacity-30" />
-              <p className="font-display text-sm">Список задач пуст</p>
-              <p className="text-xs mt-1">Загрузи рутину или добавь задачи на вкладке Задачи</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {todayTasks.map((task) => (
-                <div
-                  key={task.id}
-                  className={`flex items-center gap-3 p-3 rounded-md border transition-all cursor-pointer hover-elevate ${
-                    task.completed
-                      ? "bg-muted/50 border-border opacity-60"
-                      : "bg-card border-card-border"
-                  }`}
-                  onClick={() => handleToggle(task.id)}
-                  data-testid={`task-item-${task.id}`}
-                >
-                  <button className="flex-shrink-0 transition-transform" data-testid={`task-toggle-${task.id}`}>
-                    {task.completed ? (
-                      <CheckCircle className="w-5 h-5 text-primary animate-check-bounce" />
-                    ) : (
-                      <Circle className="w-5 h-5 text-muted-foreground" />
-                    )}
-                  </button>
-
-                  <div className="flex-1 min-w-0">
-                    <div className={`font-display text-sm ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
-                      {task.name}
-                    </div>
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      <span className={`text-xs ${LIFE_AREA_COLORS[task.category]}`}>{task.category}</span>
-                      {task.type === "routine" && (
-                        <Badge variant="secondary" className="text-xs py-0 h-4">Рутина</Badge>
+            {todayTasks.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Target className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                <p className="font-display text-sm">Список задач пуст</p>
+                <p className="text-xs mt-1">Загрузи рутину или добавь задачи на вкладке Задачи</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {todayTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className={`flex items-center gap-3 p-3 rounded-md border transition-all cursor-pointer hover-elevate ${
+                      task.completed
+                        ? "bg-muted/50 border-border opacity-60"
+                        : "bg-card border-card-border"
+                    }`}
+                    onClick={() => handleToggle(task.id)}
+                    data-testid={`task-item-${task.id}`}
+                  >
+                    <button className="flex-shrink-0 transition-transform" data-testid={`task-toggle-${task.id}`}>
+                      {task.completed ? (
+                        <CheckCircle className="w-5 h-5 text-primary animate-check-bounce" />
+                      ) : (
+                        <Circle className="w-5 h-5 text-muted-foreground" />
                       )}
-                      {task.difficulty && (
-                        <Badge variant="outline" className={`text-xs py-0 h-4 ${
-                          task.difficulty === "high" ? "border-red-500/50 text-red-400" :
-                          task.difficulty === "medium" ? "border-yellow-500/50 text-yellow-400" :
-                          "border-green-500/50 text-green-400"
-                        }`}>
-                          {task.difficulty === "low" ? "Лёгкая" : task.difficulty === "medium" ? "Средняя" : "Сложная"}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className={`font-mono text-xs font-bold ${task.completed ? "text-muted-foreground" : "text-primary"}`}>
-                      +{task.xp} XP
-                    </span>
-                    <button
-                      className="opacity-0 group-hover:opacity-100 text-muted-foreground transition-opacity"
-                      onClick={(e) => { e.stopPropagation(); actions.deleteTask(task.id); }}
-                      data-testid={`task-delete-${task.id}`}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
+
+                    <div className="flex-1 min-w-0">
+                      <div className={`font-display text-sm ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                        {task.name}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        <span className={`text-xs ${LIFE_AREA_COLORS[task.category]}`}>{task.category}</span>
+                        {task.type === "routine" && (
+                          <Badge variant="secondary" className="text-xs py-0 h-4">Рутина</Badge>
+                        )}
+                        {task.difficulty && (
+                          <Badge variant="outline" className={`text-xs py-0 h-4 ${
+                            task.difficulty === "high" ? "border-red-500/50 text-red-400" :
+                            task.difficulty === "medium" ? "border-yellow-500/50 text-yellow-400" :
+                            "border-green-500/50 text-green-400"
+                          }`}>
+                            {task.difficulty === "low" ? "Лёгкая" : task.difficulty === "medium" ? "Средняя" : "Сложная"}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className={`font-mono text-xs font-bold ${task.completed ? "text-muted-foreground" : "text-primary"}`}>
+                        +{task.xp} XP
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            )}
+          </Card>
+
+          <Card className="p-4 bg-card border-card-border flex flex-col">
+            <div className="flex items-center gap-2 mb-4">
+              <FileText className="w-4 h-4 text-primary" />
+              <div className="font-display text-base font-bold uppercase tracking-wider text-foreground">Заметка дня</div>
             </div>
-          )}
-        </Card>
+            <div className="flex-1 flex flex-col gap-3">
+              <Textarea
+                placeholder="Как прошел твой день? Краткие выводы или мысли..."
+                className="flex-1 min-h-[150px] resize-none border-card-border focus-visible:ring-primary bg-muted/30"
+                value={noteContent}
+                onChange={(e) => setNoteContent(e.target.value)}
+              />
+              <Button
+                onClick={handleSaveNote}
+                className="w-full font-display uppercase tracking-widest text-xs h-9"
+              >
+                Сохранить заметку
+              </Button>
+            </div>
+          </Card>
+        </div>
       </div>
     </div>
   );

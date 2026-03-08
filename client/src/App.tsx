@@ -33,8 +33,8 @@ function Router() {
 
 function App() {
   const sidebarStyle = {
-    "--sidebar-width": "14rem",
-    "--sidebar-width-icon": "3.5rem",
+    "--sidebar-width": "13rem",
+    "--sidebar-width-icon": "3rem",
   };
 
   return (
@@ -43,11 +43,14 @@ function App() {
         <SidebarProvider style={sidebarStyle as React.CSSProperties}>
           <div className="flex h-screen w-full overflow-hidden bg-background">
             <AppSidebar />
-            <div className="flex flex-col flex-1 min-w-0">
+            <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
               <header className="flex items-center gap-2 px-3 py-2 border-b border-border flex-shrink-0 bg-background/80 backdrop-blur-sm sticky top-0 z-50">
-                <SidebarTrigger data-testid="button-sidebar-toggle" className="text-muted-foreground" />
+                <SidebarTrigger
+                  data-testid="button-sidebar-toggle"
+                  className="text-muted-foreground h-9 w-9 flex-shrink-0"
+                />
                 <div className="h-4 w-px bg-border" />
-                <span className="font-display text-xs text-muted-foreground tracking-widest uppercase">
+                <span className="font-display text-xs text-muted-foreground tracking-widest uppercase truncate">
                   Life Operating System
                 </span>
               </header>

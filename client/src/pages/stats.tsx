@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useStore, LIFE_AREAS, LIFE_AREA_COLORS, LIFE_AREA_BG, getTodayDate } from "@/lib/store";
+import { useStore, LIFE_AREAS, LIFE_AREA_COLORS, LIFE_AREA_BG, getTodayDate, type LifeArea } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -199,7 +199,7 @@ export default function StatsPage() {
                 const maxXP = categoryData[0].xp;
                 return (
                   <div key={item.name} className="flex items-center gap-3">
-                    <div className={`text-xs font-display w-24 flex-shrink-0 ${LIFE_AREA_COLORS[item.name as any]}`}>
+                    <div className={`text-xs font-display w-24 flex-shrink-0 ${LIFE_AREA_COLORS[item.name as LifeArea]}`}>
                       {item.name}
                     </div>
                     <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">

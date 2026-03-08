@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useStore, LIFE_AREAS, LIFE_AREA_COLORS, type LifeArea, type GoalType, xpForGoal } from "@/lib/store";
+import { useStore, LIFE_AREAS, LIFE_AREA_COLORS, type LifeArea, type GoalType, xpForGoal, getGoalProgress, type Goal } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,34 +10,30 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { CheckCircle, Circle, Plus, Trash2, Target, ChevronRight, Trophy, Calendar, Zap } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 
-type Goal = {
-  id: string;
-  type: GoalType;
-  title: string;
-  category: LifeArea;
-  parentId?: string;
-  completed: boolean;
-  xp: number;
-  linkedTaskIds: string[];
-  year?: number;
-  month?: number;
-  week?: number;
-  description?: string;
-};
-
-function AddGoalDialog({ parentId, parentType, onAdd }: {
+function AddGoalDialog({ parentId, parentType, onAdd, forcedType }: {
   parentId?: string;
   parentType?: GoalType;
   onAdd: (g: any) => void;
+  forcedType?: GoalType;
 }) {
+  const { state } = useStore();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<LifeArea>("Mind");
   const [description, setDescription] = useState("");
+  const [selectedParentId, setSelectedParentId] = useState(parentId || "");
 
-  const type: GoalType = !parentType ? "year" : parentType === "year" ? "month" : "week";
+  const type: GoalType = forcedType || (!parentType ? "year" : parentType === "year" ? "month" : "week");
   const typeLabels: Record<GoalType, string> = { year: "Годовая", month: "Месячная", week: "Недельная" };
+
+  const possibleParents = state.goals.filter(g => {
+    if (type === "month") return g.type === "year";
+    if (type === "week") return g.type === "month";
+    return false;
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,7 +43,7 @@ function AddGoalDialog({ parentId, parentType, onAdd }: {
       type,
       title: title.trim(),
       category,
-      parentId,
+      parentId: selectedParentId || undefined,
       description: description.trim(),
       year: now.getFullYear(),
       month: now.getMonth() + 1,
@@ -55,6 +51,7 @@ function AddGoalDialog({ parentId, parentType, onAdd }: {
     });
     setTitle("");
     setDescription("");
+    setSelectedParentId(parentId || "");
     setOpen(false);
   };
 
@@ -101,6 +98,24 @@ function AddGoalDialog({ parentId, parentType, onAdd }: {
               </SelectContent>
             </Select>
           </div>
+
+          {(type === "month" || type === "week") && possibleParents.length > 0 && (
+            <div className="space-y-1.5">
+              <Label>{type === "month" ? "Годовая цель" : "Месячная цель"}</Label>
+              <Select value={selectedParentId} onValueChange={setSelectedParentId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Выберите родительскую цель" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Нет</SelectItem>
+                  {possibleParents.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="flex items-center justify-between p-3 rounded-md bg-muted/50">
             <span className="text-sm text-muted-foreground">XP за выполнение</span>
             <span className="font-mono font-bold text-primary">+{xpForGoal(type)} XP</span>
@@ -114,15 +129,15 @@ function AddGoalDialog({ parentId, parentType, onAdd }: {
   );
 }
 
-function GoalCard({ goal, children, goals, onToggle, onDelete, onAdd }: {
+function GoalCard({ goal, goals, onToggle, onDelete, onAdd, state }: {
   goal: Goal;
-  children?: Goal[];
   goals: Goal[];
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
   onAdd: (g: any) => void;
+  state: any;
 }) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const typeColors: Record<GoalType, string> = {
     year: "text-yellow-400 border-yellow-500/30",
     month: "text-blue-400 border-blue-500/30",
@@ -131,6 +146,8 @@ function GoalCard({ goal, children, goals, onToggle, onDelete, onAdd }: {
   const typeLabels: Record<GoalType, string> = { year: "Год", month: "Месяц", week: "Неделя" };
 
   const childGoals = goals.filter(g => g.parentId === goal.id);
+  const progress = getGoalProgress(goal, state);
+  const parentGoal = goal.parentId ? goals.find(g => g.id === goal.parentId) : null;
 
   return (
     <div className="space-y-2">
@@ -154,6 +171,12 @@ function GoalCard({ goal, children, goals, onToggle, onDelete, onAdd }: {
                 {typeLabels[goal.type]}
               </Badge>
               <span className={`text-xs ${LIFE_AREA_COLORS[goal.category]}`}>{goal.category}</span>
+              {parentGoal && (
+                <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <ChevronRight className="w-2 h-2" />
+                  {parentGoal.title}
+                </span>
+              )}
             </div>
             <div className={`font-display text-sm font-medium ${goal.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
               {goal.title}
@@ -161,6 +184,14 @@ function GoalCard({ goal, children, goals, onToggle, onDelete, onAdd }: {
             {goal.description && (
               <p className="text-xs text-muted-foreground mt-1">{goal.description}</p>
             )}
+
+            <div className="mt-3 space-y-1.5">
+              <div className="flex justify-between text-[10px] text-muted-foreground">
+                <span>Прогресс</span>
+                <span>{progress.completed}/{progress.total}</span>
+              </div>
+              <Progress value={progress.percent} className="h-1" />
+            </div>
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -199,7 +230,7 @@ function GoalCard({ goal, children, goals, onToggle, onDelete, onAdd }: {
         </div>
       </Card>
 
-      {expanded && (
+      {expanded && childGoals.length > 0 && (
         <div className="ml-6 space-y-2">
           {childGoals.map(child => (
             <GoalCard
@@ -209,6 +240,7 @@ function GoalCard({ goal, children, goals, onToggle, onDelete, onAdd }: {
               onToggle={onToggle}
               onDelete={onDelete}
               onAdd={onAdd}
+              state={state}
             />
           ))}
           {goal.type !== "week" && (
@@ -227,7 +259,10 @@ function GoalCard({ goal, children, goals, onToggle, onDelete, onAdd }: {
 export default function GoalsPage() {
   const { state, actions } = useStore();
 
-  const yearGoals = state.goals.filter(g => g.type === "year" && !g.parentId);
+  const yearGoals = state.goals.filter(g => g.type === "year");
+  const monthGoals = state.goals.filter(g => g.type === "month");
+  const weekGoals = state.goals.filter(g => g.type === "week");
+
   const completedCount = state.goals.filter(g => g.completed).length;
   const totalCount = state.goals.length;
 
@@ -239,22 +274,11 @@ export default function GoalsPage() {
             <Target className="w-5 h-5 text-primary" />
             Цели
           </h1>
-          <AddGoalDialog onAdd={actions.addGoal} />
-        </div>
-
-        <div className="grid grid-cols-3 gap-3">
-          <Card className="p-3 text-center border-card-border">
-            <div className="text-2xl font-display font-bold text-yellow-400">{state.goals.filter(g => g.type === "year").length}</div>
-            <div className="text-xs text-muted-foreground font-display">Годовые</div>
-          </Card>
-          <Card className="p-3 text-center border-card-border">
-            <div className="text-2xl font-display font-bold text-blue-400">{state.goals.filter(g => g.type === "month").length}</div>
-            <div className="text-xs text-muted-foreground font-display">Месячные</div>
-          </Card>
-          <Card className="p-3 text-center border-card-border">
-            <div className="text-2xl font-display font-bold text-green-400">{state.goals.filter(g => g.type === "week").length}</div>
-            <div className="text-xs text-muted-foreground font-display">Недельные</div>
-          </Card>
+          <div className="flex gap-2">
+            <AddGoalDialog onAdd={actions.addGoal} forcedType="year" />
+            <AddGoalDialog onAdd={actions.addGoal} forcedType="month" />
+            <AddGoalDialog onAdd={actions.addGoal} forcedType="week" />
+          </div>
         </div>
 
         {state.xp.goalXP > 0 && (
@@ -270,33 +294,67 @@ export default function GoalsPage() {
           </Card>
         )}
 
-        {yearGoals.length === 0 ? (
-          <Card className="p-10 text-center border-dashed border-border">
-            <Target className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-30" />
-            <p className="font-display text-sm text-muted-foreground">Нет целей</p>
-            <p className="text-xs text-muted-foreground mt-1">Создай первую годовую цель</p>
-            <div className="mt-4">
-              <AddGoalDialog onAdd={actions.addGoal} />
-            </div>
-          </Card>
-        ) : (
-          <div className="space-y-4">
-            <div className="text-xs font-display uppercase tracking-widest text-yellow-400 flex items-center gap-2">
-              <Trophy className="w-3 h-3" />
-              Годовые цели
-            </div>
-            {yearGoals.map(goal => (
-              <GoalCard
-                key={goal.id}
-                goal={goal}
-                goals={state.goals}
-                onToggle={actions.toggleGoal}
-                onDelete={actions.deleteGoal}
-                onAdd={actions.addGoal}
-              />
-            ))}
-          </div>
-        )}
+        <Tabs defaultValue="week" className="space-y-4">
+          <TabsList className="grid grid-cols-3 w-full max-w-md mx-auto">
+            <TabsTrigger value="year" className="font-display text-xs">Год</TabsTrigger>
+            <TabsTrigger value="month" className="font-display text-xs">Месяц</TabsTrigger>
+            <TabsTrigger value="week" className="font-display text-xs">Неделя</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="year" className="space-y-4 outline-none">
+            {yearGoals.length === 0 ? (
+              <EmptyGoals type="year" onAdd={actions.addGoal} />
+            ) : (
+              yearGoals.map(goal => (
+                <GoalCard
+                  key={goal.id}
+                  goal={goal}
+                  goals={state.goals}
+                  onToggle={actions.toggleGoal}
+                  onDelete={actions.deleteGoal}
+                  onAdd={actions.addGoal}
+                  state={state}
+                />
+              ))
+            )}
+          </TabsContent>
+
+          <TabsContent value="month" className="space-y-4 outline-none">
+            {monthGoals.length === 0 ? (
+              <EmptyGoals type="month" onAdd={actions.addGoal} />
+            ) : (
+              monthGoals.map(goal => (
+                <GoalCard
+                  key={goal.id}
+                  goal={goal}
+                  goals={state.goals}
+                  onToggle={actions.toggleGoal}
+                  onDelete={actions.deleteGoal}
+                  onAdd={actions.addGoal}
+                  state={state}
+                />
+              ))
+            )}
+          </TabsContent>
+
+          <TabsContent value="week" className="space-y-4 outline-none">
+            {weekGoals.length === 0 ? (
+              <EmptyGoals type="week" onAdd={actions.addGoal} />
+            ) : (
+              weekGoals.map(goal => (
+                <GoalCard
+                  key={goal.id}
+                  goal={goal}
+                  goals={state.goals}
+                  onToggle={actions.toggleGoal}
+                  onDelete={actions.deleteGoal}
+                  onAdd={actions.addGoal}
+                  state={state}
+                />
+              ))
+            )}
+          </TabsContent>
+        </Tabs>
 
         <Card className="p-3 bg-muted/30 border-dashed border-border">
           <div className="grid grid-cols-3 gap-2 text-center text-xs font-mono">
@@ -307,5 +365,19 @@ export default function GoalsPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+function EmptyGoals({ type, onAdd }: { type: GoalType, onAdd: (g: any) => void }) {
+  const labels: Record<GoalType, string> = { year: "годовую", month: "месячную", week: "недельную" };
+  return (
+    <Card className="p-10 text-center border-dashed border-border">
+      <Target className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-30" />
+      <p className="font-display text-sm text-muted-foreground">Нет целей</p>
+      <p className="text-xs text-muted-foreground mt-1">Создай первую {labels[type]} цель</p>
+      <div className="mt-4">
+        <AddGoalDialog onAdd={onAdd} forcedType={type} />
+      </div>
+    </Card>
   );
 }

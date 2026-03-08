@@ -33,16 +33,18 @@ export const LIFE_AREA_BG: Record<LifeArea, string> = {
   "Finance": "bg-emerald-500/20",
 };
 
-export type TaskDifficulty = "low" | "medium" | "high";
+export type TaskDifficulty = "low" | "medium" | "high" | "custom";
 export type TaskType = "routine" | "today" | "goal";
 export type GoalType = "year" | "month" | "week";
 export type TimerMode = "pomodoro" | "deep-work" | "custom";
 export type TradeAsset = "GER40" | "EUR" | "XAU" | "GBP";
 export type NoteTag = "мысль" | "идея" | "ошибка";
+export type BiasDirection = "bullish" | "bearish" | "neutral";
 
 export interface RoutineTemplate {
   id: string;
   name: string;
+  description?: string;
   category: LifeArea;
   xp: number;
   enabled: boolean;
@@ -51,6 +53,7 @@ export interface RoutineTemplate {
 export interface TodayTask {
   id: string;
   name: string;
+  description?: string;
   category: LifeArea;
   difficulty?: TaskDifficulty;
   xp: number;
@@ -59,6 +62,9 @@ export interface TodayTask {
   type: TaskType;
   routineId?: string;
   goalId?: string;
+  weekGoalId?: string;
+  startTime?: string;
+  endTime?: string;
   completedAt?: string;
 }
 
@@ -88,6 +94,7 @@ export interface FocusSession {
 
 export interface TradingNote {
   id: string;
+  title?: string;
   time: string;
   asset: TradeAsset;
   timeframe: string;
@@ -96,6 +103,25 @@ export interface TradingNote {
   screenshotUrl?: string;
   date: string;
   createdAt: string;
+}
+
+export interface DailyBias {
+  id: string;
+  date: string;
+  asset: TradeAsset;
+  direction: BiasDirection;
+  pros: string;
+  cons: string;
+  screenshotUrl?: string;
+  createdAt: string;
+}
+
+export interface DayNote {
+  id: string;
+  date: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface StreakData {
@@ -119,12 +145,14 @@ export interface AppState {
   goals: Goal[];
   focusSessions: FocusSession[];
   tradingNotes: TradingNote[];
+  dailyBiases: DailyBias[];
+  dayNotes: DayNote[];
   streak: StreakData;
   xp: XPData;
   routineLoadedDates: string[];
 }
 
-const STORAGE_KEY = "lifeos_v1";
+const STORAGE_KEY = "lifeos_v2";
 
 const DEFAULT_XP: XPData = {
   routineXP: 0,
@@ -132,13 +160,8 @@ const DEFAULT_XP: XPData = {
   goalXP: 0,
   focusXP: 0,
   categoryXP: {
-    "Body": 0,
-    "Mind": 0,
-    "Hard Skills": 0,
-    "Soft Skills": 0,
-    "Creativity": 0,
-    "Mission": 0,
-    "Finance": 0,
+    "Body": 0, "Mind": 0, "Hard Skills": 0,
+    "Soft Skills": 0, "Creativity": 0, "Mission": 0, "Finance": 0,
   },
   totalXP: 0,
 };
@@ -153,47 +176,25 @@ const DEFAULT_STATE: AppState = {
   todayTasks: [],
   goals: [
     {
-      id: "g1",
-      type: "year",
-      title: "Стать профессиональным трейдером",
-      category: "Finance",
-      completed: false,
-      xp: 1000,
-      linkedTaskIds: [],
-      year: 2026,
+      id: "g1", type: "year", title: "Стать профессиональным трейдером",
+      category: "Finance", completed: false, xp: 1000, linkedTaskIds: [], year: 2026,
     },
     {
-      id: "g2",
-      type: "month",
-      title: "Изучить Price Action",
-      category: "Hard Skills",
-      parentId: "g1",
-      completed: false,
-      xp: 250,
-      linkedTaskIds: [],
-      year: 2026,
-      month: 3,
+      id: "g2", type: "month", title: "Изучить Price Action",
+      category: "Hard Skills", parentId: "g1", completed: false, xp: 250,
+      linkedTaskIds: [], year: 2026, month: 3,
     },
     {
-      id: "g3",
-      type: "week",
-      title: "Разобрать 10 торговых сетапов",
-      category: "Hard Skills",
-      parentId: "g2",
-      completed: false,
-      xp: 100,
-      linkedTaskIds: [],
-      year: 2026,
-      week: 10,
+      id: "g3", type: "week", title: "Разобрать 10 торговых сетапов",
+      category: "Hard Skills", parentId: "g2", completed: false, xp: 100,
+      linkedTaskIds: [], year: 2026, week: 10,
     },
   ],
   focusSessions: [],
   tradingNotes: [],
-  streak: {
-    currentStreak: 0,
-    lastCompletedDate: null,
-    longestStreak: 0,
-  },
+  dailyBiases: [],
+  dayNotes: [],
+  streak: { currentStreak: 0, lastCompletedDate: null, longestStreak: 0 },
   xp: DEFAULT_XP,
   routineLoadedDates: [],
 };
@@ -201,11 +202,27 @@ const DEFAULT_STATE: AppState = {
 function loadState(): AppState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_STATE;
+    if (!raw) {
+      const oldRaw = localStorage.getItem("lifeos_v1");
+      if (oldRaw) {
+        const old = JSON.parse(oldRaw);
+        return {
+          ...DEFAULT_STATE,
+          ...old,
+          dailyBiases: old.dailyBiases || [],
+          dayNotes: old.dayNotes || [],
+          xp: { ...DEFAULT_XP, ...old.xp, categoryXP: { ...DEFAULT_XP.categoryXP, ...(old.xp?.categoryXP || {}) } },
+          streak: { ...DEFAULT_STATE.streak, ...old.streak },
+        };
+      }
+      return DEFAULT_STATE;
+    }
     const parsed = JSON.parse(raw);
     return {
       ...DEFAULT_STATE,
       ...parsed,
+      dailyBiases: parsed.dailyBiases || [],
+      dayNotes: parsed.dayNotes || [],
       xp: { ...DEFAULT_XP, ...parsed.xp, categoryXP: { ...DEFAULT_XP.categoryXP, ...(parsed.xp?.categoryXP || {}) } },
       streak: { ...DEFAULT_STATE.streak, ...parsed.streak },
     };
@@ -217,8 +234,7 @@ function loadState(): AppState {
 function saveState(state: AppState) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {
-  }
+  } catch {}
 }
 
 export function getTodayDate(): string {
@@ -240,7 +256,6 @@ export function getMarketSession(): { name: string; active: boolean; color: stri
   const hour = getBerlinHour();
   const min = getBerlinTime().getMinutes();
   const totalMin = hour * 60 + min;
-
   if (totalMin >= 3 * 60 && totalMin < 8 * 60) return { name: "Азия", active: true, color: "text-yellow-400" };
   if (totalMin >= 8 * 60 && totalMin < 9 * 60) return { name: "Франкфурт", active: true, color: "text-blue-400" };
   if (totalMin >= 9 * 60 && totalMin < 14 * 60) return { name: "Лондон", active: true, color: "text-green-400" };
@@ -248,17 +263,17 @@ export function getMarketSession(): { name: string; active: boolean; color: stri
   return { name: "Закрыто", active: false, color: "text-muted-foreground" };
 }
 
-export function getCharacterState(): { state: string; label: string; emoji: string } {
+export function getCharacterState(): { state: string; label: string } {
   const hour = getBerlinHour();
-  if (hour >= 0 && hour < 6) return { state: "sleeping", label: "Сон", emoji: "💤" };
-  if (hour >= 6 && hour < 9) return { state: "morning", label: "Утро", emoji: "🌅" };
-  if (hour >= 9 && hour < 14) return { state: "working", label: "Работа", emoji: "💼" };
-  if (hour >= 14 && hour < 21) return { state: "resting", label: "Отдых", emoji: "☕" };
-  return { state: "evening", label: "Вечер", emoji: "🌙" };
+  if (hour >= 0 && hour < 6) return { state: "sleeping", label: "Сон" };
+  if (hour >= 6 && hour < 9) return { state: "morning", label: "Утро" };
+  if (hour >= 9 && hour < 14) return { state: "working", label: "Работа" };
+  if (hour >= 14 && hour < 21) return { state: "resting", label: "Отдых" };
+  return { state: "evening", label: "Вечер" };
 }
 
 export function xpForDifficulty(difficulty: TaskDifficulty): number {
-  const map: Record<TaskDifficulty, number> = { low: 10, medium: 25, high: 50 };
+  const map: Record<TaskDifficulty, number> = { low: 10, medium: 25, high: 50, custom: 0 };
   return map[difficulty];
 }
 
@@ -273,12 +288,33 @@ export function xpForFocus(duration: number): number {
   return 25;
 }
 
+export function getGoalProgress(goal: Goal, state: AppState): { completed: number; total: number; percent: number } {
+  if (goal.type === "week") {
+    const linked = state.todayTasks.filter(t => t.weekGoalId === goal.id);
+    const total = linked.length;
+    const completed = linked.filter(t => t.completed).length;
+    return { completed, total, percent: total > 0 ? Math.round((completed / total) * 100) : 0 };
+  }
+  if (goal.type === "month") {
+    const childGoals = state.goals.filter(g => g.parentId === goal.id);
+    const total = childGoals.length;
+    const completed = childGoals.filter(g => g.completed).length;
+    return { completed, total, percent: total > 0 ? Math.round((completed / total) * 100) : 0 };
+  }
+  if (goal.type === "year") {
+    const childGoals = state.goals.filter(g => g.parentId === goal.id);
+    const total = childGoals.length;
+    const completed = childGoals.filter(g => g.completed).length;
+    return { completed, total, percent: total > 0 ? Math.round((completed / total) * 100) : 0 };
+  }
+  return { completed: 0, total: 0, percent: 0 };
+}
+
 export function recalcXP(state: AppState): XPData {
   const categoryXP: Record<LifeArea, number> = {
-    "Body": 0, "Mind": 0, "Hard Skills": 0, "Soft Skills": 0,
-    "Creativity": 0, "Mission": 0, "Finance": 0,
+    "Body": 0, "Mind": 0, "Hard Skills": 0,
+    "Soft Skills": 0, "Creativity": 0, "Mission": 0, "Finance": 0,
   };
-
   let routineXP = 0;
   let taskXP = 0;
   let goalXP = 0;
@@ -288,10 +324,7 @@ export function recalcXP(state: AppState): XPData {
     if (task.type === "routine") {
       routineXP += task.xp;
       categoryXP[task.category] = (categoryXP[task.category] || 0) + task.xp;
-    } else if (task.type === "today") {
-      taskXP += task.xp;
-      categoryXP[task.category] = (categoryXP[task.category] || 0) + task.xp;
-    } else if (task.type === "goal") {
+    } else {
       taskXP += task.xp;
       categoryXP[task.category] = (categoryXP[task.category] || 0) + task.xp;
     }
@@ -307,10 +340,7 @@ export function recalcXP(state: AppState): XPData {
   const focusXP = state.focusSessions.reduce((sum, s) => sum + s.xp, 0);
 
   return {
-    routineXP,
-    taskXP,
-    goalXP,
-    focusXP,
+    routineXP, taskXP, goalXP, focusXP,
     categoryXP,
     totalXP: routineXP + taskXP + goalXP + focusXP,
   };
@@ -319,23 +349,18 @@ export function recalcXP(state: AppState): XPData {
 function checkAndUpdateStreak(state: AppState): StreakData {
   const today = getTodayDate();
   const todayTasks = state.todayTasks.filter(t => t.date === today);
-
   if (todayTasks.length === 0) return state.streak;
-
   const allDone = todayTasks.every(t => t.completed);
   if (!allDone) return state.streak;
-
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayStr = yesterday.toISOString().split("T")[0];
-
   let newStreak = state.streak.currentStreak;
   if (state.streak.lastCompletedDate === yesterdayStr) {
     newStreak = state.streak.currentStreak + 1;
   } else if (state.streak.lastCompletedDate !== today) {
     newStreak = 1;
   }
-
   return {
     currentStreak: newStreak,
     lastCompletedDate: today,
@@ -346,9 +371,7 @@ function checkAndUpdateStreak(state: AppState): StreakData {
 let globalState = loadState();
 const listeners = new Set<() => void>();
 
-function notify() {
-  listeners.forEach(l => l());
-}
+function notify() { listeners.forEach(l => l()); }
 
 function mutate(fn: (s: AppState) => AppState) {
   globalState = fn(globalState);
@@ -370,24 +393,15 @@ export function useStore() {
 
   const actions = {
     addRoutineTemplate: useCallback((template: Omit<RoutineTemplate, "id">) => {
-      mutate(s => ({
-        ...s,
-        routineTemplates: [...s.routineTemplates, { ...template, id: crypto.randomUUID() }],
-      }));
+      mutate(s => ({ ...s, routineTemplates: [...s.routineTemplates, { ...template, id: crypto.randomUUID() }] }));
     }, []),
 
     updateRoutineTemplate: useCallback((id: string, updates: Partial<RoutineTemplate>) => {
-      mutate(s => ({
-        ...s,
-        routineTemplates: s.routineTemplates.map(r => r.id === id ? { ...r, ...updates } : r),
-      }));
+      mutate(s => ({ ...s, routineTemplates: s.routineTemplates.map(r => r.id === id ? { ...r, ...updates } : r) }));
     }, []),
 
     deleteRoutineTemplate: useCallback((id: string) => {
-      mutate(s => ({
-        ...s,
-        routineTemplates: s.routineTemplates.filter(r => r.id !== id),
-      }));
+      mutate(s => ({ ...s, routineTemplates: s.routineTemplates.filter(r => r.id !== id) }));
     }, []),
 
     loadRoutineForToday: useCallback(() => {
@@ -395,35 +409,25 @@ export function useStore() {
       mutate(s => {
         if (s.routineLoadedDates.includes(today)) return s;
         const enabledRoutines = s.routineTemplates.filter(r => r.enabled);
-        const existingRoutineIds = s.todayTasks
-          .filter(t => t.date === today && t.type === "routine")
-          .map(t => t.routineId);
+        const existingRoutineIds = s.todayTasks.filter(t => t.date === today && t.type === "routine").map(t => t.routineId);
         const newTasks = enabledRoutines
           .filter(r => !existingRoutineIds.includes(r.id))
           .map(r => ({
-            id: crypto.randomUUID(),
-            name: r.name,
-            category: r.category,
-            xp: r.xp,
-            completed: false,
-            date: today,
-            type: "routine" as TaskType,
-            routineId: r.id,
+            id: crypto.randomUUID(), name: r.name, description: r.description,
+            category: r.category, xp: r.xp, completed: false,
+            date: today, type: "routine" as TaskType, routineId: r.id,
           }));
-        return {
-          ...s,
-          todayTasks: [...s.todayTasks, ...newTasks],
-          routineLoadedDates: [...s.routineLoadedDates, today],
-        };
+        return { ...s, todayTasks: [...s.todayTasks, ...newTasks], routineLoadedDates: [...s.routineLoadedDates, today] };
       });
     }, []),
 
     addTodayTask: useCallback((task: Omit<TodayTask, "id" | "date" | "completed">) => {
       const today = getTodayDate();
-      mutate(s => ({
-        ...s,
-        todayTasks: [...s.todayTasks, { ...task, id: crypto.randomUUID(), date: today, completed: false }],
-      }));
+      mutate(s => ({ ...s, todayTasks: [...s.todayTasks, { ...task, id: crypto.randomUUID(), date: today, completed: false }] }));
+    }, []),
+
+    updateTask: useCallback((id: string, updates: Partial<TodayTask>) => {
+      mutate(s => ({ ...s, todayTasks: s.todayTasks.map(t => t.id === id ? { ...t, ...updates } : t) }));
     }, []),
 
     toggleTask: useCallback((id: string) => {
@@ -438,10 +442,7 @@ export function useStore() {
     }, []),
 
     deleteTask: useCallback((id: string) => {
-      mutate(s => ({
-        ...s,
-        todayTasks: s.todayTasks.filter(t => t.id !== id),
-      }));
+      mutate(s => ({ ...s, todayTasks: s.todayTasks.filter(t => t.id !== id) }));
     }, []),
 
     clearTodayTasks: useCallback(() => {
@@ -456,60 +457,77 @@ export function useStore() {
     addGoal: useCallback((goal: Omit<Goal, "id" | "completed" | "linkedTaskIds" | "xp">) => {
       mutate(s => ({
         ...s,
-        goals: [...s.goals, {
-          ...goal,
-          id: crypto.randomUUID(),
-          completed: false,
-          linkedTaskIds: [],
-          xp: xpForGoal(goal.type),
-        }],
+        goals: [...s.goals, { ...goal, id: crypto.randomUUID(), completed: false, linkedTaskIds: [], xp: xpForGoal(goal.type) }],
       }));
     }, []),
 
     updateGoal: useCallback((id: string, updates: Partial<Goal>) => {
-      mutate(s => ({
-        ...s,
-        goals: s.goals.map(g => g.id === id ? { ...g, ...updates } : g),
-      }));
+      mutate(s => ({ ...s, goals: s.goals.map(g => g.id === id ? { ...g, ...updates } : g) }));
     }, []),
 
     toggleGoal: useCallback((id: string) => {
-      mutate(s => ({
-        ...s,
-        goals: s.goals.map(g => g.id === id ? { ...g, completed: !g.completed } : g),
-      }));
+      mutate(s => ({ ...s, goals: s.goals.map(g => g.id === id ? { ...g, completed: !g.completed } : g) }));
     }, []),
 
     deleteGoal: useCallback((id: string) => {
-      mutate(s => ({
-        ...s,
-        goals: s.goals.filter(g => g.id !== id && g.parentId !== id),
-      }));
+      mutate(s => ({ ...s, goals: s.goals.filter(g => g.id !== id && g.parentId !== id) }));
     }, []),
 
     addFocusSession: useCallback((session: Omit<FocusSession, "id">) => {
-      mutate(s => ({
-        ...s,
-        focusSessions: [...s.focusSessions, { ...session, id: crypto.randomUUID() }],
-      }));
+      mutate(s => ({ ...s, focusSessions: [...s.focusSessions, { ...session, id: crypto.randomUUID() }] }));
     }, []),
 
     addTradingNote: useCallback((note: Omit<TradingNote, "id" | "createdAt">) => {
       mutate(s => ({
         ...s,
-        tradingNotes: [...s.tradingNotes, {
-          ...note,
-          id: crypto.randomUUID(),
-          createdAt: new Date().toISOString(),
-        }],
+        tradingNotes: [...s.tradingNotes, { ...note, id: crypto.randomUUID(), createdAt: new Date().toISOString() }],
       }));
     }, []),
 
+    updateTradingNote: useCallback((id: string, updates: Partial<TradingNote>) => {
+      mutate(s => ({ ...s, tradingNotes: s.tradingNotes.map(n => n.id === id ? { ...n, ...updates } : n) }));
+    }, []),
+
     deleteTradingNote: useCallback((id: string) => {
+      mutate(s => ({ ...s, tradingNotes: s.tradingNotes.filter(n => n.id !== id) }));
+    }, []),
+
+    addDailyBias: useCallback((bias: Omit<DailyBias, "id" | "createdAt">) => {
       mutate(s => ({
         ...s,
-        tradingNotes: s.tradingNotes.filter(n => n.id !== id),
+        dailyBiases: [...s.dailyBiases, { ...bias, id: crypto.randomUUID(), createdAt: new Date().toISOString() }],
       }));
+    }, []),
+
+    updateDailyBias: useCallback((id: string, updates: Partial<DailyBias>) => {
+      mutate(s => ({ ...s, dailyBiases: s.dailyBiases.map(b => b.id === id ? { ...b, ...updates } : b) }));
+    }, []),
+
+    deleteDailyBias: useCallback((id: string) => {
+      mutate(s => ({ ...s, dailyBiases: s.dailyBiases.filter(b => b.id !== id) }));
+    }, []),
+
+    upsertDayNote: useCallback((date: string, content: string) => {
+      mutate(s => {
+        const existing = s.dayNotes.find(n => n.date === date);
+        if (existing) {
+          return {
+            ...s,
+            dayNotes: s.dayNotes.map(n => n.date === date ? { ...n, content, updatedAt: new Date().toISOString() } : n),
+          };
+        }
+        return {
+          ...s,
+          dayNotes: [...s.dayNotes, {
+            id: crypto.randomUUID(), date, content,
+            createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+          }],
+        };
+      });
+    }, []),
+
+    deleteDayNote: useCallback((id: string) => {
+      mutate(s => ({ ...s, dayNotes: s.dayNotes.filter(n => n.id !== id) }));
     }, []),
   };
 
@@ -518,6 +536,8 @@ export function useStore() {
   const completedToday = todayTasks.filter(t => t.completed).length;
   const totalToday = todayTasks.length;
   const isRoutineLoaded = state.routineLoadedDates.includes(todayDate);
+  const todayNote = state.dayNotes.find(n => n.date === todayDate) || null;
+  const todayBiases = state.dailyBiases.filter(b => b.date === todayDate);
 
-  return { state, actions, todayTasks, completedToday, totalToday, isRoutineLoaded };
+  return { state, actions, todayTasks, completedToday, totalToday, isRoutineLoaded, todayNote, todayBiases };
 }
