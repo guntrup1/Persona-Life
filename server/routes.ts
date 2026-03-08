@@ -15,17 +15,25 @@ interface NewsItem {
 }
 
 interface NewsCache {
-  fetchedAt: string;
+  fetchedAt: number;
   allHighImpact: NewsItem[];
   todayStr: string;
   nextStr: string;
 }
 
 let newsCache: NewsCache | null = null;
+let fetchPromise: Promise<NewsCache> | null = null;
 
-function parseXMLField(xml: string, tag: string): string {
-  const match = xml.match(new RegExp(`<${tag}[^>]*>([^<]*)<\/${tag}>`, "i"));
-  return match ? match[1].trim() : "";
+function parseXMLField(block: string, tag: string): string {
+  // Handle CDATA: <tag><![CDATA[value]]></tag>
+  const cdataMatch = block.match(
+    new RegExp(`<${tag}[^>]*>\\s*<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>\\s*<\\/${tag}>`, "i")
+  );
+  if (cdataMatch) return cdataMatch[1].trim();
+  // Handle plain: <tag>value</tag>
+  const plainMatch = block.match(new RegExp(`<${tag}[^>]*>([^<]*)<\\/${tag}>`, "i"));
+  if (plainMatch) return plainMatch[1].trim();
+  return "";
 }
 
 function decodeHtml(str: string): string {
@@ -40,50 +48,55 @@ function decodeHtml(str: string): string {
 
 function getBerlinDateString(offsetDays = 0): string {
   const now = new Date();
-  const berlinOffset = 1 * 60;
   const utc = now.getTime() + now.getTimezoneOffset() * 60000;
-  const berlin = new Date(utc + berlinOffset * 60000 + offsetDays * 86400000);
+  const berlin = new Date(utc + 3600000 + offsetDays * 86400000); // UTC+1
   return berlin.toISOString().split("T")[0];
 }
 
 function parseDateFromFF(dateStr: string): string {
   if (!dateStr) return "";
-  const cleaned = dateStr.trim();
-  const parsed = new Date(cleaned);
-  if (!isNaN(parsed.getTime())) {
-    return parsed.toISOString().split("T")[0];
-  }
-  const mmddyy = cleaned.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (mmddyy) {
-    const [, mm, dd, yyyy] = mmddyy;
-    return `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
-  }
-  return cleaned;
+  const s = dateStr.trim();
+
+  // MM-DD-YYYY (Forex Factory format: "03-11-2026")
+  const a = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (a) return `${a[3]}-${a[1].padStart(2, "0")}-${a[2].padStart(2, "0")}`;
+
+  // MM/DD/YYYY
+  const b = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (b) return `${b[3]}-${b[1].padStart(2, "0")}-${b[2].padStart(2, "0")}`;
+
+  // Already YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+
+  return "";
 }
 
-function parseTimeToMinutes(timeStr: string): number {
-  if (!timeStr) return 9999;
-  const amPm = timeStr.match(/(\d+):(\d+)(am|pm)/i);
-  if (amPm) {
-    let h = parseInt(amPm[1]);
-    const m = parseInt(amPm[2]);
-    const period = amPm[3].toLowerCase();
-    if (period === "pm" && h < 12) h += 12;
-    if (period === "am" && h === 12) h = 0;
+function parseTimeToMinutes(t: string): number {
+  if (!t) return 9999;
+  const a = t.match(/(\d+):(\d+)(am|pm)/i);
+  if (a) {
+    let h = parseInt(a[1]);
+    const m = parseInt(a[2]);
+    if (a[3].toLowerCase() === "pm" && h < 12) h += 12;
+    if (a[3].toLowerCase() === "am" && h === 12) h = 0;
     return h * 60 + m;
   }
-  const h24 = timeStr.match(/(\d{1,2}):(\d{2})/);
-  if (h24) {
-    return parseInt(h24[1]) * 60 + parseInt(h24[2]);
-  }
+  const b = t.match(/(\d{1,2}):(\d{2})/);
+  if (b) return parseInt(b[1]) * 60 + parseInt(b[2]);
   return 9999;
 }
 
-function extractAllHighImpact(xml: string): Array<{ title: string; currency: string; impact: string; date: string; time: string; forecast: string; previous: string; actual: string; dateNormalized: string }> {
-  const events: Array<{ title: string; currency: string; impact: string; date: string; time: string; forecast: string; previous: string; actual: string; dateNormalized: string }> = [];
-  const eventMatches = xml.match(/<event>[\s\S]*?<\/event>/gi) || [];
+function extractHighImpact(xml: string) {
+  const results: Array<{
+    title: string; currency: string; impact: string; date: string;
+    time: string; forecast: string; previous: string; actual: string;
+    dateNormalized: string;
+  }> = [];
 
-  for (const block of eventMatches) {
+  const blocks = xml.match(/<event>[\s\S]*?<\/event>/gi) || [];
+  console.log(`[news] XML blocks: ${blocks.length}`);
+
+  for (const block of blocks) {
     const currency = parseXMLField(block, "country").toUpperCase();
     if (!["USD", "EUR"].includes(currency)) continue;
 
@@ -97,99 +110,147 @@ function extractAllHighImpact(xml: string): Array<{ title: string; currency: str
     const previous = parseXMLField(block, "previous");
     const actual = parseXMLField(block, "actual");
 
-    if (!title) continue;
+    if (!title || !rawDate) continue;
 
     const dateNormalized = parseDateFromFF(rawDate);
-    if (!dateNormalized) continue;
+    if (!dateNormalized) {
+      console.log(`[news] could not parse date: "${rawDate}" for "${title}"`);
+      continue;
+    }
 
-    events.push({ title, currency, impact, date: rawDate, time, forecast, previous, actual, dateNormalized });
+    results.push({ title, currency, impact, date: rawDate, time, forecast, previous, actual, dateNormalized });
   }
 
-  return events;
+  return results;
+}
+
+function sleep(ms: number) {
+  return new Promise(r => setTimeout(r, ms));
 }
 
 async function fetchXML(url: string): Promise<string> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
-  try {
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; LifeOS/1.0)",
-        "Accept": "application/xml, text/xml, */*",
-      },
-    });
-    clearTimeout(timeout);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.text();
-  } catch (err) {
-    clearTimeout(timeout);
-    throw err;
+  const headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Accept": "text/xml, application/xml, */*",
+    "Accept-Language": "en-US,en;q=0.9",
+  };
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), 15000);
+    let res: Response;
+    try {
+      res = await fetch(url, { signal: controller.signal, headers });
+      clearTimeout(id);
+    } catch (err) {
+      clearTimeout(id);
+      throw err;
+    }
+
+    if (res.status === 429) {
+      const retryAfter = parseInt(res.headers.get("retry-after") || "75", 10);
+      if (attempt === 0) {
+        console.log(`[news] 429 — waiting ${retryAfter}s then retrying...`);
+        await sleep(retryAfter * 1000);
+        continue;
+      }
+      throw new Error(`HTTP 429 rate limited`);
+    }
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.text();
   }
+  throw new Error("Max retries exceeded");
 }
 
-async function fetchForexFactoryNews(): Promise<NewsCache> {
+async function doFetch(): Promise<NewsCache> {
   const todayStr = getBerlinDateString();
-
-  if (newsCache && newsCache.fetchedAt === todayStr) {
-    return newsCache;
-  }
-
-  let rawEvents: Array<{ title: string; currency: string; impact: string; date: string; time: string; forecast: string; previous: string; actual: string; dateNormalized: string }> = [];
-
-  try {
-    const thisWeekXML = await fetchXML("https://nfs.faireconomy.media/ff_calendar_thisweek.xml");
-    rawEvents.push(...extractAllHighImpact(thisWeekXML));
-  } catch (err) {
-    console.error("[news] Failed to fetch this week:", err);
-  }
+  let rawEvents: Array<{
+    title: string; currency: string; impact: string; date: string;
+    time: string; forecast: string; previous: string; actual: string;
+    dateNormalized: string;
+  }> = [];
 
   try {
-    const nextWeekXML = await fetchXML("https://nfs.faireconomy.media/ff_calendar_nextweek.xml");
-    rawEvents.push(...extractAllHighImpact(nextWeekXML));
+    console.log("[news] fetching thisweek...");
+    const xml = await fetchXML("https://nfs.faireconomy.media/ff_calendar_thisweek.xml");
+    const events = extractHighImpact(xml);
+    console.log(`[news] thisweek → ${events.length} HIGH EUR/USD events`);
+    rawEvents.push(...events);
   } catch (err) {
-    // next week might return 404 if not published yet - this is normal
+    console.error("[news] thisweek failed:", String(err));
   }
 
-  // Sort all events by date then time
+  // Brief pause to avoid rate limiting
+  await sleep(800);
+
+  try {
+    console.log("[news] fetching nextweek...");
+    const xml = await fetchXML("https://nfs.faireconomy.media/ff_calendar_nextweek.xml");
+    const events = extractHighImpact(xml);
+    console.log(`[news] nextweek → ${events.length} HIGH EUR/USD events`);
+    rawEvents.push(...events);
+  } catch (err) {
+    console.log("[news] nextweek skip:", String(err).slice(0, 60));
+  }
+
   rawEvents.sort((a, b) => {
     if (a.dateNormalized !== b.dateNormalized) return a.dateNormalized.localeCompare(b.dateNormalized);
     return parseTimeToMinutes(a.time) - parseTimeToMinutes(b.time);
   });
 
-  // Find today's events
   const todayEvents = rawEvents.filter(e => e.dateNormalized === todayStr);
-
-  // Find the nearest future day with high-impact events (strictly after today)
   const futureDates = [...new Set(rawEvents.map(e => e.dateNormalized).filter(d => d > todayStr))].sort();
   const nextStr = futureDates[0] || "";
 
-  // Build final items
+  console.log(`[news] today=${todayStr}(${todayEvents.length}), next=${nextStr}(${rawEvents.filter(e => e.dateNormalized === nextStr).length})`);
+
   const allHighImpact: NewsItem[] = rawEvents
-    .filter(e => e.dateNormalized === todayStr || e.dateNormalized === nextStr)
-    .map(e => ({
-      ...e,
-      day: e.dateNormalized === todayStr ? "today" : "next",
-    }));
+    .filter(e => e.dateNormalized === todayStr || (nextStr && e.dateNormalized === nextStr))
+    .map(e => ({ ...e, day: e.dateNormalized === todayStr ? "today" : "next" }));
 
-  const result: NewsCache = {
-    fetchedAt: todayStr,
-    allHighImpact,
-    todayStr,
-    nextStr,
-  };
+  return { fetchedAt: Date.now(), allHighImpact, todayStr, nextStr };
+}
 
-  newsCache = result;
-  return result;
+async function getNews(forceRefresh = false): Promise<NewsCache> {
+  const todayStr = getBerlinDateString();
+  const CACHE_MS = 30 * 60 * 1000; // 30 min
+
+  // Return cache if fresh enough and not force-refreshing
+  if (!forceRefresh && newsCache && newsCache.todayStr === todayStr && Date.now() - newsCache.fetchedAt < CACHE_MS) {
+    return newsCache;
+  }
+
+  // Deduplicate concurrent fetches
+  if (!fetchPromise) {
+    fetchPromise = doFetch()
+      .then(result => {
+        newsCache = result;
+        fetchPromise = null;
+        return result;
+      })
+      .catch(err => {
+        fetchPromise = null;
+        throw err;
+      });
+  }
+
+  try {
+    return await fetchPromise;
+  } catch {
+    // If fetch fails and we have old cache, return it
+    if (newsCache) return newsCache;
+    return { fetchedAt: Date.now(), allHighImpact: [], todayStr, nextStr: "" };
+  }
 }
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  app.get("/api/news", async (req, res) => {
+  app.get("/api/news", async (_req, res) => {
     try {
-      const cache = await fetchForexFactoryNews();
+      const cache = await getNews();
       res.json({ items: cache.allHighImpact, todayStr: cache.todayStr, nextStr: cache.nextStr });
     } catch (err) {
       console.error("[api/news]", err);
@@ -197,22 +258,23 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/news/today", async (req, res) => {
+  app.get("/api/news/today", async (_req, res) => {
     try {
-      const cache = await fetchForexFactoryNews();
+      const cache = await getNews();
       res.json(cache.allHighImpact.filter(n => n.day === "today"));
-    } catch (err) {
-      console.error("[api/news/today]", err);
+    } catch {
       res.json([]);
     }
   });
 
-  app.post("/api/news/refresh", async (req, res) => {
+  app.post("/api/news/refresh", async (_req, res) => {
     newsCache = null;
+    fetchPromise = null;
     try {
-      const cache = await fetchForexFactoryNews();
-      res.json({ count: cache.allHighImpact.length });
+      const cache = await getNews(true);
+      res.json({ count: cache.allHighImpact.length, todayStr: cache.todayStr, nextStr: cache.nextStr });
     } catch (err) {
+      console.error("[api/news/refresh]", err);
       res.json({ count: 0, error: String(err) });
     }
   });

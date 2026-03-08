@@ -123,9 +123,16 @@ export default function HubPage() {
   const { toast } = useToast();
   const prevCompleted = useRef(completedToday);
 
-  const { data: todayNews, isLoading: isNewsLoading } = useQuery<{ title: string; currency: string; impact: string; time: string }[]>({
-    queryKey: ["/api/news/today"],
+  const { data: newsData } = useQuery<{ items: { title: string; currency: string; impact: string; time: string; day: string }[]; todayStr: string; nextStr: string }>({
+    queryKey: ["/api/news"],
+    enabled: false,
+    staleTime: Infinity,
+    select: (raw: unknown) => {
+      if (Array.isArray(raw)) return { items: raw as { title: string; currency: string; impact: string; time: string; day: string }[], todayStr: "", nextStr: "" };
+      return raw as { items: { title: string; currency: string; impact: string; time: string; day: string }[]; todayStr: string; nextStr: string };
+    },
   });
+  const todayNews = newsData?.items?.filter(n => n.day === "today") || [];
 
   useEffect(() => {
     const interval = setInterval(() => setBerlinTime(getBerlinTime()), 1000);
@@ -322,9 +329,7 @@ export default function HubPage() {
                 <div className="font-display text-xs font-bold uppercase tracking-wider">Новости сегодня</div>
               </div>
               <div className="space-y-2">
-                {isNewsLoading ? (
-                  <div className="text-xs text-muted-foreground animate-pulse">Загрузка...</div>
-                ) : todayNews && todayNews.length > 0 ? (
+                {todayNews.length > 0 ? (
                   todayNews.map((news, i) => (
                     <div key={i} className="flex items-start gap-2 text-xs border-l-2 border-red-500 pl-2 py-1">
                       <div className="font-mono text-muted-foreground whitespace-nowrap">{news.time}</div>
@@ -332,7 +337,7 @@ export default function HubPage() {
                     </div>
                   ))
                 ) : (
-                  <div className="text-xs text-muted-foreground italic">Важных новостей нет</div>
+                  <div className="text-xs text-muted-foreground italic">Открой раздел Новости и нажми «Обновить»</div>
                 )}
               </div>
             </Card>
