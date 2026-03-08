@@ -11,12 +11,14 @@ interface NewsItem {
   previous: string;
   actual: string;
   dateNormalized: string;
-  day: "today" | "tomorrow" | "other";
+  day: "today" | "next" | "other";
 }
 
 interface NewsCache {
   fetchedAt: string;
-  data: NewsItem[];
+  allHighImpact: NewsItem[];
+  todayStr: string;
+  nextStr: string;
 }
 
 let newsCache: NewsCache | null = null;
@@ -49,8 +51,7 @@ function parseDateFromFF(dateStr: string): string {
   const cleaned = dateStr.trim();
   const parsed = new Date(cleaned);
   if (!isNaN(parsed.getTime())) {
-    const d = parsed.toISOString().split("T")[0];
-    return d;
+    return parsed.toISOString().split("T")[0];
   }
   const mmddyy = cleaned.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   if (mmddyy) {
@@ -78,8 +79,8 @@ function parseTimeToMinutes(timeStr: string): number {
   return 9999;
 }
 
-function extractEvents(xml: string, todayStr: string, tomorrowStr: string): NewsItem[] {
-  const events: NewsItem[] = [];
+function extractAllHighImpact(xml: string): Array<{ title: string; currency: string; impact: string; date: string; time: string; forecast: string; previous: string; actual: string; dateNormalized: string }> {
+  const events: Array<{ title: string; currency: string; impact: string; date: string; time: string; forecast: string; previous: string; actual: string; dateNormalized: string }> = [];
   const eventMatches = xml.match(/<event>[\s\S]*?<\/event>/gi) || [];
 
   for (const block of eventMatches) {
@@ -99,14 +100,9 @@ function extractEvents(xml: string, todayStr: string, tomorrowStr: string): News
     if (!title) continue;
 
     const dateNormalized = parseDateFromFF(rawDate);
+    if (!dateNormalized) continue;
 
-    let day: "today" | "tomorrow" | "other" = "other";
-    if (dateNormalized === todayStr) day = "today";
-    else if (dateNormalized === tomorrowStr) day = "tomorrow";
-
-    if (day === "other") continue;
-
-    events.push({ title, currency, impact, date: rawDate, time, forecast, previous, actual, dateNormalized, day });
+    events.push({ title, currency, impact, date: rawDate, time, forecast, previous, actual, dateNormalized });
   }
 
   return events;
@@ -132,46 +128,59 @@ async function fetchXML(url: string): Promise<string> {
   }
 }
 
-async function fetchForexFactoryNews(): Promise<NewsItem[]> {
+async function fetchForexFactoryNews(): Promise<NewsCache> {
   const todayStr = getBerlinDateString();
 
   if (newsCache && newsCache.fetchedAt === todayStr) {
-    return newsCache.data;
+    return newsCache;
   }
 
-  const tomorrowStr = getBerlinDateString(1);
-
-  let allEvents: NewsItem[] = [];
+  let rawEvents: Array<{ title: string; currency: string; impact: string; date: string; time: string; forecast: string; previous: string; actual: string; dateNormalized: string }> = [];
 
   try {
     const thisWeekXML = await fetchXML("https://nfs.faireconomy.media/ff_calendar_thisweek.xml");
-    const thisWeekEvents = extractEvents(thisWeekXML, todayStr, tomorrowStr);
-    allEvents.push(...thisWeekEvents);
+    rawEvents.push(...extractAllHighImpact(thisWeekXML));
   } catch (err) {
     console.error("[news] Failed to fetch this week:", err);
   }
 
-  const tomorrowInNextWeek = tomorrowStr > todayStr;
-  if (tomorrowInNextWeek && !allEvents.some(e => e.day === "tomorrow")) {
-    try {
-      const nextWeekXML = await fetchXML("https://nfs.faireconomy.media/ff_calendar_nextweek.xml");
-      const nextWeekEvents = extractEvents(nextWeekXML, todayStr, tomorrowStr);
-      allEvents.push(...nextWeekEvents);
-    } catch (err) {
-      console.error("[news] Failed to fetch next week:", err);
-    }
+  try {
+    const nextWeekXML = await fetchXML("https://nfs.faireconomy.media/ff_calendar_nextweek.xml");
+    rawEvents.push(...extractAllHighImpact(nextWeekXML));
+  } catch (err) {
+    // next week might return 404 if not published yet - this is normal
   }
 
-  allEvents.sort((a, b) => {
-    if (a.day !== b.day) return a.day === "today" ? -1 : 1;
+  // Sort all events by date then time
+  rawEvents.sort((a, b) => {
+    if (a.dateNormalized !== b.dateNormalized) return a.dateNormalized.localeCompare(b.dateNormalized);
     return parseTimeToMinutes(a.time) - parseTimeToMinutes(b.time);
   });
 
-  if (allEvents.length > 0 || !newsCache) {
-    newsCache = { fetchedAt: todayStr, data: allEvents };
-  }
+  // Find today's events
+  const todayEvents = rawEvents.filter(e => e.dateNormalized === todayStr);
 
-  return newsCache?.data || allEvents;
+  // Find the nearest future day with high-impact events (strictly after today)
+  const futureDates = [...new Set(rawEvents.map(e => e.dateNormalized).filter(d => d > todayStr))].sort();
+  const nextStr = futureDates[0] || "";
+
+  // Build final items
+  const allHighImpact: NewsItem[] = rawEvents
+    .filter(e => e.dateNormalized === todayStr || e.dateNormalized === nextStr)
+    .map(e => ({
+      ...e,
+      day: e.dateNormalized === todayStr ? "today" : "next",
+    }));
+
+  const result: NewsCache = {
+    fetchedAt: todayStr,
+    allHighImpact,
+    todayStr,
+    nextStr,
+  };
+
+  newsCache = result;
+  return result;
 }
 
 export async function registerRoutes(
@@ -180,30 +189,20 @@ export async function registerRoutes(
 ): Promise<Server> {
   app.get("/api/news", async (req, res) => {
     try {
-      const news = await fetchForexFactoryNews();
-      res.json(news);
+      const cache = await fetchForexFactoryNews();
+      res.json({ items: cache.allHighImpact, todayStr: cache.todayStr, nextStr: cache.nextStr });
     } catch (err) {
       console.error("[api/news]", err);
-      res.json([]);
+      res.json({ items: [], todayStr: getBerlinDateString(), nextStr: "" });
     }
   });
 
   app.get("/api/news/today", async (req, res) => {
     try {
-      const news = await fetchForexFactoryNews();
-      res.json(news.filter(n => n.day === "today"));
+      const cache = await fetchForexFactoryNews();
+      res.json(cache.allHighImpact.filter(n => n.day === "today"));
     } catch (err) {
       console.error("[api/news/today]", err);
-      res.json([]);
-    }
-  });
-
-  app.get("/api/news/tomorrow", async (req, res) => {
-    try {
-      const news = await fetchForexFactoryNews();
-      res.json(news.filter(n => n.day === "tomorrow"));
-    } catch (err) {
-      console.error("[api/news/tomorrow]", err);
       res.json([]);
     }
   });
@@ -211,8 +210,8 @@ export async function registerRoutes(
   app.post("/api/news/refresh", async (req, res) => {
     newsCache = null;
     try {
-      const news = await fetchForexFactoryNews();
-      res.json({ count: news.length });
+      const cache = await fetchForexFactoryNews();
+      res.json({ count: cache.allHighImpact.length });
     } catch (err) {
       res.json({ count: 0, error: String(err) });
     }

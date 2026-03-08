@@ -114,22 +114,18 @@ function XPNotification({ xp, visible, onHide }: { xp: number; visible: boolean;
 }
 
 export default function HubPage() {
-  const { state, actions, todayTasks, completedToday, totalToday, isRoutineLoaded, todayNote } = useStore();
+  const { state, actions, todayTasks, completedToday, totalToday, isRoutineLoaded, todayNotes } = useStore();
   const [berlinTime, setBerlinTime] = useState(getBerlinTime());
   const [xpNotif, setXpNotif] = useState<{ xp: number; visible: boolean }>({ xp: 0, visible: false });
-  const [noteContent, setNoteContent] = useState(todayNote?.content || "");
+  const [newNoteText, setNewNoteText] = useState("");
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
   const { toast } = useToast();
   const prevCompleted = useRef(completedToday);
 
   const { data: todayNews, isLoading: isNewsLoading } = useQuery<{ title: string; currency: string; impact: string; time: string }[]>({
     queryKey: ["/api/news/today"],
   });
-
-  useEffect(() => {
-    if (todayNote) {
-      setNoteContent(todayNote.content);
-    }
-  }, [todayNote]);
 
   useEffect(() => {
     const interval = setInterval(() => setBerlinTime(getBerlinTime()), 1000);
@@ -178,9 +174,28 @@ export default function HubPage() {
     toast({ title: "Список очищен", description: "Все задачи на сегодня удалены." });
   };
 
-  const handleSaveNote = () => {
-    actions.upsertDayNote(getTodayDate(), noteContent);
-    toast({ title: "Заметка сохранена", description: "Ваша заметка на сегодня обновлена." });
+  const handleAddNote = () => {
+    if (!newNoteText.trim()) return;
+    actions.addDayNote(getTodayDate(), newNoteText);
+    setNewNoteText("");
+  };
+
+  const handleStartEdit = (id: string, content: string) => {
+    setEditingNoteId(id);
+    setEditingText(content);
+  };
+
+  const handleSaveEdit = () => {
+    if (editingNoteId && editingText.trim()) {
+      actions.updateDayNote(editingNoteId, editingText);
+    }
+    setEditingNoteId(null);
+    setEditingText("");
+  };
+
+  const handleCancelEdit = () => {
+    setEditingNoteId(null);
+    setEditingText("");
   };
 
   const level = Math.floor(state.xp.totalXP / 100) + 1;
@@ -430,23 +445,82 @@ export default function HubPage() {
             )}
           </Card>
 
-          <Card className="p-4 bg-card border-card-border rounded-2xl flex flex-col">
-            <div className="flex items-center gap-2 mb-4">
+          <Card className="p-4 bg-card border-card-border rounded-2xl flex flex-col gap-3">
+            <div className="flex items-center gap-2">
               <FileText className="w-4 h-4 text-primary" />
-              <div className="font-display text-base font-bold uppercase tracking-wider text-foreground">Заметка дня</div>
+              <div className="font-display text-base font-bold uppercase tracking-wider text-foreground">Заметки дня</div>
+              {todayNotes.length > 0 && (
+                <Badge variant="secondary" className="ml-auto font-mono text-xs rounded-full">{todayNotes.length}</Badge>
+              )}
             </div>
-            <div className="flex-1 flex flex-col gap-3">
+
+            {todayNotes.length > 0 && (
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                {todayNotes.map((note) => {
+                  const timeLabel = new Date(note.createdAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+                  const isEditing = editingNoteId === note.id;
+                  return (
+                    <div key={note.id} className="rounded-xl border border-card-border bg-muted/20 p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-xs text-muted-foreground">{timeLabel}</span>
+                        {!isEditing && (
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => handleStartEdit(note.id, note.content)}
+                              className="p-1 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                              data-testid={`button-edit-note-${note.id}`}
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                            </button>
+                            <button
+                              onClick={() => actions.deleteDayNote(note.id)}
+                              className="p-1 rounded-md hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors"
+                              data-testid={`button-delete-note-${note.id}`}
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      {isEditing ? (
+                        <div className="space-y-2">
+                          <Textarea
+                            value={editingText}
+                            onChange={(e) => setEditingText(e.target.value)}
+                            className="min-h-[80px] resize-none text-sm border-primary/30 focus-visible:ring-primary bg-muted/30 rounded-lg"
+                            autoFocus
+                            data-testid="input-edit-note"
+                          />
+                          <div className="flex gap-2">
+                            <Button size="sm" onClick={handleSaveEdit} className="flex-1 h-7 text-xs rounded-full font-display">Сохранить</Button>
+                            <Button size="sm" variant="outline" onClick={handleCancelEdit} className="h-7 text-xs rounded-full">Отмена</Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{note.content}</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-2">
               <Textarea
-                placeholder="Как прошел твой день? Краткие выводы или мысли..."
-                className="flex-1 min-h-[150px] resize-none border-card-border focus-visible:ring-primary bg-muted/30 rounded-xl"
-                value={noteContent}
-                onChange={(e) => setNoteContent(e.target.value)}
+                placeholder="Новая заметка дня..."
+                className="min-h-[80px] resize-none border-card-border focus-visible:ring-primary bg-muted/30 rounded-xl text-sm"
+                value={newNoteText}
+                onChange={(e) => setNewNoteText(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleAddNote(); }}
+                data-testid="input-new-note"
               />
               <Button
-                onClick={handleSaveNote}
+                onClick={handleAddNote}
+                disabled={!newNoteText.trim()}
                 className="w-full font-display uppercase tracking-widest text-xs h-9 rounded-full"
+                data-testid="button-add-note"
               >
-                Сохранить заметку
+                + Добавить заметку
               </Button>
             </div>
           </Card>

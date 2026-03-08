@@ -602,6 +602,24 @@ export function useStore() {
       mutate(s => ({ ...s, dailyBiases: s.dailyBiases.filter(b => b.id !== id) }));
     }, []),
 
+    addDayNote: useCallback((date: string, content: string) => {
+      if (!content.trim()) return;
+      mutate(s => ({
+        ...s,
+        dayNotes: [...s.dayNotes, {
+          id: crypto.randomUUID(), date, content: content.trim(),
+          createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+        }],
+      }));
+    }, []),
+
+    updateDayNote: useCallback((id: string, content: string) => {
+      mutate(s => ({
+        ...s,
+        dayNotes: s.dayNotes.map(n => n.id === id ? { ...n, content: content.trim(), updatedAt: new Date().toISOString() } : n),
+      }));
+    }, []),
+
     upsertDayNote: useCallback((date: string, content: string) => {
       mutate(s => {
         const existing = s.dayNotes.find(n => n.date === date);
@@ -631,8 +649,9 @@ export function useStore() {
   const completedToday = todayTasks.filter(t => t.completed).length;
   const totalToday = todayTasks.length;
   const isRoutineLoaded = state.routineLoadedDates.includes(todayDate);
-  const todayNote = state.dayNotes.find(n => n.date === todayDate) || null;
+  const todayNotes = state.dayNotes.filter(n => n.date === todayDate).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const todayNote = todayNotes[0] || null;
   const todayBiases = state.dailyBiases.filter(b => b.date === todayDate);
 
-  return { state, actions, todayTasks, completedToday, totalToday, isRoutineLoaded, todayNote, todayBiases };
+  return { state, actions, todayTasks, completedToday, totalToday, isRoutineLoaded, todayNotes, todayNote, todayBiases };
 }
