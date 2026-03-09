@@ -427,17 +427,48 @@ const listeners = new Set<() => void>();
 function notify() { listeners.forEach(l => l()); }
 
 let serverSyncTimer: ReturnType<typeof setTimeout> | null = null;
+const syncListeners = new Set<(ok: boolean) => void>();
+
+export function onSyncResult(cb: (ok: boolean) => void) {
+  syncListeners.add(cb);
+  return () => syncListeners.delete(cb);
+}
 
 function scheduleServerSync(state: AppState) {
   if (serverSyncTimer) clearTimeout(serverSyncTimer);
-  serverSyncTimer = setTimeout(() => {
-    fetch("/api/user/data", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ data: state }),
-    }).catch(() => {});
+  serverSyncTimer = setTimeout(async () => {
+    try {
+      const res = await fetch("/api/user/data", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ data: state }),
+      });
+      const ok = res.ok;
+      syncListeners.forEach(cb => cb(ok));
+    } catch {
+      syncListeners.forEach(cb => cb(false));
+    }
   }, 2500);
+}
+
+export function compressImage(dataUrl: string, maxWidth = 800, quality = 0.6): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      let w = img.width;
+      let h = img.height;
+      if (w > maxWidth) { h = (h * maxWidth) / w; w = maxWidth; }
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
 }
 
 export function loadFromServerData(data: AppState) {
@@ -602,10 +633,21 @@ export function useStore() {
     }, []),
 
     addDailyBias: useCallback((bias: Omit<DailyBias, "id" | "createdAt">) => {
-      mutate(s => ({
-        ...s,
-        dailyBiases: [...s.dailyBiases, { ...bias, id: crypto.randomUUID(), createdAt: new Date().toISOString() }],
-      }));
+      mutate(s => {
+        const existing = s.dailyBiases.find(b => b.date === bias.date && b.asset === bias.asset);
+        if (existing) {
+          return {
+            ...s,
+            dailyBiases: s.dailyBiases.map(b =>
+              b.id === existing.id ? { ...b, ...bias, createdAt: b.createdAt } : b
+            ),
+          };
+        }
+        return {
+          ...s,
+          dailyBiases: [...s.dailyBiases, { ...bias, id: crypto.randomUUID(), createdAt: new Date().toISOString() }],
+        };
+      });
     }, []),
 
     updateDailyBias: useCallback((id: string, updates: Partial<DailyBias>) => {

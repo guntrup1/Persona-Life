@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useStore, LIFE_AREAS, LIFE_AREA_COLORS, type LifeArea, type TaskDifficulty, xpForDifficulty, type DailyBias, type TradingNote, type DayNote, type TodayTask } from "@/lib/store";
+import { useStore, LIFE_AREAS, LIFE_AREA_COLORS, type LifeArea, type TaskDifficulty, xpForDifficulty, type TodayTask } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,11 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { ChevronLeft, ChevronRight, Plus, CalendarDays, CheckCircle, Circle, ArrowUpCircle, ArrowDownCircle, MinusCircle, FileText, TrendingUp, Image as ImageIcon, Edit2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, CalendarDays, CheckCircle, Circle, ArrowUpCircle, ArrowDownCircle, MinusCircle, FileText, TrendingUp, Edit2 } from "lucide-react";
 import { getTodayDate } from "@/lib/store";
 
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
@@ -530,46 +529,36 @@ export default function CalendarPage() {
 }
 
 function DayDetails({ selectedDate }: { selectedDate: string }) {
-  const { state, actions } = useStore();
-  const todayStr = getTodayDate();
-  const isToday = selectedDate === todayStr;
-  const dayNote = state.dayNotes.find(n => n.date === selectedDate);
+  const { state } = useStore();
   const tradingNotes = state.tradingNotes.filter(n => n.date === selectedDate);
   const dailyBiases = state.dailyBiases.filter(b => b.date === selectedDate);
-
-  const [noteContent, setNoteContent] = useState(dayNote?.content || "");
-
-  // Update local state when dayNote changes (e.g. when selectedDate changes)
-  useState(() => {
-    setNoteContent(dayNote?.content || "");
-  });
-
-  const handleSaveNote = () => {
-    actions.upsertDayNote(selectedDate, noteContent);
-  };
+  const dayNotes = state.dayNotes.filter(n => n.date === selectedDate).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
   return (
     <div className="space-y-3">
       <Card className="p-4 border-card-border">
         <div className="flex items-center gap-2 mb-3">
           <FileText className="w-4 h-4 text-primary" />
-          <h3 className="font-display font-bold text-sm uppercase tracking-wider">Заметка дня</h3>
+          <h3 className="font-display font-bold text-sm uppercase tracking-wider">Заметки дня</h3>
         </div>
-        {isToday ? (
-          <div className="space-y-2">
-            <Textarea
-              value={noteContent}
-              onChange={(e) => setNoteContent(e.target.value)}
-              placeholder="Как прошел день?"
-              className="min-h-[100px] text-sm resize-none"
-              data-testid="textarea-day-note"
-            />
-            <Button size="sm" className="w-full" onClick={handleSaveNote}>Сохранить</Button>
-          </div>
+        {dayNotes.length === 0 ? (
+          <p className="text-xs text-muted-foreground italic text-center py-2">Заметок нет</p>
         ) : (
-          <p className="text-sm text-foreground whitespace-pre-wrap italic">
-            {dayNote?.content || "Заметка отсутствует"}
-          </p>
+          <div className="space-y-2">
+            {dayNotes.map(note => (
+              <div key={note.id} className="border-b border-border pb-2 last:border-0 last:pb-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] text-muted-foreground font-mono">
+                    {new Date(note.createdAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                  {note.updatedAt !== note.createdAt && (
+                    <span className="text-[10px] text-muted-foreground/60">(ред.)</span>
+                  )}
+                </div>
+                <p className="text-sm text-foreground whitespace-pre-wrap">{note.content}</p>
+              </div>
+            ))}
+          </div>
         )}
       </Card>
 
@@ -637,9 +626,8 @@ function DayDetails({ selectedDate }: { selectedDate: string }) {
                   "{note.text}"
                 </p>
                 {note.screenshotUrl && (
-                  <div className="flex items-center gap-1 text-[10px] text-primary">
-                    <ImageIcon className="w-3 h-3" />
-                    Скриншот прикреплен
+                  <div className="mt-1">
+                    <img src={note.screenshotUrl} alt="Trading note screenshot" className="rounded-md w-full h-auto object-cover max-h-24 border border-border" />
                   </div>
                 )}
               </div>

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useStore, type TradeAsset, type NoteTag, type BiasDirection, getTodayDate } from "@/lib/store";
+import { useStore, type TradeAsset, type NoteTag, type BiasDirection, getTodayDate, compressImage } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { FileText, Plus, Trash2, Clock, Tag, TrendingUp, ArrowUpRight, ArrowDownRight, MoveRight, Camera, X, Pencil } from "lucide-react";
+import { FileText, Plus, Trash2, Clock, TrendingUp, ArrowUpRight, ArrowDownRight, MoveRight, Camera, X, Pencil } from "lucide-react";
 
 const ASSETS: TradeAsset[] = ["GER40", "EUR", "XAU", "GBP"];
 const TIMEFRAMES = ["M1", "M5", "M15", "M30", "H1", "H4", "D1"];
@@ -38,12 +38,13 @@ function AddBiasDialog({ onAdd, editBias }: { onAdd: (b: any) => void; editBias?
     }
   }, [editBias]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setScreenshotUrl(reader.result as string);
+      reader.onloadend = async () => {
+        const compressed = await compressImage(reader.result as string);
+        setScreenshotUrl(compressed);
       };
       reader.readAsDataURL(file);
     }
@@ -208,12 +209,13 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
     }
   }, [editNote]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setScreenshotUrl(reader.result as string);
+      reader.onloadend = async () => {
+        const compressed = await compressImage(reader.result as string);
+        setScreenshotUrl(compressed);
       };
       reader.readAsDataURL(file);
     }

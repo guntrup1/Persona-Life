@@ -42,7 +42,11 @@ A full-featured gamified productivity application inspired by the visual style o
 
 ## State Management
 
-State is stored in localStorage under key `lifeos_v1`. The store is a simple reactive singleton with listeners.
+State is stored in localStorage under key `lifeos_v2`. The store is a simple reactive singleton with listeners.
+- **Auto-sync**: `scheduleServerSync` debounces PUT /api/user/data by 2.5s; shows "Сохранено" toast on success via `onSyncResult` listener
+- **Image compression**: `compressImage(dataUrl, maxWidth=800, quality=0.6)` utility compresses screenshots before storing as base64
+- **Bias upsert**: `addDailyBias` upserts by date+asset (no duplicates for same day/instrument)
+- **Calendar**: Day notes shown read-only with timestamps; trading note and bias screenshots displayed inline
 
 ## Architecture
 

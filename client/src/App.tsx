@@ -16,13 +16,13 @@ import NewsPage from "@/pages/news";
 import CalendarPage from "@/pages/calendar-page";
 import LoginPage from "@/pages/login";
 import { AuthProvider, useAuth } from "@/lib/auth";
-import { loadFromServerData, useStore, getTodayDate, syncFromServer } from "@/lib/store";
+import { loadFromServerData, useStore, getTodayDate, syncFromServer, onSyncResult } from "@/lib/store";
 import { useCallback, useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  FileText, RefreshCw, AlertTriangle, Menu, X, Zap,
+  FileText, RefreshCw, AlertTriangle, Menu, X,
   LayoutDashboard, CheckSquare, Target, Timer,
   BarChart3, Newspaper, CalendarDays, LogOut,
 } from "lucide-react";
@@ -99,6 +99,15 @@ function SyncButton() {
     const id = setInterval(poll, 30000);
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    return onSyncResult((ok) => {
+      if (ok) {
+        const { dismiss } = toast({ title: "Сохранено" });
+        setTimeout(() => dismiss(), 1500);
+      }
+    });
+  }, [toast]);
 
   const handleSync = async () => {
     setSyncing(true);
