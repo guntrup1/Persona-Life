@@ -492,7 +492,22 @@ export default function TasksPage() {
               <div className="text-sm text-muted-foreground">
                 {state.routineTemplates.filter(r => r.enabled).length} активных шаблонов
               </div>
-              <AddRoutineDialog onAdd={actions.addRoutineTemplate} />
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 h-8 rounded-full text-xs font-display"
+                  data-testid="button-sync-routine"
+                  onClick={() => {
+                    actions.loadRoutineForToday();
+                    toast({ title: "Рутина обновлена", description: "Недостающие задачи добавлены без дублей" });
+                  }}
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  Обновить рутину
+                </Button>
+                <AddRoutineDialog onAdd={actions.addRoutineTemplate} />
+              </div>
             </div>
 
             {state.routineTemplates.length === 0 ? (

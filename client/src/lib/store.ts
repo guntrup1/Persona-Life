@@ -536,12 +536,13 @@ export function useStore() {
       }));
     }, []),
 
-    addGoal: useCallback((goal: Omit<Goal, "id" | "completed" | "linkedTaskIds" | "xp">) => {
+    addGoal: useCallback((goal: Omit<Goal, "id" | "completed" | "linkedTaskIds" | "xp"> & { customXP?: number }) => {
+      const { customXP, ...goalData } = goal;
       mutate(s => ({
         ...s,
         goals: [...s.goals, {
-          ...goal, id: crypto.randomUUID(), completed: false, linkedTaskIds: [],
-          xp: xpForGoal(goal.type), taskWeights: {},
+          ...goalData, id: crypto.randomUUID(), completed: false, linkedTaskIds: [],
+          xp: customXP && customXP > 0 ? customXP : xpForGoal(goal.type), taskWeights: {},
         }],
       }));
     }, []),

@@ -122,9 +122,11 @@ function AddGoalDialog({ parentId, parentType, onAdd, forcedType }: {
   const [category, setCategory] = useState<LifeArea>("Mind");
   const [description, setDescription] = useState("");
   const [selectedParentId, setSelectedParentId] = useState(parentId || "");
+  const [customXP, setCustomXP] = useState<number | "">("");
 
   const type: GoalType = forcedType || (!parentType ? "year" : parentType === "year" ? "month" : "week");
   const typeLabels: Record<GoalType, string> = { year: "Годовая", month: "Месячная", week: "Недельная" };
+  const defaultXP = xpForGoal(type);
 
   const possibleParents = state.goals.filter(g => {
     if (type === "month") return g.type === "year";
@@ -145,10 +147,12 @@ function AddGoalDialog({ parentId, parentType, onAdd, forcedType }: {
       year: now.getFullYear(),
       month: now.getMonth() + 1,
       week: Math.ceil(now.getDate() / 7),
+      customXP: customXP !== "" ? Number(customXP) : undefined,
     });
     setTitle("");
     setDescription("");
     setSelectedParentId(parentId || "");
+    setCustomXP("");
     setOpen(false);
   };
 
@@ -213,9 +217,22 @@ function AddGoalDialog({ parentId, parentType, onAdd, forcedType }: {
             </div>
           )}
 
-          <div className="flex items-center justify-between p-3 rounded-md bg-muted/50">
-            <span className="text-sm text-muted-foreground">XP за выполнение</span>
-            <span className="font-mono font-bold text-primary">+{xpForGoal(type)} XP</span>
+          <div className="space-y-1.5">
+            <Label>XP за выполнение</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                min={1}
+                max={9999}
+                placeholder={String(defaultXP)}
+                value={customXP}
+                onChange={e => setCustomXP(e.target.value === "" ? "" : Number(e.target.value))}
+                className="w-32 font-mono"
+                data-testid="input-goal-xp"
+              />
+              <span className="text-sm text-muted-foreground">XP</span>
+              <span className="text-xs text-muted-foreground ml-auto">По умолчанию: {defaultXP} XP</span>
+            </div>
           </div>
           <Button type="submit" className="w-full" data-testid="button-goal-submit">
             Создать цель

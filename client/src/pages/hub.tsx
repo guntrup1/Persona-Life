@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useStore, getBerlinTime, getMarketSession, getCharacterState, getTodayDate, LIFE_AREA_COLORS, LIFE_AREA_BG, getGoalProgress } from "@/lib/store";
+import { useStore, getBerlinTime, getMarketSession, getCharacterState, getTodayDate, LIFE_AREA_COLORS, getGoalProgress } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,18 +7,16 @@ import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { useQuery } from "@tanstack/react-query";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { CheckCircle, Circle, Trash2, RefreshCw, Flame, Zap, Star, Target, Clock, Newspaper, FileText, TrendingUp } from "lucide-react";
+import {
+  CheckCircle, Circle, Trash2, RefreshCw, Flame, Zap, Target, Clock,
+  Newspaper, FileText, TrendingUp, ChevronDown, Star, AlertTriangle,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+// ─── Character emoji ─────────────────────────────────────────────────────────
 
 function CharacterEmoji({ state }: { state: string }) {
   const getEmoji = () => {
@@ -32,77 +30,44 @@ function CharacterEmoji({ state }: { state: string }) {
     }
   };
 
-  const emoji = getEmoji();
-
   return (
     <div className="relative flex items-center justify-center w-full h-full select-none">
-      <style>
-        {`
-          @keyframes float {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-20px); }
-          }
-          @keyframes pulse-glow {
-            0%, 100% { filter: drop-shadow(0 0 10px rgba(255,255,255,0.2)); transform: scale(1); }
-            50% { filter: drop-shadow(0 0 25px rgba(255,255,255,0.5)); transform: scale(1.05); }
-          }
-          @keyframes sway {
-            0%, 100% { transform: rotate(-5deg); }
-            50% { transform: rotate(5deg); }
-          }
-          @keyframes bounce-custom {
-            0%, 100% { transform: translateY(0) scale(1); }
-            50% { transform: translateY(-15px) scale(1.1); }
-          }
-          @keyframes z-float {
-            0% { transform: translate(0, 0) opacity(0); }
-            20% { opacity: 0.8; }
-            100% { transform: translate(20px, -60px) opacity(0); }
-          }
-          .animate-float { animation: float 3s ease-in-out infinite; }
-          .animate-glow { animation: pulse-glow 2s ease-in-out infinite; }
-          .animate-sway { animation: sway 4s ease-in-out infinite; }
-          .animate-bounce-custom { animation: bounce-custom 1s ease-in-out infinite; }
-          .z-letter { 
-            position: absolute;
-            font-family: 'Oxanium', sans-serif;
-            font-weight: bold;
-            color: #8B0000;
-            opacity: 0;
-            pointer-events: none;
-          }
-        `}
-      </style>
-      
-      <div className={`text-8xl flex items-center justify-center
-        ${state === 'sleeping' ? 'animate-glow' : ''}
-        ${state === 'morning' ? 'animate-float' : ''}
-        ${state === 'working' ? 'animate-bounce-custom' : ''}
-        ${state === 'resting' ? 'animate-sway' : ''}
-        ${state === 'evening' ? 'animate-glow' : ''}
+      <style>{`
+        @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-16px)} }
+        @keyframes pulse-glow { 0%,100%{filter:drop-shadow(0 0 10px rgba(255,255,255,.2));transform:scale(1)} 50%{filter:drop-shadow(0 0 25px rgba(255,255,255,.5));transform:scale(1.06)} }
+        @keyframes sway { 0%,100%{transform:rotate(-5deg)} 50%{transform:rotate(5deg)} }
+        @keyframes bounce-c { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-12px) scale(1.1)} }
+        @keyframes z-float { 0%{transform:translate(0,0);opacity:0} 20%{opacity:.8} 100%{transform:translate(20px,-60px);opacity:0} }
+        .anim-float{animation:float 3s ease-in-out infinite}
+        .anim-glow{animation:pulse-glow 2s ease-in-out infinite}
+        .anim-sway{animation:sway 4s ease-in-out infinite}
+        .anim-bounce{animation:bounce-c 1s ease-in-out infinite}
+        .zletter{position:absolute;font-family:'Oxanium',sans-serif;font-weight:bold;color:#8B0000;opacity:0;pointer-events:none}
+      `}</style>
+      <div className={`text-7xl flex items-center justify-center
+        ${state==="sleeping"?"anim-glow":""}
+        ${state==="morning"?"anim-float":""}
+        ${state==="working"?"anim-bounce":""}
+        ${state==="resting"?"anim-sway":""}
+        ${state==="evening"?"anim-glow":""}
       `}>
-        {emoji}
-        
-        {state === 'sleeping' && (
-          <>
-            <span className="z-letter text-2xl" style={{ animation: 'z-float 3s infinite 0s', left: '60%', top: '20%' }}>Z</span>
-            <span className="z-letter text-xl" style={{ animation: 'z-float 3s infinite 1s', left: '70%', top: '10%' }}>Z</span>
-            <span className="z-letter text-lg" style={{ animation: 'z-float 3s infinite 2s', left: '80%', top: '0%' }}>Z</span>
-          </>
-        )}
+        {getEmoji()}
+        {state==="sleeping" && <>
+          <span className="zletter text-2xl" style={{animation:"z-float 3s infinite 0s",left:"60%",top:"20%"}}>Z</span>
+          <span className="zletter text-xl"  style={{animation:"z-float 3s infinite 1s",left:"70%",top:"10%"}}>Z</span>
+          <span className="zletter text-lg"  style={{animation:"z-float 3s infinite 2s",left:"80%",top:"0%"}}>Z</span>
+        </>}
       </div>
     </div>
   );
 }
 
+// ─── XP toast ────────────────────────────────────────────────────────────────
+
 function XPNotification({ xp, visible, onHide }: { xp: number; visible: boolean; onHide: () => void }) {
   useEffect(() => {
-    if (visible) {
-      const t = setTimeout(onHide, 1200);
-      return () => clearTimeout(t);
-    }
+    if (visible) { const t = setTimeout(onHide, 1200); return () => clearTimeout(t); }
   }, [visible, onHide]);
-
   if (!visible) return null;
   return (
     <div className="fixed top-16 right-6 z-50 animate-xp-gain pointer-events-none">
@@ -113,8 +78,51 @@ function XPNotification({ xp, visible, onHide }: { xp: number; visible: boolean;
   );
 }
 
+// ─── Collapsible block ────────────────────────────────────────────────────────
+
+function CollapsibleBlock({
+  title, icon, children, defaultOpen = true, badge,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+  badge?: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <Card className="border-card-border rounded-2xl overflow-hidden">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/10 transition-colors"
+        data-testid={`collapse-toggle-${title}`}
+      >
+        <div className="flex items-center gap-2">
+          {icon}
+          <span className="font-display text-sm font-bold uppercase tracking-wider text-foreground">{title}</span>
+          {badge}
+        </div>
+        <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${open ? "rotate-180" : ""}`} />
+      </button>
+      <div
+        className="transition-all duration-300 ease-in-out overflow-hidden"
+        style={{ maxHeight: open ? "2000px" : "0px", opacity: open ? 1 : 0 }}
+        aria-hidden={!open}
+        data-testid={`collapse-content-${title}`}
+      >
+        <div className="px-4 pb-4 pt-1">
+          {children}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+// ─── Main hub ─────────────────────────────────────────────────────────────────
+
 export default function HubPage() {
-  const { state, actions, todayTasks, completedToday, totalToday, isRoutineLoaded, todayNotes } = useStore();
+  const { state, actions, todayTasks, completedToday, totalToday, todayNotes } = useStore();
   const [berlinTime, setBerlinTime] = useState(getBerlinTime());
   const [xpNotif, setXpNotif] = useState<{ xp: number; visible: boolean }>({ xp: 0, visible: false });
   const [newNoteText, setNewNoteText] = useState("");
@@ -135,50 +143,41 @@ export default function HubPage() {
   const todayNews = newsData?.items?.filter(n => n.day === "today") || [];
 
   useEffect(() => {
-    const interval = setInterval(() => setBerlinTime(getBerlinTime()), 1000);
-    return () => clearInterval(interval);
+    const id = setInterval(() => setBerlinTime(getBerlinTime()), 1000);
+    return () => clearInterval(id);
   }, []);
 
   useEffect(() => {
     if (completedToday > prevCompleted.current) {
-      const lastCompleted = todayTasks.filter(t => t.completed).at(-1);
-      if (lastCompleted) {
-        setXpNotif({ xp: lastCompleted.xp, visible: true });
-      }
+      const last = todayTasks.filter(t => t.completed).at(-1);
+      if (last) setXpNotif({ xp: last.xp, visible: true });
     }
     prevCompleted.current = completedToday;
   }, [completedToday, todayTasks]);
 
-  useEffect(() => {
-    if (!isRoutineLoaded) {
-      actions.loadRoutineForToday();
-    }
-  }, [isRoutineLoaded, actions]);
-
   const charState = getCharacterState();
   const session = getMarketSession();
 
-  const timeStr = berlinTime.toLocaleTimeString("ru-RU", {
-    hour: "2-digit", minute: "2-digit", second: "2-digit"
-  });
-  const dateStr = berlinTime.toLocaleDateString("ru-RU", {
-    weekday: "long", day: "numeric", month: "long"
-  });
+  const timeStr = berlinTime.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const dateStr = berlinTime.toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
 
-  const progress = totalToday > 0 ? (completedToday / totalToday) * 100 : 0;
+  const dayProgress = totalToday > 0 ? (completedToday / totalToday) * 100 : 0;
+  const dayXP = todayTasks.filter(t => t.completed).reduce((s, t) => s + t.xp, 0);
 
-  const handleToggle = (id: string) => {
-    actions.toggleTask(id);
-  };
+  const level = Math.floor(state.xp.totalXP / 100) + 1;
+  const xpInLevel = state.xp.totalXP % 100;
 
-  const handleLoadRoutine = () => {
-    actions.loadRoutineForToday();
-    toast({ title: "Рутина загружена", description: "Задачи дня добавлены в список." });
-  };
+  const weekGoals = state.goals.filter(g => g.type === "week" && !g.completed);
+  const monthGoals = state.goals.filter(g => g.type === "month" && !g.completed);
 
+  const weekProgress = weekGoals.length > 0
+    ? weekGoals.reduce((sum, g) => sum + getGoalProgress(g, state).percent, 0) / weekGoals.length
+    : 0;
+
+  const handleToggle = (id: string) => actions.toggleTask(id);
   const handleClearTasks = () => {
     actions.clearTodayTasks();
-    toast({ title: "Список очищен", description: "Все задачи на сегодня удалены." });
+    toast({ title: "Список очищен" });
   };
 
   const handleAddNote = () => {
@@ -187,349 +186,335 @@ export default function HubPage() {
     setNewNoteText("");
   };
 
-  const handleStartEdit = (id: string, content: string) => {
-    setEditingNoteId(id);
-    setEditingText(content);
-  };
-
   const handleSaveEdit = () => {
-    if (editingNoteId && editingText.trim()) {
-      actions.updateDayNote(editingNoteId, editingText);
-    }
+    if (editingNoteId && editingText.trim()) actions.updateDayNote(editingNoteId, editingText);
     setEditingNoteId(null);
     setEditingText("");
   };
-
-  const handleCancelEdit = () => {
-    setEditingNoteId(null);
-    setEditingText("");
-  };
-
-  const level = Math.floor(state.xp.totalXP / 100) + 1;
-  const xpInLevel = state.xp.totalXP % 100;
-
-  const allSessions = [
-    { name: "Азия", start: "03:00", end: "08:00", color: "text-yellow-400" },
-    { name: "Франкфурт", start: "08:00", end: "09:00", color: "text-blue-400" },
-    { name: "Лондон", start: "09:00", end: "14:00", color: "text-green-400" },
-    { name: "Нью-Йорк", start: "14:00", end: "17:00", color: "text-red-400" },
-  ];
-
-  const weekGoals = state.goals.filter(g => g.type === "week" && !g.completed);
 
   return (
     <div className="h-full overflow-auto">
       <XPNotification xp={xpNotif.xp} visible={xpNotif.visible} onHide={() => setXpNotif(p => ({ ...p, visible: false }))} />
 
       <div className="max-w-7xl mx-auto p-4 space-y-4">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Card className="p-4 bg-card border-card-border rounded-2xl">
-              <div className="space-y-1">
-                <div className="font-mono text-4xl font-bold text-foreground tracking-tight">{timeStr}</div>
-                <div className="text-muted-foreground text-sm capitalize">{dateStr}</div>
-                <div className="pt-2 flex items-center gap-2">
+        <div className="flex flex-col lg:flex-row gap-4">
+
+          {/* ── LEFT: Character panel ── */}
+          <div className="lg:w-72 flex flex-col gap-3 flex-shrink-0">
+            <Card className="p-4 bg-card border-card-border rounded-3xl flex flex-col items-center gap-3">
+              <div className="w-32 h-36 overflow-visible flex items-center justify-center">
+                <CharacterEmoji state={charState.state} />
+              </div>
+
+              <div className="text-xs font-display text-muted-foreground uppercase tracking-widest text-center">
+                {charState.label}
+              </div>
+
+              {/* Clock */}
+              <div className="text-center">
+                <div className="font-mono text-2xl font-bold text-foreground tracking-tight">{timeStr}</div>
+                <div className="text-muted-foreground text-xs capitalize mt-0.5">{dateStr}</div>
+              </div>
+
+              {/* Current session only */}
+              <div className="w-full flex items-center justify-between rounded-xl px-3 py-2 bg-muted/20 border border-card-border">
+                <div className="flex items-center gap-2">
                   <div className={`w-2 h-2 rounded-full ${session.active ? "bg-green-500 animate-pulse" : "bg-muted-foreground"}`} />
-                  <span className={`font-display text-sm font-semibold ${session.color}`}>{session.name}</span>
-                  <span className="text-xs text-muted-foreground font-mono">UTC+1</span>
+                  <span className={`font-display text-xs font-semibold ${session.color}`}>{session.name}</span>
                 </div>
+                <span className="text-xs text-muted-foreground font-mono">UTC+1</span>
+              </div>
+
+              {/* Level + XP */}
+              <div className="w-full space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-display text-muted-foreground flex items-center gap-1">
+                    <Star className="w-3 h-3 text-primary" /> Уровень {level}
+                  </span>
+                  <span className="font-mono text-primary font-bold">{xpInLevel}/100 XP</span>
+                </div>
+                <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-primary rounded-full transition-all duration-500 xp-bar-shine" style={{ width: `${xpInLevel}%` }} />
+                </div>
+              </div>
+
+              {/* Streak */}
+              <div className="w-full flex items-center justify-between text-xs font-mono">
+                <span className="flex items-center gap-1 text-muted-foreground">
+                  <Flame className="w-3 h-3 text-orange-400" />
+                  <span className="text-orange-400 font-bold">{state.streak.currentStreak} дн.</span>
+                </span>
+                <span className="text-muted-foreground">Рекорд: <span className="text-yellow-400 font-bold">{state.streak.longestStreak} дн.</span></span>
               </div>
             </Card>
 
-            <Card className="p-4 bg-card border-card-border rounded-2xl">
-              <div className="text-xs text-muted-foreground font-display uppercase tracking-wider mb-3">Торговые сессии</div>
-              <div className="space-y-2">
-                {allSessions.map(s => {
-                  const isActive = session.name === s.name;
-                  return (
-                    <div key={s.name} className={`flex items-center justify-between rounded-md px-2 py-1 transition-all ${isActive ? "bg-primary/10" : ""}`}>
-                      <div className="flex items-center gap-2">
-                        {isActive && <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />}
-                        {!isActive && <div className="w-1.5 h-1.5 rounded-full bg-muted" />}
-                        <span className={`font-display text-xs ${isActive ? s.color + " font-bold" : "text-muted-foreground"}`}>{s.name}</span>
-                      </div>
-                      <span className="font-mono text-xs text-muted-foreground">{s.start}–{s.end}</span>
+            {/* News alert */}
+            {todayNews.length > 0 && (
+              <Card className="p-3 bg-red-500/10 border-red-500/30 rounded-2xl">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 animate-pulse" />
+                  <span className="font-display text-xs font-bold text-foreground uppercase tracking-wider">
+                    {todayNews.length} важных новостей
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  {todayNews.map((n, i) => (
+                    <div key={i} className="flex items-start gap-2 text-xs border-l-2 border-red-500 pl-2 py-0.5">
+                      <span className="font-mono text-muted-foreground whitespace-nowrap flex-shrink-0">{n.time}</span>
+                      <span className="font-display text-foreground leading-snug">{n.title}</span>
                     </div>
-                  );
-                })}
-              </div>
-            </Card>
-
-            <Card className="p-4 bg-card border-card-border sm:col-span-2 rounded-2xl">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <TrendingUp className="w-5 h-5 text-primary" />
-                  <div>
-                    <div className="font-display text-xs uppercase tracking-wider text-muted-foreground">Прогресс дня</div>
-                    <div className="font-display text-2xl font-bold text-foreground">{completedToday}/{totalToday}</div>
-                  </div>
+                  ))}
                 </div>
-                <div className="text-right">
-                  <div className="text-xs text-muted-foreground">XP сегодня</div>
-                  <div className="font-mono text-xl font-bold text-primary">
-                    +{todayTasks.filter(t => t.completed).reduce((s, t) => s + t.xp, 0)}
-                  </div>
-                </div>
-              </div>
-              <div className="relative w-full h-3 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary rounded-full transition-all duration-700 relative xp-bar-shine"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
+              </Card>
+            )}
 
-              {weekGoals.length > 0 && (
-                <div className="mt-4 space-y-3 pt-3 border-t">
-                  <div className="text-xs font-display text-muted-foreground uppercase tracking-wider">Цели недели</div>
-                  {weekGoals.slice(0, 2).map(goal => {
-                    const progress = getGoalProgress(goal, state);
+            {todayNews.length === 0 && (
+              <Card className="p-3 bg-card border-card-border rounded-2xl">
+                <div className="flex items-center gap-2">
+                  <Newspaper className="w-4 h-4 text-muted-foreground" />
+                  <span className="font-display text-xs text-muted-foreground">
+                    {newsData ? "Важных новостей нет" : "Открой Новости → Обновить"}
+                  </span>
+                </div>
+              </Card>
+            )}
+          </div>
+
+          {/* ── RIGHT: Collapsible blocks ── */}
+          <div className="flex-1 flex flex-col gap-3">
+
+            {/* 1. Задачи недели */}
+            <CollapsibleBlock
+              title="Задачи недели"
+              icon={<Target className="w-4 h-4 text-primary" />}
+              badge={weekGoals.length > 0 && <Badge variant="secondary" className="font-mono text-[10px] h-4 px-1.5 rounded-full">{weekGoals.length}</Badge>}
+            >
+              {weekGoals.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-4">Нет активных целей на неделю. Создай в разделе Цели.</p>
+              ) : (
+                <div className="space-y-2">
+                  {weekGoals.map(goal => {
+                    const prog = getGoalProgress(goal, state);
                     return (
-                      <div key={goal.id} className="space-y-1">
-                        <div className="flex justify-between text-xs font-display">
-                          <span className="text-foreground truncate max-w-[200px]">{goal.title}</span>
-                          <span className="text-muted-foreground">{progress.completed}/{progress.total}</span>
+                      <div key={goal.id} className="space-y-1.5">
+                        <div className="flex justify-between items-center">
+                          <span className="font-display text-sm text-foreground truncate max-w-[70%]">{goal.title}</span>
+                          <span className="font-mono text-xs text-muted-foreground">{prog.completed}/{prog.total}</span>
                         </div>
-                        <Progress value={progress.percent} className="h-1.5" />
+                        <Progress value={prog.percent} className="h-1.5" />
                       </div>
                     );
                   })}
                 </div>
               )}
+            </CollapsibleBlock>
 
-              <div className="mt-3 flex gap-3 text-xs text-muted-foreground font-mono">
-                <span>Стрик: <span className="text-orange-400 font-bold">{state.streak.currentStreak} дн.</span></span>
-                <span>Рекорд: <span className="text-yellow-400 font-bold">{state.streak.longestStreak} дн.</span></span>
-              </div>
-            </Card>
-          </div>
-
-          <div className="flex flex-col gap-4">
-            <Card className="p-4 bg-card border-card-border w-full flex-1 rounded-3xl">
-              <div className="flex flex-col items-center gap-2">
-                <div className="text-xs font-display text-muted-foreground uppercase tracking-widest">{charState.label}</div>
-                <div className="w-36 h-44 character-container overflow-visible flex items-center justify-center">
-                  <CharacterEmoji state={charState.state} />
+            {/* 2. Прогресс недели */}
+            <CollapsibleBlock
+              title="Прогресс недели"
+              icon={<TrendingUp className="w-4 h-4 text-primary" />}
+            >
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-display text-sm text-muted-foreground">
+                    {weekGoals.filter(g => getGoalProgress(g, state).percent >= 100).length}/{weekGoals.length} целей выполнено
+                  </span>
+                  <span className="font-mono text-sm font-bold text-primary">{Math.round(weekProgress)}%</span>
                 </div>
-                <div className="font-display text-sm text-muted-foreground">Уровень {level}</div>
-                <div className="w-full space-y-1">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground font-mono">XP</span>
-                    <span className="text-primary font-mono">{xpInLevel}/100</span>
-                  </div>
-                  <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-                    <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${xpInLevel}%` }} />
-                  </div>
-                </div>
-              </div>
-            </Card>
+                <Progress value={weekProgress} className="h-2.5" />
 
-            <Card className="p-4 bg-card border-card-border w-full rounded-2xl">
-              <div className="flex items-center gap-2 mb-3">
-                <Newspaper className="w-4 h-4 text-primary" />
-                <div className="font-display text-xs font-bold uppercase tracking-wider">Новости сегодня</div>
-              </div>
-              <div className="space-y-2">
-                {todayNews.length > 0 ? (
-                  todayNews.map((news, i) => (
-                    <div key={i} className="flex items-start gap-2 text-xs border-l-2 border-red-500 pl-2 py-1">
-                      <div className="font-mono text-muted-foreground whitespace-nowrap">{news.time}</div>
-                      <div className="flex-1 font-display font-medium leading-tight">{news.title}</div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-xs text-muted-foreground italic">Открой раздел Новости и нажми «Обновить»</div>
+                {monthGoals.length > 0 && (
+                  <div className="pt-2 space-y-2 border-t border-card-border">
+                    <div className="text-xs font-display text-muted-foreground uppercase tracking-wider">Цели месяца</div>
+                    {monthGoals.slice(0, 3).map(g => {
+                      const p = getGoalProgress(g, state);
+                      return (
+                        <div key={g.id} className="space-y-1">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-foreground font-display truncate max-w-[70%]">{g.title}</span>
+                            <span className="text-muted-foreground font-mono">{Math.round(p.percent)}%</span>
+                          </div>
+                          <Progress value={p.percent} className="h-1" />
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
-            </Card>
-          </div>
-        </div>
+            </CollapsibleBlock>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <Card className="p-4 bg-card border-card-border rounded-2xl">
-            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-              <div className="font-display text-base font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
-                <Zap className="w-4 h-4 text-primary" />
-                Задачи на сегодня
+            {/* 3. Прогресс дня */}
+            <CollapsibleBlock
+              title="Прогресс дня"
+              icon={<Zap className="w-4 h-4 text-primary" />}
+              badge={
+                <span className="font-mono text-xs text-primary font-bold ml-1">
+                  {completedToday}/{totalToday}
+                </span>
+              }
+            >
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground font-display">Задач выполнено сегодня</span>
+                  <span className="font-mono text-sm font-bold text-primary">+{dayXP} XP</span>
+                </div>
+                <div className="relative w-full h-3 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary rounded-full transition-all duration-700 xp-bar-shine"
+                    style={{ width: `${dayProgress}%` }}
+                  />
+                </div>
+                <div className="flex gap-4 text-xs text-muted-foreground font-mono">
+                  <span>Стрик: <span className="text-orange-400 font-bold">{state.streak.currentStreak} дн.</span></span>
+                  <span>Рекорд: <span className="text-yellow-400 font-bold">{state.streak.longestStreak} дн.</span></span>
+                </div>
               </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                {!isRoutineLoaded && (
+            </CollapsibleBlock>
+
+            {/* 4. Задачи дня */}
+            <CollapsibleBlock
+              title="Задачи на сегодня"
+              icon={<Clock className="w-4 h-4 text-primary" />}
+              badge={totalToday > 0 && <Badge variant="secondary" className="font-mono text-[10px] h-4 px-1.5 rounded-full">{completedToday}/{totalToday}</Badge>}
+            >
+              <div className="space-y-2 mb-3">
+                <div className="flex items-center gap-2 flex-wrap">
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={handleLoadRoutine}
+                    onClick={() => { actions.loadRoutineForToday(); toast({ title: "Рутина синхронизирована" }); }}
                     data-testid="button-load-routine"
-                    className="gap-1 h-8 rounded-full"
+                    className="gap-1 h-7 rounded-full text-xs"
                   >
                     <RefreshCw className="w-3 h-3" />
-                    Загрузить рутину
+                    Синхр. рутину
                   </Button>
-                )}
-                {todayTasks.length > 0 && (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button size="sm" variant="outline" data-testid="button-clear-tasks" className="gap-1 text-destructive h-8 rounded-full">
-                        <Trash2 className="w-3 h-3" />
-                        Очистить
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent className="rounded-2xl">
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Очистить список задач?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Все задачи на сегодня будут удалены. Это действие нельзя отменить.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel className="rounded-full">Отмена</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleClearTasks} className="bg-destructive text-destructive-foreground rounded-full">
+                  {todayTasks.length > 0 && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button size="sm" variant="outline" className="gap-1 text-destructive h-7 rounded-full text-xs">
+                          <Trash2 className="w-3 h-3" />
                           Очистить
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                )}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="rounded-2xl">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Очистить задачи?</AlertDialogTitle>
+                          <AlertDialogDescription>Все задачи на сегодня будут удалены.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel className="rounded-full">Отмена</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleClearTasks} className="bg-destructive text-destructive-foreground rounded-full">Очистить</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+                </div>
               </div>
-            </div>
 
-            {todayTasks.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Target className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                <p className="font-display text-sm">Список задач пуст</p>
-                <p className="text-xs mt-1">Загрузи рутину или добавь задачи на вкладке Задачи</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {todayTasks.map((task) => (
-                  <div
-                    key={task.id}
-                    className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer hover-elevate ${
-                      task.completed
-                        ? "bg-muted/50 border-border opacity-60"
-                        : "bg-card border-card-border"
-                    }`}
-                    onClick={() => handleToggle(task.id)}
-                    data-testid={`task-item-${task.id}`}
-                  >
-                    <button className="flex-shrink-0 transition-transform" data-testid={`task-toggle-${task.id}`}>
-                      {task.completed ? (
-                        <CheckCircle className="w-5 h-5 text-primary animate-check-bounce" />
-                      ) : (
-                        <Circle className="w-5 h-5 text-muted-foreground" />
-                      )}
-                    </button>
-
-                    <div className="flex-1 min-w-0">
-                      <div className={`font-display text-sm ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
-                        {task.name}
+              {todayTasks.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Target className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                  <p className="font-display text-sm">Список задач пуст</p>
+                  <p className="text-xs mt-1 opacity-70">Нажми «Синхр. рутину» или добавь задачи</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {todayTasks.map(task => (
+                    <div
+                      key={task.id}
+                      className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer hover-elevate ${
+                        task.completed ? "bg-muted/50 border-border opacity-60" : "bg-card border-card-border"
+                      }`}
+                      onClick={() => handleToggle(task.id)}
+                      data-testid={`task-item-${task.id}`}
+                    >
+                      <button className="flex-shrink-0" data-testid={`task-toggle-${task.id}`}>
+                        {task.completed
+                          ? <CheckCircle className="w-5 h-5 text-primary" />
+                          : <Circle className="w-5 h-5 text-muted-foreground" />}
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <div className={`font-display text-sm ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                          {task.name}
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          <span className={`text-xs ${LIFE_AREA_COLORS[task.category]}`}>{task.category}</span>
+                          {task.type === "routine" && <Badge variant="secondary" className="text-xs py-0 h-4 rounded-full">Рутина</Badge>}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        <span className={`text-xs ${LIFE_AREA_COLORS[task.category]}`}>{task.category}</span>
-                        {task.type === "routine" && (
-                          <Badge variant="secondary" className="text-xs py-0 h-4 rounded-full">Рутина</Badge>
-                        )}
-                        {task.difficulty && (
-                          <Badge variant="outline" className={`text-xs py-0 h-4 rounded-full ${
-                            task.difficulty === "high" ? "border-red-500/50 text-red-400" :
-                            task.difficulty === "medium" ? "border-yellow-500/50 text-yellow-400" :
-                            "border-green-500/50 text-green-400"
-                          }`}>
-                            {task.difficulty === "low" ? "Лёгкая" : task.difficulty === "medium" ? "Средняя" : "Сложная"}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className={`font-mono text-xs font-bold ${task.completed ? "text-muted-foreground" : "text-primary"}`}>
+                      <span className={`font-mono text-xs font-bold flex-shrink-0 ${task.completed ? "text-muted-foreground" : "text-primary"}`}>
                         +{task.xp} XP
                       </span>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
-
-          <Card className="p-4 bg-card border-card-border rounded-2xl flex flex-col gap-3">
-            <div className="flex items-center gap-2">
-              <FileText className="w-4 h-4 text-primary" />
-              <div className="font-display text-base font-bold uppercase tracking-wider text-foreground">Заметки дня</div>
-              {todayNotes.length > 0 && (
-                <Badge variant="secondary" className="ml-auto font-mono text-xs rounded-full">{todayNotes.length}</Badge>
+                  ))}
+                </div>
               )}
-            </div>
+            </CollapsibleBlock>
+          </div>
+        </div>
 
+        {/* ── Notes ── */}
+        <Card className="p-4 bg-card border-card-border rounded-2xl flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <FileText className="w-4 h-4 text-primary" />
+            <div className="font-display text-base font-bold uppercase tracking-wider text-foreground">Заметки дня</div>
             {todayNotes.length > 0 && (
-              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                {todayNotes.map((note) => {
-                  const timeLabel = new Date(note.createdAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-                  const isEditing = editingNoteId === note.id;
-                  return (
-                    <div key={note.id} className="rounded-xl border border-card-border bg-muted/20 p-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono text-xs text-muted-foreground">{timeLabel}</span>
-                        {!isEditing && (
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => handleStartEdit(note.id, note.content)}
-                              className="p-1 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
-                              data-testid={`button-edit-note-${note.id}`}
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                            </button>
-                            <button
-                              onClick={() => actions.deleteDayNote(note.id)}
-                              className="p-1 rounded-md hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors"
-                              data-testid={`button-delete-note-${note.id}`}
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                      {isEditing ? (
-                        <div className="space-y-2">
-                          <Textarea
-                            value={editingText}
-                            onChange={(e) => setEditingText(e.target.value)}
-                            className="min-h-[80px] resize-none text-sm border-primary/30 focus-visible:ring-primary bg-muted/30 rounded-lg"
-                            autoFocus
-                            data-testid="input-edit-note"
-                          />
-                          <div className="flex gap-2">
-                            <Button size="sm" onClick={handleSaveEdit} className="flex-1 h-7 text-xs rounded-full font-display">Сохранить</Button>
-                            <Button size="sm" variant="outline" onClick={handleCancelEdit} className="h-7 text-xs rounded-full">Отмена</Button>
-                          </div>
+              <Badge variant="secondary" className="ml-auto font-mono text-xs rounded-full">{todayNotes.length}</Badge>
+            )}
+          </div>
+
+          {todayNotes.length > 0 && (
+            <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+              {todayNotes.map(note => {
+                const timeLabel = new Date(note.createdAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+                const isEditing = editingNoteId === note.id;
+                return (
+                  <div key={note.id} className="rounded-xl border border-card-border bg-muted/20 p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs text-muted-foreground">{timeLabel}</span>
+                      {!isEditing && (
+                        <div className="flex gap-1">
+                          <button onClick={() => { setEditingNoteId(note.id); setEditingText(note.content); }} className="p-1 rounded-md text-muted-foreground hover:text-primary transition-colors" data-testid={`button-edit-note-${note.id}`}>
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                          </button>
+                          <button onClick={() => actions.deleteDayNote(note.id)} className="p-1 rounded-md text-muted-foreground hover:text-red-400 transition-colors" data-testid={`button-delete-note-${note.id}`}>
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                          </button>
                         </div>
-                      ) : (
-                        <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{note.content}</p>
                       )}
                     </div>
-                  );
-                })}
-              </div>
-            )}
-
-            <div className="flex flex-col gap-2">
-              <Textarea
-                placeholder="Новая заметка дня..."
-                className="min-h-[80px] resize-none border-card-border focus-visible:ring-primary bg-muted/30 rounded-xl text-sm"
-                value={newNoteText}
-                onChange={(e) => setNewNoteText(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleAddNote(); }}
-                data-testid="input-new-note"
-              />
-              <Button
-                onClick={handleAddNote}
-                disabled={!newNoteText.trim()}
-                className="w-full font-display uppercase tracking-widest text-xs h-9 rounded-full"
-                data-testid="button-add-note"
-              >
-                + Добавить заметку
-              </Button>
+                    {isEditing ? (
+                      <div className="space-y-2">
+                        <Textarea value={editingText} onChange={e => setEditingText(e.target.value)} className="min-h-[70px] resize-none text-sm rounded-lg" autoFocus data-testid="input-edit-note" />
+                        <div className="flex gap-2">
+                          <Button size="sm" onClick={handleSaveEdit} className="flex-1 h-7 text-xs rounded-full font-display">Сохранить</Button>
+                          <Button size="sm" variant="outline" onClick={() => { setEditingNoteId(null); setEditingText(""); }} className="h-7 text-xs rounded-full">Отмена</Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{note.content}</p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          </Card>
-        </div>
+          )}
+
+          <div className="flex flex-col gap-2">
+            <Textarea
+              placeholder="Новая заметка дня..."
+              className="min-h-[70px] resize-none border-card-border focus-visible:ring-primary bg-muted/30 rounded-xl text-sm"
+              value={newNoteText}
+              onChange={e => setNewNoteText(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleAddNote(); }}
+              data-testid="input-new-note"
+            />
+            <Button onClick={handleAddNote} disabled={!newNoteText.trim()} className="w-full font-display uppercase tracking-widest text-xs h-9 rounded-full" data-testid="button-add-note">
+              + Добавить заметку
+            </Button>
+          </div>
+        </Card>
       </div>
     </div>
   );
