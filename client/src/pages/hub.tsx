@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 import { useStore, getBerlinTime, getMarketSession, getCharacterState, getTodayDate, LIFE_AREA_COLORS, getGoalProgress } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -78,9 +78,44 @@ function XPNotification({ xp, visible, onHide }: { xp: number; visible: boolean;
   );
 }
 
+// ─── Self-contained clock (only THIS re-renders every second) ─────────────────
+
+function ClockWidget() {
+  const [berlinTime, setBerlinTime] = useState(getBerlinTime());
+  const [session, setSession] = useState(getMarketSession());
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      const t = getBerlinTime();
+      setBerlinTime(t);
+      setSession(getMarketSession());
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const timeStr = berlinTime.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const dateStr = berlinTime.toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
+
+  return (
+    <>
+      <div className="text-center">
+        <div className="font-mono text-2xl font-bold text-foreground tracking-tight">{timeStr}</div>
+        <div className="text-muted-foreground text-xs capitalize mt-0.5">{dateStr}</div>
+      </div>
+      <div className="w-full flex items-center justify-between rounded-xl px-3 py-2 bg-muted/20 border border-card-border">
+        <div className="flex items-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${session.active ? "bg-green-500 animate-pulse" : "bg-muted-foreground"}`} />
+          <span className={`font-display text-xs font-semibold ${session.color}`}>{session.name}</span>
+        </div>
+        <span className="text-xs text-muted-foreground font-mono">UTC+1</span>
+      </div>
+    </>
+  );
+}
+
 // ─── Collapsible block ────────────────────────────────────────────────────────
 
-function CollapsibleBlock({
+const CollapsibleBlock = memo(function CollapsibleBlock({
   title, icon, children, defaultOpen = true, badge,
 }: {
   title: string;
@@ -117,13 +152,12 @@ function CollapsibleBlock({
       </div>
     </Card>
   );
-}
+});
 
 // ─── Main hub ─────────────────────────────────────────────────────────────────
 
 export default function HubPage() {
   const { state, actions, todayTasks, completedToday, totalToday, todayNotes } = useStore();
-  const [berlinTime, setBerlinTime] = useState(getBerlinTime());
   const [xpNotif, setXpNotif] = useState<{ xp: number; visible: boolean }>({ xp: 0, visible: false });
   const [newNoteText, setNewNoteText] = useState("");
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -143,11 +177,6 @@ export default function HubPage() {
   const todayNews = newsData?.items?.filter(n => n.day === "today") || [];
 
   useEffect(() => {
-    const id = setInterval(() => setBerlinTime(getBerlinTime()), 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  useEffect(() => {
     if (completedToday > prevCompleted.current) {
       const last = todayTasks.filter(t => t.completed).at(-1);
       if (last) setXpNotif({ xp: last.xp, visible: true });
@@ -156,10 +185,6 @@ export default function HubPage() {
   }, [completedToday, todayTasks]);
 
   const charState = getCharacterState();
-  const session = getMarketSession();
-
-  const timeStr = berlinTime.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  const dateStr = berlinTime.toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
 
   const dayProgress = totalToday > 0 ? (completedToday / totalToday) * 100 : 0;
   const dayXP = todayTasks.filter(t => t.completed).reduce((s, t) => s + t.xp, 0);
@@ -210,20 +235,8 @@ export default function HubPage() {
                 {charState.label}
               </div>
 
-              {/* Clock */}
-              <div className="text-center">
-                <div className="font-mono text-2xl font-bold text-foreground tracking-tight">{timeStr}</div>
-                <div className="text-muted-foreground text-xs capitalize mt-0.5">{dateStr}</div>
-              </div>
-
-              {/* Current session only */}
-              <div className="w-full flex items-center justify-between rounded-xl px-3 py-2 bg-muted/20 border border-card-border">
-                <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${session.active ? "bg-green-500 animate-pulse" : "bg-muted-foreground"}`} />
-                  <span className={`font-display text-xs font-semibold ${session.color}`}>{session.name}</span>
-                </div>
-                <span className="text-xs text-muted-foreground font-mono">UTC+1</span>
-              </div>
+              {/* Clock + session (isolated, re-renders only itself every second) */}
+              <ClockWidget />
 
               {/* Level + XP */}
               <div className="w-full space-y-1.5">
