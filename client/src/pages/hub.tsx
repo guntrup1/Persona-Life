@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, memo } from "react";
-import { useStore, getBerlinTime, getMarketSession, getCharacterState, getTodayDate, LIFE_AREA_COLORS, getGoalProgress } from "@/lib/store";
+import { useStore, getBerlinTime, getMarketSession, getCharacterState, getTodayDate, LIFE_AREA_COLORS, getGoalProgress, syncFromServer } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -63,7 +63,7 @@ function XPNotification({ xp, visible, onHide }: { xp: number; visible: boolean;
   );
 }
 
-// ─── Self-contained clock (only THIS re-renders every second) ─────────────────
+// ─── Self-contained clock ─────────────────────────────────────────────────────
 
 function ClockWidget() {
   const [berlinTime, setBerlinTime] = useState(getBerlinTime());
@@ -71,8 +71,7 @@ function ClockWidget() {
 
   useEffect(() => {
     const id = setInterval(() => {
-      const t = getBerlinTime();
-      setBerlinTime(t);
+      setBerlinTime(getBerlinTime());
       setSession(getMarketSession());
     }, 1000);
     return () => clearInterval(id);
@@ -147,6 +146,8 @@ export default function HubPage() {
   const [newNoteText, setNewNoteText] = useState("");
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const { toast } = useToast();
   const prevCompleted = useRef(completedToday);
 
@@ -161,6 +162,17 @@ export default function HubPage() {
   });
   const todayNews = newsData?.items?.filter(n => n.day === "today") || [];
 
+  // Real-time polling every 30 seconds
+  useEffect(() => {
+    const poll = async () => {
+      await syncFromServer();
+      setLastSynced(new Date());
+    };
+    poll();
+    const id = setInterval(poll, 30000);
+    return () => clearInterval(id);
+  }, []);
+
   useEffect(() => {
     if (completedToday > prevCompleted.current) {
       const last = todayTasks.filter(t => t.completed).at(-1);
@@ -168,6 +180,14 @@ export default function HubPage() {
     }
     prevCompleted.current = completedToday;
   }, [completedToday, todayTasks]);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    const ok = await syncFromServer();
+    setSyncing(false);
+    setLastSynced(new Date());
+    toast({ title: ok ? "Данные синхронизированы" : "Нет соединения" });
+  };
 
   const charState = getCharacterState();
 
@@ -207,10 +227,14 @@ export default function HubPage() {
       <XPNotification xp={xpNotif.xp} visible={xpNotif.visible} onHide={() => setXpNotif(p => ({ ...p, visible: false }))} />
 
       <div className="max-w-7xl mx-auto p-4 space-y-4">
-        <div className="flex flex-col lg:flex-row gap-4">
 
-          {/* ── LEFT: Character panel ── */}
+        {/* ── Main 2-column grid ── */}
+        <div className="flex flex-col lg:flex-row gap-4 items-start">
+
+          {/* ═══ LEFT COLUMN ═══ */}
           <div className="lg:w-72 flex flex-col gap-3 flex-shrink-0">
+
+            {/* Character panel */}
             <Card className="p-4 bg-card border-card-border rounded-3xl flex flex-col items-center gap-3">
               <div className="w-32 h-36 overflow-visible flex items-center justify-center">
                 <CharacterEmoji state={charState.state} />
@@ -220,7 +244,6 @@ export default function HubPage() {
                 {charState.label}
               </div>
 
-              {/* Clock + session (isolated, re-renders only itself every second) */}
               <ClockWidget />
 
               {/* Level + XP */}
@@ -244,6 +267,17 @@ export default function HubPage() {
                 </span>
                 <span className="text-muted-foreground">Рекорд: <span className="text-yellow-400 font-bold">{state.streak.longestStreak} дн.</span></span>
               </div>
+
+              {/* Sync button */}
+              <button
+                onClick={handleSync}
+                disabled={syncing}
+                data-testid="button-sync"
+                className="w-full flex items-center justify-center gap-2 py-2 rounded-xl border border-card-border bg-muted/20 hover:bg-muted/40 transition-colors text-xs text-muted-foreground font-display"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin text-primary" : "text-muted-foreground"}`} />
+                {syncing ? "Синхронизация..." : lastSynced ? `Синхр. ${lastSynced.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}` : "Синхронизировать"}
+              </button>
             </Card>
 
             {/* News alert */}
@@ -276,19 +310,15 @@ export default function HubPage() {
                 </div>
               </Card>
             )}
-          </div>
 
-          {/* ── RIGHT: Collapsible blocks ── */}
-          <div className="flex-1 flex flex-col gap-3">
-
-            {/* 1. Задачи недели */}
+            {/* ── Задачи недели (under emoji) ── */}
             <CollapsibleBlock
               title="Задачи недели"
               icon={<Target className="w-4 h-4 text-primary" />}
               badge={weekGoals.length > 0 && <Badge variant="secondary" className="font-mono text-[10px] h-4 px-1.5 rounded-full">{weekGoals.length}</Badge>}
             >
               {weekGoals.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-4">Нет активных целей на неделю. Создай в разделе Цели.</p>
+                <p className="text-xs text-muted-foreground text-center py-4">Нет активных целей. Создай в разделе Цели.</p>
               ) : (
                 <div className="space-y-2">
                   {weekGoals.map(goal => {
@@ -297,7 +327,7 @@ export default function HubPage() {
                       <div key={goal.id} className="space-y-1.5">
                         <div className="flex justify-between items-center">
                           <span className="font-display text-sm text-foreground truncate max-w-[70%]">{goal.title}</span>
-                          <span className="font-mono text-xs text-muted-foreground">{prog.completed}/{prog.total}</span>
+                          <span className="font-mono text-xs text-muted-foreground">{prog.completed}/{prog.total} XP</span>
                         </div>
                         <Progress value={prog.percent} className="h-1.5" />
                       </div>
@@ -307,7 +337,7 @@ export default function HubPage() {
               )}
             </CollapsibleBlock>
 
-            {/* 2. Прогресс недели */}
+            {/* ── Прогресс недели (under emoji) ── */}
             <CollapsibleBlock
               title="Прогресс недели"
               icon={<TrendingUp className="w-4 h-4 text-primary" />}
@@ -340,36 +370,37 @@ export default function HubPage() {
                 )}
               </div>
             </CollapsibleBlock>
+          </div>
 
-            {/* 3. Прогресс дня */}
-            <CollapsibleBlock
-              title="Прогресс дня"
-              icon={<Zap className="w-4 h-4 text-primary" />}
-              badge={
-                <span className="font-mono text-xs text-primary font-bold ml-1">
-                  {completedToday}/{totalToday}
-                </span>
-              }
-            >
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground font-display">Задач выполнено сегодня</span>
-                  <span className="font-mono text-sm font-bold text-primary">+{dayXP} XP</span>
+          {/* ═══ RIGHT COLUMN: Daily progress + tasks ═══ */}
+          <div className="flex-1 flex flex-col gap-3 min-w-0">
+
+            {/* Прогресс дня */}
+            <Card className="p-4 bg-card border-card-border rounded-2xl">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-primary" />
+                  <span className="font-display text-sm font-bold uppercase tracking-wider text-foreground">Прогресс дня</span>
+                  <span className="font-mono text-xs text-primary font-bold">{completedToday}/{totalToday}</span>
                 </div>
-                <div className="relative w-full h-3 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-primary rounded-full transition-all duration-700"
-                    style={{ width: `${dayProgress}%` }}
-                  />
-                </div>
-                <div className="flex gap-4 text-xs text-muted-foreground font-mono">
-                  <span>Стрик: <span className="text-orange-400 font-bold">{state.streak.currentStreak} дн.</span></span>
-                  <span>Рекорд: <span className="text-yellow-400 font-bold">{state.streak.longestStreak} дн.</span></span>
-                </div>
+                <span className="font-mono text-sm font-bold text-primary">+{dayXP} XP</span>
               </div>
-            </CollapsibleBlock>
+              <div className="relative w-full h-3 bg-muted rounded-full overflow-hidden mb-3">
+                <div
+                  className="h-full bg-primary rounded-full transition-all duration-700"
+                  style={{ width: `${dayProgress}%` }}
+                />
+              </div>
+              <div className="flex gap-4 text-xs text-muted-foreground font-mono">
+                <span className="flex items-center gap-1">
+                  <Flame className="w-3 h-3 text-orange-400" />
+                  Стрик: <span className="text-orange-400 font-bold ml-1">{state.streak.currentStreak} дн.</span>
+                </span>
+                <span>Рекорд: <span className="text-yellow-400 font-bold">{state.streak.longestStreak} дн.</span></span>
+              </div>
+            </Card>
 
-            {/* 4. Задачи дня */}
+            {/* Задачи на сегодня */}
             <CollapsibleBlock
               title="Задачи на сегодня"
               icon={<Clock className="w-4 h-4 text-primary" />}
@@ -385,7 +416,7 @@ export default function HubPage() {
                     className="gap-1 h-7 rounded-full text-xs"
                   >
                     <RefreshCw className="w-3 h-3" />
-                    Синхр. рутину
+                    Загрузить рутину
                   </Button>
                   {todayTasks.length > 0 && (
                     <AlertDialog>
@@ -414,7 +445,7 @@ export default function HubPage() {
                 <div className="text-center py-8 text-muted-foreground">
                   <Target className="w-8 h-8 mx-auto mb-2 opacity-30" />
                   <p className="font-display text-sm">Список задач пуст</p>
-                  <p className="text-xs mt-1 opacity-70">Нажми «Синхр. рутину» или добавь задачи</p>
+                  <p className="text-xs mt-1 opacity-70">Нажми «Загрузить рутину» или добавь задачи</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -452,7 +483,7 @@ export default function HubPage() {
           </div>
         </div>
 
-        {/* ── Notes ── */}
+        {/* ── Notes (full width) ── */}
         <Card className="p-4 bg-card border-card-border rounded-2xl flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-primary" />

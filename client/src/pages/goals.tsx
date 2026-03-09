@@ -9,10 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { CheckCircle, Circle, Plus, Trash2, Target, ChevronRight, Trophy, Calendar, Zap, Edit2, Save, Weight } from "lucide-react";
+import { CheckCircle, Circle, Plus, Trash2, Target, ChevronRight, Trophy, Zap, Edit2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { Slider } from "@/components/ui/slider";
 
 function EditGoalDialog({ goal, onUpdate }: { goal: Goal; onUpdate: (id: string, g: any) => void }) {
   const { state } = useStore();
@@ -316,36 +315,28 @@ function GoalCard({ goal, goals, onToggle, onDelete, onAdd, onUpdate, setGoalTas
             <div className="mt-3 space-y-1.5">
               <div className="flex justify-between text-[10px] text-muted-foreground">
                 <span>Прогресс</span>
-                <span>{progress.percent}% ({progress.completed}/{progress.total} ед.)</span>
+                {goal.type === "week"
+                  ? <span>{progress.completed}/{progress.total} XP ({progress.percent}%)</span>
+                  : <span>{progress.percent}%</span>
+                }
               </div>
               <Progress value={progress.percent} className="h-1" />
             </div>
 
             {goal.type === "week" && allTasks.length > 0 && (
-              <div className="mt-4 pt-3 border-t border-border/50 space-y-3">
-                <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  <Weight className="w-3 h-3" />
-                  Веса задач
+              <div className="mt-3 pt-3 border-t border-border/50 space-y-1.5">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                  Связанные задачи
                 </div>
-                <div className="space-y-3">
+                <div className="space-y-1">
                   {allTasks.map(task => (
-                    <div key={task.id} className="space-y-1.5">
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className={`truncate mr-2 ${task.completed ? "text-muted-foreground line-through" : "text-foreground"}`}>
-                          {task.name}
-                        </span>
-                        <span className="font-mono font-bold text-primary shrink-0">
-                          w: {goal.taskWeights?.[task.id] ?? 1}
-                        </span>
-                      </div>
-                      <Slider
-                        value={[goal.taskWeights?.[task.id] ?? 1]}
-                        min={1}
-                        max={10}
-                        step={1}
-                        onValueChange={([val]) => setGoalTaskWeight(goal.id, task.id, val)}
-                        className="py-1"
-                      />
+                    <div key={task.id} className="flex items-center justify-between text-[11px]">
+                      <span className={`truncate mr-2 ${task.completed ? "text-muted-foreground line-through" : "text-foreground"}`}>
+                        {task.name}
+                      </span>
+                      <span className={`font-mono shrink-0 ${task.completed ? "text-primary" : "text-muted-foreground"}`}>
+                        {task.completed ? "✓ " : ""}{task.xp} XP
+                      </span>
                     </div>
                   ))}
                 </div>

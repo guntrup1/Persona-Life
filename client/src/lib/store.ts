@@ -306,8 +306,6 @@ export function xpForFocus(duration: number): number {
 
 export function getGoalProgress(goal: Goal, state: AppState): { completed: number; total: number; percent: number } {
   if (goal.type === "week") {
-    const weights = goal.taskWeights || {};
-
     const allLinkedTasks = state.todayTasks.filter(t => t.weekGoalId === goal.id || t.goalId === goal.id);
 
     const routineLinked = state.routineTemplates
@@ -320,20 +318,15 @@ export function getGoalProgress(goal: Goal, state: AppState): { completed: numbe
 
     const allTasks = [...allLinkedTasks, ...routineLinked.filter(rt => !allLinkedTasks.find(t => t.id === rt.id))];
 
-    if (allTasks.length === 0) return { completed: 0, total: 0, percent: 0 };
+    if (allTasks.length === 0) return { completed: 0, total: goal.xp, percent: 0 };
 
-    let totalWeight = 0;
-    let completedWeight = 0;
-    for (const t of allTasks) {
-      const w = weights[t.id] ?? 1;
-      totalWeight += w;
-      if (t.completed) completedWeight += w;
-    }
+    const totalGoalXP = goal.xp > 0 ? goal.xp : 1;
+    const completedXP = allTasks.filter(t => t.completed).reduce((sum, t) => sum + t.xp, 0);
 
     return {
-      completed: completedWeight,
-      total: totalWeight,
-      percent: totalWeight > 0 ? Math.round((completedWeight / totalWeight) * 100) : 0,
+      completed: completedXP,
+      total: totalGoalXP,
+      percent: Math.min(100, Math.round((completedXP / totalGoalXP) * 100)),
     };
   }
 
@@ -472,6 +465,21 @@ export function loadFromServerData(data: AppState) {
   globalState = { ...globalState, xp: recalcXP(globalState) };
   saveState(globalState);
   notify();
+}
+
+export async function syncFromServer(): Promise<boolean> {
+  try {
+    const res = await fetch("/api/user/data", { credentials: "include" });
+    if (!res.ok) return false;
+    const json = await res.json();
+    if (json?.data) {
+      loadFromServerData(json.data);
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
 }
 
 function mutate(fn: (s: AppState) => AppState) {
