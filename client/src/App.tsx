@@ -3,6 +3,8 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/app-sidebar";
 import NotFound from "@/pages/not-found";
 import HubPage from "@/pages/hub";
 import TasksPage from "@/pages/tasks";
@@ -20,9 +22,9 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  FileText, RefreshCw, AlertTriangle, Menu, X,
+  FileText, RefreshCw, AlertTriangle, Menu, X, Zap,
   LayoutDashboard, CheckSquare, Target, Timer,
-  BarChart3, Newspaper, CalendarDays, Zap, LogOut,
+  BarChart3, Newspaper, CalendarDays, LogOut,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -241,8 +243,7 @@ function MobileNav() {
 }
 
 function AppShell() {
-  const { user, loading, logout } = useAuth();
-  const { state } = useStore();
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (
@@ -259,74 +260,55 @@ function AppShell() {
     return <LoginPage />;
   }
 
-  const level = Math.floor(state.xp.totalXP / 100) + 1;
+  const sidebarStyle = {
+    "--sidebar-width": "13rem",
+    "--sidebar-width-icon": "3rem",
+  };
 
   return (
-    <div className="flex flex-col h-screen w-full overflow-hidden bg-background">
-      <header className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 border-b border-border flex-shrink-0 bg-background sticky top-0 z-50">
-        <div className="md:hidden">
-          <MobileNav />
+    <SidebarProvider style={sidebarStyle as React.CSSProperties}>
+      <div className="flex h-screen w-full overflow-hidden bg-background">
+        <div className="hidden md:block">
+          <AppSidebar />
         </div>
 
-        <div className="hidden md:flex items-center gap-2">
-          <div className="w-7 h-7 bg-primary rounded-md flex items-center justify-center flex-shrink-0">
-            <Zap className="w-3.5 h-3.5 text-primary-foreground" />
-          </div>
-          <span className="font-display text-xs text-muted-foreground tracking-widest uppercase truncate">
-            Life OS
-          </span>
-        </div>
-
-        <span className="md:hidden font-display text-xs text-muted-foreground tracking-widest uppercase truncate">
-          Life OS
-        </span>
-
-        <div className="hidden md:flex items-center gap-0.5 ml-3 overflow-x-auto scrollbar-hide flex-1 min-w-0">
-          <DesktopNav />
-        </div>
-
-        <div className="flex items-center gap-1 ml-auto">
-          <span className="hidden sm:inline-flex items-center gap-1 text-xs font-mono text-muted-foreground mr-1">
-            <Zap className="w-3 h-3 text-primary" />
-            <span className="text-primary font-bold">Ур.{level}</span>
-          </span>
-          <NewsIndicator />
-          <SyncButton />
-          <QuickNoteButton />
-          <button
-            onClick={logout}
-            className="hidden md:flex h-9 w-9 items-center justify-center rounded-lg hover:bg-muted/50 transition-colors flex-shrink-0"
-            title="Выйти"
-            data-testid="button-logout"
-          >
-            <LogOut className="w-[18px] h-[18px] text-muted-foreground" />
-          </button>
-        </div>
-      </header>
-
-      <main className="flex-1 overflow-auto" style={{ contain: "paint layout" }}>
-        <Router />
-      </main>
-    </div>
-  );
-}
-
-function DesktopNav() {
-  const [location] = useLocation();
-  return (
-    <>
-      {mobileNavItems.map(item => {
-        const isActive = location === item.url;
-        return (
-          <Link key={item.url} href={item.url} data-testid={`nav-${item.title.toLowerCase()}`}>
-            <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-display transition-colors ${isActive ? "bg-primary/10 text-primary font-semibold" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}>
-              <item.icon className="w-3.5 h-3.5" />
-              <span className="tracking-wide">{item.title}</span>
+        <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+          <header className="flex items-center gap-2 px-3 sm:px-4 py-2 border-b border-border flex-shrink-0 bg-background sticky top-0 z-50">
+            <div className="md:hidden">
+              <MobileNav />
             </div>
-          </Link>
-        );
-      })}
-    </>
+
+            <div className="hidden md:block">
+              <SidebarTrigger
+                data-testid="button-sidebar-toggle"
+                className="text-muted-foreground h-9 w-9 flex-shrink-0"
+              />
+            </div>
+
+            <Link href="/" data-testid="link-logo-home">
+              <div className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
+                <div className="w-7 h-7 bg-primary rounded-md flex items-center justify-center flex-shrink-0">
+                  <Zap className="w-3.5 h-3.5 text-primary-foreground" />
+                </div>
+                <span className="font-display text-xs text-muted-foreground tracking-widest uppercase truncate">
+                  Life OS
+                </span>
+              </div>
+            </Link>
+
+            <div className="flex items-center gap-1 ml-auto">
+              <NewsIndicator />
+              <SyncButton />
+              <QuickNoteButton />
+            </div>
+          </header>
+
+          <main className="flex-1 overflow-auto" style={{ contain: "paint layout" }}>
+            <Router />
+          </main>
+        </div>
+      </div>
+    </SidebarProvider>
   );
 }
 
