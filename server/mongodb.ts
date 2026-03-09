@@ -1,4 +1,5 @@
-import mongoose from "mongoose";
+import mongooseModule from "mongoose";
+const mongoose = (mongooseModule as any).default || mongooseModule;
 
 const MONGODB_URI: string = process.env.MONGODB_URI!;
 

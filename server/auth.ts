@@ -1,6 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import session from "express-session";
-import MongoStore from "connect-mongo";
+import ConnectMongo from "connect-mongo";
+const MongoStore = (ConnectMongo as any).default || ConnectMongo;
 import bcrypt from "bcryptjs";
 import { User, UserData } from "./mongodb";
 
