@@ -224,7 +224,11 @@ function saveState(state: AppState) {
 }
 
 export function getTodayDate(): string {
-  return new Date().toISOString().split("T")[0];
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 export function getBerlinTime(): Date {
@@ -374,7 +378,10 @@ function checkAndUpdateStreak(state: AppState): StreakData {
   if (!allDone) return state.streak;
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().split("T")[0];
+  const yy = yesterday.getFullYear();
+  const ym = String(yesterday.getMonth() + 1).padStart(2, "0");
+  const yd = String(yesterday.getDate()).padStart(2, "0");
+  const yesterdayStr = `${yy}-${ym}-${yd}`;
   let newStreak = state.streak.currentStreak;
   if (state.streak.lastCompletedDate === yesterdayStr) {
     newStreak = state.streak.currentStreak + 1;
@@ -510,6 +517,26 @@ function subscribeToStore(cb: () => void) {
 function getSnapshot() {
   return globalState;
 }
+
+let dayChangeTrackedDate = getTodayDate();
+let dayChangeInterval: ReturnType<typeof setInterval> | null = null;
+
+function startDayChangeChecker() {
+  if (dayChangeInterval) return;
+  dayChangeInterval = setInterval(() => {
+    const now = getTodayDate();
+    if (now !== dayChangeTrackedDate) {
+      dayChangeTrackedDate = now;
+      globalState = autoLoadRoutine(globalState);
+      globalState = { ...globalState, xp: recalcXP(globalState) };
+      saveState(globalState);
+      scheduleServerSync(globalState);
+      notify();
+    }
+  }, 30000);
+}
+
+startDayChangeChecker();
 
 export function useStore() {
   const state = useSyncExternalStore(subscribeToStore, getSnapshot, getSnapshot);
