@@ -130,27 +130,53 @@ function NewsIndicator() {
   });
 
   const todayHighNews = newsData?.items?.filter(n => n.day === "today" && n.impact === "High") || [];
+  const nextHighNews = newsData?.items?.filter(n => n.day !== "today" && n.impact === "High") || [];
+  const nextDateStr = newsData?.nextStr || "";
 
-  if (todayHighNews.length === 0) return null;
+  const formatNextDate = (dateStr: string) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr + "T00:00:00");
+    return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+  };
 
-  return (
-    <Link href="/news" data-testid="header-news-block">
-      <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-red-500/10 border border-red-500/20 hover:bg-red-500/15 transition-colors cursor-pointer">
-        <AlertTriangle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
-        <span className="font-display text-xs text-red-400 font-semibold whitespace-nowrap">
-          {todayHighNews.length} {todayHighNews.length === 1 ? "новость" : todayHighNews.length < 5 ? "новости" : "новостей"}
-        </span>
-        <div className="hidden sm:flex items-center gap-1.5 overflow-hidden">
-          {todayHighNews.slice(0, 2).map((n, i) => (
-            <span key={i} className="font-mono text-[10px] text-muted-foreground whitespace-nowrap truncate max-w-[120px]">
-              {n.time} {n.currency}
-            </span>
-          ))}
-          {todayHighNews.length > 2 && <span className="font-mono text-[10px] text-muted-foreground">+{todayHighNews.length - 2}</span>}
+  if (todayHighNews.length > 0) {
+    return (
+      <Link href="/news" data-testid="header-news-block">
+        <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-red-500/10 border border-red-500/20 hover:bg-red-500/15 transition-colors cursor-pointer">
+          <AlertTriangle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
+          <span className="font-display text-xs text-red-400 font-semibold whitespace-nowrap">
+            {todayHighNews.length} {todayHighNews.length === 1 ? "новость" : todayHighNews.length < 5 ? "новости" : "новостей"}
+          </span>
+          <div className="hidden sm:flex items-center gap-1.5 overflow-hidden">
+            {todayHighNews.slice(0, 2).map((n, i) => (
+              <span key={i} className="font-mono text-[10px] text-muted-foreground whitespace-nowrap truncate max-w-[120px]">
+                {n.time} {n.currency}
+              </span>
+            ))}
+            {todayHighNews.length > 2 && <span className="font-mono text-[10px] text-muted-foreground">+{todayHighNews.length - 2}</span>}
+          </div>
         </div>
-      </div>
-    </Link>
-  );
+      </Link>
+    );
+  }
+
+  if (nextHighNews.length > 0 && nextDateStr) {
+    return (
+      <Link href="/news" data-testid="header-news-block">
+        <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-muted/30 border border-border hover:bg-muted/50 transition-colors cursor-pointer">
+          <Newspaper className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+          <span className="font-display text-xs text-muted-foreground whitespace-nowrap">
+            Новости {formatNextDate(nextDateStr)}
+          </span>
+          <span className="hidden sm:inline font-mono text-[10px] text-muted-foreground">
+            {nextHighNews.length} шт.
+          </span>
+        </div>
+      </Link>
+    );
+  }
+
+  return null;
 }
 
 const mobileNavItems = [
