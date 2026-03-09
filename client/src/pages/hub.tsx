@@ -280,6 +280,42 @@ export default function HubPage() {
               </button>
             </Card>
 
+            {/* Важные новости */}
+            {todayNews.length > 0 && (
+              <Card className="p-3 bg-red-500/10 border-red-500/30 rounded-2xl">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 animate-pulse" />
+                  <span className="font-display text-xs font-bold text-foreground uppercase tracking-wider">
+                    {todayNews.length} важных новостей
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  {todayNews.map((n, i) => (
+                    <div key={i} className="flex items-start gap-2 text-xs border-l-2 border-red-500 pl-2 py-0.5">
+                      <span className="font-mono text-muted-foreground whitespace-nowrap flex-shrink-0">{n.time}</span>
+                      <span className="font-display text-foreground leading-snug">{n.title}</span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+            {!newsData && (
+              <Card className="p-3 bg-card border-card-border rounded-2xl">
+                <div className="flex items-center gap-2">
+                  <Newspaper className="w-4 h-4 text-muted-foreground" />
+                  <span className="font-display text-xs text-muted-foreground">Открой Новости → Обновить</span>
+                </div>
+              </Card>
+            )}
+            {newsData && todayNews.length === 0 && (
+              <Card className="p-3 bg-card border-card-border rounded-2xl">
+                <div className="flex items-center gap-2">
+                  <Newspaper className="w-4 h-4 text-muted-foreground" />
+                  <span className="font-display text-xs text-muted-foreground">Важных новостей нет</span>
+                </div>
+              </Card>
+            )}
+
             {/* ── Задачи недели (under emoji) ── */}
             <CollapsibleBlock
               title="Задачи недели"
@@ -368,42 +404,6 @@ export default function HubPage() {
                 <span>Рекорд: <span className="text-yellow-400 font-bold">{state.streak.longestStreak} дн.</span></span>
               </div>
             </Card>
-
-            {/* Важные новости */}
-            {todayNews.length > 0 && (
-              <Card className="p-3 bg-red-500/10 border-red-500/30 rounded-2xl">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 animate-pulse" />
-                  <span className="font-display text-xs font-bold text-foreground uppercase tracking-wider">
-                    {todayNews.length} важных новостей сегодня
-                  </span>
-                </div>
-                <div className="space-y-1">
-                  {todayNews.map((n, i) => (
-                    <div key={i} className="flex items-start gap-2 text-xs border-l-2 border-red-500 pl-2 py-0.5">
-                      <span className="font-mono text-muted-foreground whitespace-nowrap flex-shrink-0">{n.time}</span>
-                      <span className="font-display text-foreground leading-snug">{n.title}</span>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            )}
-            {!newsData && (
-              <Card className="p-3 bg-card border-card-border rounded-2xl">
-                <div className="flex items-center gap-2">
-                  <Newspaper className="w-4 h-4 text-muted-foreground" />
-                  <span className="font-display text-xs text-muted-foreground">Открой Новости → Обновить данные</span>
-                </div>
-              </Card>
-            )}
-            {newsData && todayNews.length === 0 && (
-              <Card className="p-3 bg-card border-card-border rounded-2xl">
-                <div className="flex items-center gap-2">
-                  <Newspaper className="w-4 h-4 text-muted-foreground" />
-                  <span className="font-display text-xs text-muted-foreground">Важных новостей сегодня нет</span>
-                </div>
-              </Card>
-            )}
 
             {/* Задачи на сегодня */}
             <CollapsibleBlock
