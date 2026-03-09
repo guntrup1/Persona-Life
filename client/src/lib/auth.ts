@@ -47,7 +47,16 @@ export function AuthProvider({ children, onLogin }: { children: ReactNode; onLog
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchMe().then(u => {
+    fetchMe().then(async (u) => {
+      if (u) {
+        try {
+          const res = await fetch("/api/user/data", { credentials: "include" });
+          if (res.ok) {
+            const json = await res.json();
+            if (json.data) onLogin(json.data);
+          }
+        } catch {}
+      }
       setUser(u);
       setLoading(false);
     });

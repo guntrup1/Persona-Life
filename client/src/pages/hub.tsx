@@ -18,49 +18,34 @@ import { useToast } from "@/hooks/use-toast";
 
 // ─── Character emoji ─────────────────────────────────────────────────────────
 
-function CharacterEmoji({ state }: { state: string }) {
-  const getEmoji = () => {
-    switch (state) {
-      case "sleeping": return "😴";
-      case "morning": return "🌅";
-      case "working": return "💪";
-      case "resting": return "☕";
-      case "evening": return "🌙";
-      default: return "😎";
-    }
-  };
+const CharacterEmoji = memo(function CharacterEmoji({ state }: { state: string }) {
+  const emoji =
+    state === "sleeping" ? "😴" :
+    state === "morning"  ? "🌅" :
+    state === "working"  ? "💪" :
+    state === "resting"  ? "☕" :
+    state === "evening"  ? "🌙" : "😎";
+
+  const animClass =
+    state === "sleeping" ? "char-anim-glow" :
+    state === "morning"  ? "char-anim-float" :
+    state === "working"  ? "char-anim-bounce" :
+    state === "resting"  ? "char-anim-sway" :
+    state === "evening"  ? "char-anim-glow" : "";
 
   return (
     <div className="relative flex items-center justify-center w-full h-full select-none">
-      <style>{`
-        @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-16px)} }
-        @keyframes pulse-glow { 0%,100%{filter:drop-shadow(0 0 10px rgba(255,255,255,.2));transform:scale(1)} 50%{filter:drop-shadow(0 0 25px rgba(255,255,255,.5));transform:scale(1.06)} }
-        @keyframes sway { 0%,100%{transform:rotate(-5deg)} 50%{transform:rotate(5deg)} }
-        @keyframes bounce-c { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-12px) scale(1.1)} }
-        @keyframes z-float { 0%{transform:translate(0,0);opacity:0} 20%{opacity:.8} 100%{transform:translate(20px,-60px);opacity:0} }
-        .anim-float{animation:float 3s ease-in-out infinite}
-        .anim-glow{animation:pulse-glow 2s ease-in-out infinite}
-        .anim-sway{animation:sway 4s ease-in-out infinite}
-        .anim-bounce{animation:bounce-c 1s ease-in-out infinite}
-        .zletter{position:absolute;font-family:'Oxanium',sans-serif;font-weight:bold;color:#8B0000;opacity:0;pointer-events:none}
-      `}</style>
-      <div className={`text-7xl flex items-center justify-center
-        ${state==="sleeping"?"anim-glow":""}
-        ${state==="morning"?"anim-float":""}
-        ${state==="working"?"anim-bounce":""}
-        ${state==="resting"?"anim-sway":""}
-        ${state==="evening"?"anim-glow":""}
-      `}>
-        {getEmoji()}
-        {state==="sleeping" && <>
-          <span className="zletter text-2xl" style={{animation:"z-float 3s infinite 0s",left:"60%",top:"20%"}}>Z</span>
-          <span className="zletter text-xl"  style={{animation:"z-float 3s infinite 1s",left:"70%",top:"10%"}}>Z</span>
-          <span className="zletter text-lg"  style={{animation:"z-float 3s infinite 2s",left:"80%",top:"0%"}}>Z</span>
+      <div className={`text-7xl flex items-center justify-center ${animClass}`}>
+        {emoji}
+        {state === "sleeping" && <>
+          <span className="char-zletter char-z1">Z</span>
+          <span className="char-zletter char-z2">Z</span>
+          <span className="char-zletter char-z3">Z</span>
         </>}
       </div>
     </div>
   );
-}
+});
 
 // ─── XP toast ────────────────────────────────────────────────────────────────
 

@@ -30,7 +30,7 @@ type NewsResponse = {
 
 const CURRENCY_STYLE: Record<string, { badge: string; dot: string }> = {
   EUR: { badge: "bg-emerald-500/15 border-emerald-500/40 text-emerald-400", dot: "bg-emerald-500" },
-  USD: { badge: "bg-blue-500/15 border-blue-500/40 text-blue-400", dot: "bg-blue-500" },
+  USD: { badge: "bg-red-500/15 border-red-500/40 text-red-400", dot: "bg-red-500" },
 };
 
 function msTillMidnightBerlin(): number {
