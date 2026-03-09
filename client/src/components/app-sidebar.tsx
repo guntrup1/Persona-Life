@@ -6,9 +6,10 @@ import {
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard, CheckSquare, Target, Timer,
-  BarChart3, FileText, Newspaper, CalendarDays, Zap,
+  BarChart3, FileText, Newspaper, CalendarDays, Zap, LogOut,
 } from "lucide-react";
 import { useStore, getBerlinTime, getMarketSession } from "@/lib/store";
+import { useAuth } from "@/lib/auth";
 import { useState, useEffect } from "react";
 
 const navItems = [
@@ -25,6 +26,7 @@ const navItems = [
 export function AppSidebar() {
   const [location] = useLocation();
   const { state } = useStore();
+  const { user, logout } = useAuth();
   const [now, setNow] = useState(getBerlinTime());
 
   useEffect(() => {
@@ -100,6 +102,22 @@ export function AppSidebar() {
             <div className="font-mono font-bold text-orange-400 truncate">{state.streak.currentStreak}д</div>
           </div>
         </div>
+
+        {user && (
+          <div className="flex items-center justify-between gap-1 pt-1 border-t border-sidebar-border overflow-hidden">
+            <span className="text-[10px] text-muted-foreground font-mono truncate flex-1" data-testid="text-user-email">
+              {user.email}
+            </span>
+            <button
+              onClick={logout}
+              className="flex-shrink-0 p-1 rounded-md text-muted-foreground hover:text-red-400 transition-colors"
+              title="Выйти"
+              data-testid="button-logout"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </SidebarFooter>
     </Sidebar>
   );

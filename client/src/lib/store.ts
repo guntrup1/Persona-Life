@@ -452,10 +452,33 @@ const listeners = new Set<() => void>();
 
 function notify() { listeners.forEach(l => l()); }
 
+let serverSyncTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleServerSync(state: AppState) {
+  if (serverSyncTimer) clearTimeout(serverSyncTimer);
+  serverSyncTimer = setTimeout(() => {
+    fetch("/api/user/data", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ data: state }),
+    }).catch(() => {});
+  }, 2500);
+}
+
+export function loadFromServerData(data: AppState) {
+  if (!data || typeof data !== "object") return;
+  globalState = autoLoadRoutine({ ...DEFAULT_STATE, ...data });
+  globalState = { ...globalState, xp: recalcXP(globalState) };
+  saveState(globalState);
+  notify();
+}
+
 function mutate(fn: (s: AppState) => AppState) {
   globalState = fn(globalState);
   globalState = { ...globalState, xp: recalcXP(globalState) };
   saveState(globalState);
+  scheduleServerSync(globalState);
   notify();
 }
 

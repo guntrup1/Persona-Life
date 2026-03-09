@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { registerAuthRoutes } from "./auth";
 
 interface NewsItem {
   title: string;
@@ -248,6 +249,8 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  registerAuthRoutes(app);
+
   app.get("/api/news", async (_req, res) => {
     try {
       const cache = await getNews();
