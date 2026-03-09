@@ -679,7 +679,13 @@ export function useStore() {
   };
 
   const todayDate = getTodayDate();
-  const todayTasks = state.todayTasks.filter(t => t.date === todayDate);
+  const todayTasks = state.todayTasks
+    .filter(t => t.date === todayDate)
+    .sort((a, b) => {
+      if (a.type === "routine" && b.type !== "routine") return -1;
+      if (a.type !== "routine" && b.type === "routine") return 1;
+      return 0;
+    });
   const completedToday = todayTasks.filter(t => t.completed).length;
   const totalToday = todayTasks.length;
   const isRoutineLoaded = state.routineLoadedDates.includes(todayDate);

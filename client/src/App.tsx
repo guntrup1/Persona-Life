@@ -16,8 +16,13 @@ import NewsPage from "@/pages/news";
 import CalendarPage from "@/pages/calendar-page";
 import LoginPage from "@/pages/login";
 import { AuthProvider, useAuth } from "@/lib/auth";
-import { loadFromServerData } from "@/lib/store";
-import { useCallback } from "react";
+import { loadFromServerData, useStore, getTodayDate } from "@/lib/store";
+import { useCallback, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { FileText } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 function Router() {
   return (
@@ -32,6 +37,50 @@ function Router() {
       <Route path="/calendar" component={CalendarPage} />
       <Route component={NotFound} />
     </Switch>
+  );
+}
+
+function QuickNoteButton() {
+  const { actions } = useStore();
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const { toast } = useToast();
+
+  const handleAdd = () => {
+    if (!text.trim()) return;
+    actions.addDayNote(getTodayDate(), text);
+    setText("");
+    setOpen(false);
+    toast({ title: "Заметка добавлена" });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 ml-auto flex-shrink-0" data-testid="button-quick-note">
+          <FileText className="w-4 h-4 text-muted-foreground" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="rounded-2xl">
+        <DialogHeader>
+          <DialogTitle className="font-display">Заметка дня</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 pt-2">
+          <Textarea
+            placeholder="Что хочешь записать?"
+            className="min-h-[100px] resize-none rounded-xl"
+            value={text}
+            onChange={e => setText(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleAdd(); }}
+            autoFocus
+            data-testid="input-quick-note"
+          />
+          <Button onClick={handleAdd} disabled={!text.trim()} className="w-full rounded-full font-display" data-testid="button-quick-note-submit">
+            Добавить заметку
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -72,6 +121,7 @@ function AppShell() {
             <span className="font-display text-xs text-muted-foreground tracking-widest uppercase truncate">
               Life Operating System
             </span>
+            <QuickNoteButton />
           </header>
           <main className="flex-1 overflow-auto" style={{ contain: "paint layout" }}>
             <Router />
