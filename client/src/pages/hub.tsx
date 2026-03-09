@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, memo } from "react";
 import { useStore, getBerlinTime, getMarketSession, getCharacterState, getTodayDate, LIFE_AREA_COLORS, getGoalProgress } from "@/lib/store";
-import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,7 +11,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   CheckCircle, Circle, Trash2, RefreshCw, Flame, Zap, Target, Clock,
-  FileText, TrendingUp, ChevronDown, Star, AlertTriangle,
+  FileText, TrendingUp, ChevronDown, Star,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -172,16 +171,6 @@ export default function HubPage() {
     ? weekGoals.reduce((sum, g) => sum + getGoalProgress(g, state).percent, 0) / weekGoals.length
     : 0;
 
-  const { data: newsData } = useQuery<{ items: { title: string; currency: string; impact: string; time: string; day: string }[]; todayStr: string; nextStr: string }>({
-    queryKey: ["/api/news"],
-    staleTime: Infinity,
-    select: (raw: unknown) => {
-      if (Array.isArray(raw)) return { items: raw as { title: string; currency: string; impact: string; time: string; day: string }[], todayStr: "", nextStr: "" };
-      return raw as { items: { title: string; currency: string; impact: string; time: string; day: string }[]; todayStr: string; nextStr: string };
-    },
-  });
-  const importantNews = newsData?.items?.filter(n => n.impact === "High") || [];
-
   const handleToggle = (id: string) => actions.toggleTask(id);
   const handleClearTasks = () => {
     actions.clearTodayTasks();
@@ -336,28 +325,6 @@ export default function HubPage() {
                 <span>Рекорд: <span className="text-yellow-400 font-bold">{state.streak.longestStreak} дн.</span></span>
               </div>
             </Card>
-
-            {importantNews.length > 0 && (
-              <Card className="p-4 bg-card border-card-border rounded-2xl" data-testid="hub-news-block">
-                <div className="flex items-center gap-2 mb-3">
-                  <AlertTriangle className="w-4 h-4 text-red-400" />
-                  <span className="font-display text-sm font-bold uppercase tracking-wider text-foreground">Важные новости</span>
-                  <Badge variant="destructive" className="font-mono text-[10px] h-4 px-1.5 rounded-full ml-auto">{importantNews.length}</Badge>
-                </div>
-                <div className="space-y-2">
-                  {importantNews.map((n, i) => (
-                    <div key={i} className="flex items-start gap-3 text-sm border-l-2 border-red-500 pl-3 py-1.5">
-                      <span className="font-mono text-muted-foreground whitespace-nowrap flex-shrink-0 text-xs">{n.time}</span>
-                      <span className="font-display text-foreground leading-snug flex-1">{n.title}</span>
-                      <span className="font-mono text-xs text-muted-foreground flex-shrink-0">{n.currency}</span>
-                      <Badge variant="outline" className={`text-[10px] h-4 px-1.5 rounded-full flex-shrink-0 ${n.day === "today" ? "border-red-500 text-red-400" : "border-yellow-500 text-yellow-400"}`}>
-                        {n.day === "today" ? "Сегодня" : "Скоро"}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            )}
 
             {/* Задачи на сегодня */}
             <CollapsibleBlock

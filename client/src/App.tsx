@@ -129,40 +129,27 @@ function NewsIndicator() {
     },
   });
 
-  const todayNews = newsData?.items?.filter(n => n.day === "today") || [];
-  const [open, setOpen] = useState(false);
+  const todayHighNews = newsData?.items?.filter(n => n.day === "today" && n.impact === "High") || [];
 
-  if (todayNews.length === 0) return null;
+  if (todayHighNews.length === 0) return null;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <button className="relative h-9 w-9 flex items-center justify-center rounded-lg hover:bg-muted/50 transition-colors flex-shrink-0" data-testid="button-news-indicator">
-          <AlertTriangle className="w-[18px] h-[18px] text-red-400" />
-          <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 rounded-full text-[10px] font-bold text-white flex items-center justify-center">
-            {todayNews.length}
-          </span>
-        </button>
-      </DialogTrigger>
-      <DialogContent className="rounded-2xl max-w-sm">
-        <DialogHeader>
-          <DialogTitle className="font-display flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-red-400" />
-            Важные новости сегодня
-          </DialogTitle>
-          <DialogDescription className="sr-only">Список важных экономических новостей</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-2 pt-2">
-          {todayNews.map((n, i) => (
-            <div key={i} className="flex items-start gap-3 text-sm border-l-2 border-red-500 pl-3 py-1.5">
-              <span className="font-mono text-muted-foreground whitespace-nowrap flex-shrink-0 text-xs">{n.time}</span>
-              <span className="font-display text-foreground leading-snug">{n.title}</span>
-              <span className="font-mono text-xs text-muted-foreground flex-shrink-0">{n.currency}</span>
-            </div>
+    <Link href="/news" data-testid="header-news-block">
+      <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-red-500/10 border border-red-500/20 hover:bg-red-500/15 transition-colors cursor-pointer">
+        <AlertTriangle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
+        <span className="font-display text-xs text-red-400 font-semibold whitespace-nowrap">
+          {todayHighNews.length} {todayHighNews.length === 1 ? "новость" : todayHighNews.length < 5 ? "новости" : "новостей"}
+        </span>
+        <div className="hidden sm:flex items-center gap-1.5 overflow-hidden">
+          {todayHighNews.slice(0, 2).map((n, i) => (
+            <span key={i} className="font-mono text-[10px] text-muted-foreground whitespace-nowrap truncate max-w-[120px]">
+              {n.time} {n.currency}
+            </span>
           ))}
+          {todayHighNews.length > 2 && <span className="font-mono text-[10px] text-muted-foreground">+{todayHighNews.length - 2}</span>}
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </Link>
   );
 }
 
