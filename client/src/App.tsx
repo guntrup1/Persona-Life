@@ -17,6 +17,7 @@ import CalendarPage from "@/pages/calendar-page";
 import LoginPage from "@/pages/login";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { loadFromServerData } from "@/lib/store";
+import { useCallback } from "react";
 
 function Router() {
   return (
@@ -62,7 +63,7 @@ function AppShell() {
       <div className="flex h-screen w-full overflow-hidden bg-background">
         <AppSidebar />
         <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-          <header className="flex items-center gap-2 px-3 py-2 border-b border-border flex-shrink-0 bg-background/80 backdrop-blur-sm sticky top-0 z-50">
+          <header className="flex items-center gap-2 px-3 py-2 border-b border-border flex-shrink-0 bg-background sticky top-0 z-50">
             <SidebarTrigger
               data-testid="button-sidebar-toggle"
               className="text-muted-foreground h-9 w-9 flex-shrink-0"
@@ -72,7 +73,7 @@ function AppShell() {
               Life Operating System
             </span>
           </header>
-          <main className="flex-1 overflow-auto">
+          <main className="flex-1 overflow-auto" style={{ contain: "paint layout" }}>
             <Router />
           </main>
         </div>
@@ -82,11 +83,11 @@ function AppShell() {
 }
 
 function App() {
-  const handleLogin = (data: unknown) => {
+  const handleLogin = useCallback((data: unknown) => {
     if (data && typeof data === "object" && Object.keys(data as object).length > 2) {
       loadFromServerData(data as Parameters<typeof loadFromServerData>[0]);
     }
-  };
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

@@ -232,7 +232,7 @@ export default function HubPage() {
                   <span className="font-mono text-primary font-bold">{xpInLevel}/100 XP</span>
                 </div>
                 <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-                  <div className="h-full bg-primary rounded-full transition-all duration-500 xp-bar-shine" style={{ width: `${xpInLevel}%` }} />
+                  <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${xpInLevel}%` }} />
                 </div>
               </div>
 
@@ -358,7 +358,7 @@ export default function HubPage() {
                 </div>
                 <div className="relative w-full h-3 bg-muted rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-primary rounded-full transition-all duration-700 xp-bar-shine"
+                    className="h-full bg-primary rounded-full transition-all duration-700"
                     style={{ width: `${dayProgress}%` }}
                   />
                 </div>

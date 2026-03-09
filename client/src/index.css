@@ -420,10 +420,10 @@
 @keyframes char-sway { 0%,100%{transform:rotate(-5deg)} 50%{transform:rotate(5deg)} }
 @keyframes char-bounce { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-12px) scale(1.1)} }
 @keyframes char-z-float { 0%{transform:translate(0,0);opacity:0} 20%{opacity:.8} 100%{transform:translate(20px,-60px);opacity:0} }
-.char-anim-float { animation: char-float 3s ease-in-out infinite; }
-.char-anim-glow  { animation: char-pulse-glow 2s ease-in-out infinite; }
-.char-anim-sway  { animation: char-sway 4s ease-in-out infinite; }
-.char-anim-bounce{ animation: char-bounce 1s ease-in-out infinite; }
+.char-anim-float  { animation: char-float 3s ease-in-out infinite; will-change: transform; }
+.char-anim-glow   { animation: char-pulse-glow 2s ease-in-out infinite; will-change: filter, transform; }
+.char-anim-sway   { animation: char-sway 4s ease-in-out infinite; will-change: transform; }
+.char-anim-bounce { animation: char-bounce 1s ease-in-out infinite; will-change: transform; }
 .char-zletter {
   position: absolute;
   font-family: 'Oxanium', sans-serif;
