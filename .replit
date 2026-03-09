@@ -38,3 +38,8 @@ author = "agent"
 task = "shell.exec"
 args = "npm run dev"
 waitForPort = 5000
+
+[userenv]
+
+[userenv.shared]
+MONGODB_URI = "mongodb+srv://lifeos_user:11251125Dd_@lifeos.5p2nzzy.mongodb.net/lifeos?appName=LifeOS&retryWrites=true&w=majority"

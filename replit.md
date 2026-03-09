@@ -18,9 +18,9 @@ A full-featured gamified productivity application inspired by the visual style o
 
 - **Frontend**: React + TypeScript + Vite
 - **UI**: Shadcn/ui components + Tailwind CSS
-- **State**: localStorage as primary cache + server sync (2.5s debounce) via PostgreSQL
-- **Auth**: Email/password with bcryptjs + express-session + connect-pg-simple (30-day persistent sessions)
-- **Database**: PostgreSQL — tables: users, user_data (JSONB), session
+- **State**: localStorage as primary cache + server sync (2.5s debounce) via MongoDB Atlas
+- **Auth**: Email/password with bcryptjs + express-session + connect-mongo (30-day persistent sessions)
+- **Database**: MongoDB Atlas (Mongoose) — collections: users, userdatas, sessions
 - **Fonts**: Oxanium (display), Space Grotesk (body), JetBrains Mono (code)
 - **Animations**: CSS animations
 - **Charts**: Recharts

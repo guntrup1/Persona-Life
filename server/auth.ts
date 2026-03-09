@@ -1,17 +1,16 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import session from "express-session";
-import connectPgSimple from "connect-pg-simple";
+import MongoStore from "connect-mongo";
 import bcrypt from "bcryptjs";
-import { Pool } from "pg";
-
-const PgSession = connectPgSimple(session);
-
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+import { User, UserData } from "./mongodb";
 
 export function setupAuth(app: Express) {
   app.use(
     session({
-      store: new PgSession({ pool, tableName: "session" }),
+      store: MongoStore.create({
+        mongoUrl: process.env.MONGODB_URI,
+        collectionName: "sessions",
+      }),
       secret: process.env.SESSION_SECRET || "lifeos-secret-key",
       resave: false,
       saveUninitialized: false,
@@ -27,7 +26,7 @@ export function setupAuth(app: Express) {
 
 declare module "express-session" {
   interface SessionData {
-    userId: number;
+    userId: string;
     email: string;
   }
 }
@@ -50,27 +49,23 @@ export function registerAuthRoutes(app: Express) {
     }
 
     try {
-      const existing = await pool.query("SELECT id FROM users WHERE email = $1", [email.toLowerCase()]);
-      if (existing.rows.length > 0) {
+      const existing = await User.findOne({ email: email.toLowerCase() });
+      if (existing) {
         return res.status(409).json({ message: "Пользователь с таким email уже существует" });
       }
 
       const hash = await bcrypt.hash(password, 12);
-      const result = await pool.query(
-        "INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id, email",
-        [email.toLowerCase(), hash]
-      );
-      const user = result.rows[0];
+      const user = await User.create({
+        email: email.toLowerCase(),
+        password_hash: hash,
+      });
 
-      await pool.query("INSERT INTO user_data (user_id, data) VALUES ($1, $2) ON CONFLICT DO NOTHING", [
-        user.id,
-        JSON.stringify({}),
-      ]);
+      await UserData.create({ userId: user._id, data: {} });
 
-      req.session.userId = user.id;
+      req.session.userId = user._id.toString();
       req.session.email = user.email;
 
-      return res.json({ id: user.id, email: user.email });
+      return res.json({ id: user._id, email: user.email });
     } catch (err) {
       console.error("Register error:", err);
       return res.status(500).json({ message: "Ошибка сервера" });
@@ -84,27 +79,23 @@ export function registerAuthRoutes(app: Express) {
     }
 
     try {
-      const result = await pool.query(
-        "SELECT id, email, password_hash FROM users WHERE email = $1",
-        [email.toLowerCase()]
-      );
-      if (result.rows.length === 0) {
+      const user = await User.findOne({ email: email.toLowerCase() });
+      if (!user) {
         return res.status(401).json({ message: "Неверный email или пароль" });
       }
 
-      const user = result.rows[0];
       const valid = await bcrypt.compare(password, user.password_hash);
       if (!valid) {
         return res.status(401).json({ message: "Неверный email или пароль" });
       }
 
-      req.session.userId = user.id;
+      req.session.userId = user._id.toString();
       req.session.email = user.email;
 
-      const dataResult = await pool.query("SELECT data FROM user_data WHERE user_id = $1", [user.id]);
-      const data = dataResult.rows[0]?.data || null;
+      const userData = await UserData.findOne({ userId: user._id });
+      const data = userData?.data || null;
 
-      return res.json({ id: user.id, email: user.email, data });
+      return res.json({ id: user._id, email: user.email, data });
     } catch (err) {
       console.error("Login error:", err);
       return res.status(500).json({ message: "Ошибка сервера" });
@@ -123,12 +114,12 @@ export function registerAuthRoutes(app: Express) {
       return res.json({ user: null });
     }
     try {
-      const result = await pool.query("SELECT id, email FROM users WHERE id = $1", [req.session.userId]);
-      if (result.rows.length === 0) {
+      const user = await User.findById(req.session.userId).select("email");
+      if (!user) {
         req.session.destroy(() => {});
         return res.json({ user: null });
       }
-      return res.json({ user: result.rows[0] });
+      return res.json({ user: { id: user._id, email: user.email } });
     } catch {
       return res.json({ user: null });
     }
@@ -136,8 +127,8 @@ export function registerAuthRoutes(app: Express) {
 
   app.get("/api/user/data", requireAuth, async (req, res) => {
     try {
-      const result = await pool.query("SELECT data FROM user_data WHERE user_id = $1", [req.session.userId]);
-      return res.json({ data: result.rows[0]?.data || null });
+      const userData = await UserData.findOne({ userId: req.session.userId });
+      return res.json({ data: userData?.data || null });
     } catch (err) {
       console.error("Get data error:", err);
       return res.status(500).json({ message: "Ошибка сервера" });
@@ -149,11 +140,10 @@ export function registerAuthRoutes(app: Express) {
     if (!data) return res.status(400).json({ message: "Нет данных" });
 
     try {
-      await pool.query(
-        `INSERT INTO user_data (user_id, data, updated_at)
-         VALUES ($1, $2, NOW())
-         ON CONFLICT (user_id) DO UPDATE SET data = $2, updated_at = NOW()`,
-        [req.session.userId, JSON.stringify(data)]
+      await UserData.findOneAndUpdate(
+        { userId: req.session.userId },
+        { data, updatedAt: new Date() },
+        { upsert: true }
       );
       return res.json({ ok: true });
     } catch (err) {
