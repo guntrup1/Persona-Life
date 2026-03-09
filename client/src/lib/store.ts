@@ -304,25 +304,31 @@ export function xpForFocus(duration: number): number {
   return 25;
 }
 
-export function getGoalProgress(goal: Goal, state: AppState): { completed: number; total: number; percent: number } {
+function getLinkedTasksForWeekGoal(goal: Goal, state: AppState): TodayTask[] {
+  const direct = state.todayTasks.filter(t => t.weekGoalId === goal.id || t.goalId === goal.id);
+  const routineTasks = state.routineTemplates
+    .filter(r => r.goalId === goal.id)
+    .map(r => state.todayTasks.find(t => t.routineId === r.id && t.date === getTodayDate()) || null)
+    .filter(Boolean) as TodayTask[];
+  return [...direct, ...routineTasks.filter(rt => !direct.find(t => t.id === rt.id))];
+}
+
+function getCompletedXPForGoal(goal: Goal, state: AppState): number {
   if (goal.type === "week") {
-    const allLinkedTasks = state.todayTasks.filter(t => t.weekGoalId === goal.id || t.goalId === goal.id);
+    const tasks = getLinkedTasksForWeekGoal(goal, state);
+    return tasks.filter(t => t.completed).reduce((sum, t) => sum + t.xp, 0);
+  }
+  const childGoals = state.goals.filter(g => g.parentId === goal.id);
+  return childGoals.reduce((sum, child) => sum + getCompletedXPForGoal(child, state), 0);
+}
 
-    const routineLinked = state.routineTemplates
-      .filter(r => r.goalId === goal.id)
-      .map(r => {
-        const todayTask = state.todayTasks.find(t => t.routineId === r.id && t.date === getTodayDate());
-        return todayTask || null;
-      })
-      .filter(Boolean) as TodayTask[];
+export function getGoalProgress(goal: Goal, state: AppState): { completed: number; total: number; percent: number } {
+  const totalGoalXP = goal.xp > 0 ? goal.xp : 1;
 
-    const allTasks = [...allLinkedTasks, ...routineLinked.filter(rt => !allLinkedTasks.find(t => t.id === rt.id))];
-
-    if (allTasks.length === 0) return { completed: 0, total: goal.xp, percent: 0 };
-
-    const totalGoalXP = goal.xp > 0 ? goal.xp : 1;
-    const completedXP = allTasks.filter(t => t.completed).reduce((sum, t) => sum + t.xp, 0);
-
+  if (goal.type === "week") {
+    const tasks = getLinkedTasksForWeekGoal(goal, state);
+    if (tasks.length === 0) return { completed: 0, total: totalGoalXP, percent: 0 };
+    const completedXP = tasks.filter(t => t.completed).reduce((sum, t) => sum + t.xp, 0);
     return {
       completed: completedXP,
       total: totalGoalXP,
@@ -330,20 +336,15 @@ export function getGoalProgress(goal: Goal, state: AppState): { completed: numbe
     };
   }
 
-  if (goal.type === "month") {
+  if (goal.type === "month" || goal.type === "year") {
     const childGoals = state.goals.filter(g => g.parentId === goal.id);
-    if (childGoals.length === 0) return { completed: 0, total: 0, percent: 0 };
-    const totalPercent = childGoals.reduce((sum, g) => sum + getGoalProgress(g, state).percent, 0);
-    const avg = Math.round(totalPercent / childGoals.length);
-    return { completed: avg, total: 100, percent: avg };
-  }
-
-  if (goal.type === "year") {
-    const childGoals = state.goals.filter(g => g.parentId === goal.id);
-    if (childGoals.length === 0) return { completed: 0, total: 0, percent: 0 };
-    const totalPercent = childGoals.reduce((sum, g) => sum + getGoalProgress(g, state).percent, 0);
-    const avg = Math.round(totalPercent / childGoals.length);
-    return { completed: avg, total: 100, percent: avg };
+    if (childGoals.length === 0) return { completed: 0, total: totalGoalXP, percent: 0 };
+    const completedXP = getCompletedXPForGoal(goal, state);
+    return {
+      completed: completedXP,
+      total: totalGoalXP,
+      percent: Math.min(100, Math.round((completedXP / totalGoalXP) * 100)),
+    };
   }
 
   return { completed: 0, total: 0, percent: 0 };

@@ -315,10 +315,7 @@ function GoalCard({ goal, goals, onToggle, onDelete, onAdd, onUpdate, setGoalTas
             <div className="mt-3 space-y-1.5">
               <div className="flex justify-between text-[10px] text-muted-foreground">
                 <span>Прогресс</span>
-                {goal.type === "week"
-                  ? <span>{progress.completed}/{progress.total} XP ({progress.percent}%)</span>
-                  : <span>{progress.percent}%</span>
-                }
+                <span>{progress.completed}/{progress.total} XP ({progress.percent}%)</span>
               </div>
               <Progress value={progress.percent} className="h-1" />
             </div>
