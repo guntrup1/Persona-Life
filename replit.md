@@ -55,3 +55,12 @@ State is stored in localStorage under key `lifeos_v2`. The store is a simple rea
 - `client/src/App.tsx` — Header navigation (desktop inline nav, mobile burger menu), sync button, news indicator, quick note
 - `client/src/components/app-sidebar.tsx` — Legacy sidebar (no longer used, replaced by header nav)
 - `server/routes.ts` — Minimal Express backend (not used in MVP)
+
+## Deployment
+
+- **Dockerfile** — Multi-stage build (builder + runner), Node 20 Alpine
+- **render.yaml** — Render.com Blueprint for one-click deploy (free tier, Docker runtime)
+- **DEPLOY.md** — Step-by-step deployment guide in Russian
+- Required env vars: `MONGODB_URI`, `SESSION_SECRET`, `PORT`, `NODE_ENV`
+- Build: `npm run build` → `dist/index.cjs` (server) + `dist/public/` (frontend)
+- Start: `node dist/index.cjs`
