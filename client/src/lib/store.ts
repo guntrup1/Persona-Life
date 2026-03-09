@@ -272,10 +272,10 @@ export function getMarketSession(): { name: string; active: boolean; color: stri
   const hour = getBerlinHour();
   const min = getBerlinTime().getMinutes();
   const totalMin = hour * 60 + min;
-  if (totalMin >= 3 * 60 && totalMin < 8 * 60) return { name: "Азия", active: true, color: "text-yellow-400" };
-  if (totalMin >= 8 * 60 && totalMin < 9 * 60) return { name: "Франкфурт", active: true, color: "text-blue-400" };
+  if (totalMin >= 3 * 60 && totalMin < 8 * 60) return { name: "Азия", active: true, color: "text-gray-400" };
+  if (totalMin >= 8 * 60 && totalMin < 9 * 60) return { name: "Франкфурт", active: true, color: "text-purple-400" };
   if (totalMin >= 9 * 60 && totalMin < 14 * 60) return { name: "Лондон", active: true, color: "text-green-400" };
-  if (totalMin >= 14 * 60 && totalMin < 17 * 60) return { name: "Нью-Йорк", active: true, color: "text-red-400" };
+  if (totalMin >= 14 * 60 && totalMin < 17 * 60) return { name: "Нью-Йорк", active: true, color: "text-orange-400" };
   return { name: "Закрыто", active: false, color: "text-muted-foreground" };
 }
 
