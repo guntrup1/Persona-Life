@@ -53,7 +53,9 @@ export function AuthProvider({ children, onLogin }: { children: ReactNode; onLog
           const res = await fetch("/api/user/data", { credentials: "include" });
           if (res.ok) {
             const json = await res.json();
-            if (json.data) onLogin(json.data);
+            if (json.data && typeof json.data === "object" && Object.keys(json.data).length > 2) {
+              onLogin(json.data);
+            }
           }
         } catch {}
       }

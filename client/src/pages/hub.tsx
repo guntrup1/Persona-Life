@@ -126,8 +126,8 @@ const CollapsibleBlock = memo(function CollapsibleBlock({
         <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${open ? "rotate-180" : ""}`} />
       </button>
       <div
-        className="transition-all duration-300 ease-in-out overflow-hidden"
-        style={{ maxHeight: open ? "2000px" : "0px", opacity: open ? 1 : 0 }}
+        className="overflow-hidden"
+        style={{ maxHeight: open ? "2000px" : "0px", transition: "max-height 0.3s ease" }}
         aria-hidden={!open}
         data-testid={`collapse-content-${title}`}
       >

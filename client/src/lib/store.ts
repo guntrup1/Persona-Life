@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useSyncExternalStore, useCallback } from "react";
 
 export type LifeArea =
   | "Body"
@@ -482,16 +482,17 @@ function mutate(fn: (s: AppState) => AppState) {
   notify();
 }
 
+function subscribeToStore(cb: () => void) {
+  listeners.add(cb);
+  return () => listeners.delete(cb);
+}
+
+function getSnapshot() {
+  return globalState;
+}
+
 export function useStore() {
-  const [, forceUpdate] = useState(0);
-
-  useEffect(() => {
-    const cb = () => forceUpdate(n => n + 1);
-    listeners.add(cb);
-    return () => { listeners.delete(cb); };
-  }, []);
-
-  const state = globalState;
+  const state = useSyncExternalStore(subscribeToStore, getSnapshot, getSnapshot);
 
   const actions = {
     addRoutineTemplate: useCallback((template: Omit<RoutineTemplate, "id">) => {

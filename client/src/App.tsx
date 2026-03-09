@@ -83,7 +83,7 @@ function AppShell() {
 
 function App() {
   const handleLogin = (data: unknown) => {
-    if (data && typeof data === "object") {
+    if (data && typeof data === "object" && Object.keys(data as object).length > 2) {
       loadFromServerData(data as Parameters<typeof loadFromServerData>[0]);
     }
   };
