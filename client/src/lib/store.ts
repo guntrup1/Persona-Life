@@ -169,32 +169,12 @@ const DEFAULT_XP: XPData = {
   totalXP: 0,
 };
 
-const DEFAULT_ROUTINE_TEMPLATES: RoutineTemplate[] = [
-  { id: "r1", name: "Тренировка", category: "Body", xp: 10, enabled: true },
-  { id: "r2", name: "Чтение", category: "Mind", xp: 10, enabled: true },
-  { id: "r3", name: "Медитация", category: "Mind", xp: 5, enabled: true },
-  { id: "r4", name: "Дневник", category: "Creativity", xp: 5, enabled: true },
-];
+const DEFAULT_ROUTINE_TEMPLATES: RoutineTemplate[] = [];
 
 const DEFAULT_STATE: AppState = {
   routineTemplates: DEFAULT_ROUTINE_TEMPLATES,
   todayTasks: [],
-  goals: [
-    {
-      id: "g1", type: "year", title: "Стать профессиональным трейдером",
-      category: "Finance", completed: false, xp: 1000, linkedTaskIds: [], year: 2026,
-    },
-    {
-      id: "g2", type: "month", title: "Изучить Price Action",
-      category: "Hard Skills", parentId: "g1", completed: false, xp: 250,
-      linkedTaskIds: [], year: 2026, month: 3,
-    },
-    {
-      id: "g3", type: "week", title: "Разобрать 10 торговых сетапов",
-      category: "Hard Skills", parentId: "g2", completed: false, xp: 100,
-      linkedTaskIds: [], year: 2026, week: 10,
-    },
-  ],
+  goals: [],
   focusSessions: [],
   tradingNotes: [],
   dailyBiases: [],
@@ -228,7 +208,7 @@ function loadState(): AppState {
       ...parsed,
       dailyBiases: parsed.dailyBiases || [],
       dayNotes: parsed.dayNotes || [],
-      routineTemplates: parsed.routineTemplates?.length > 0 ? parsed.routineTemplates : DEFAULT_STATE.routineTemplates,
+      routineTemplates: Array.isArray(parsed.routineTemplates) ? parsed.routineTemplates : DEFAULT_STATE.routineTemplates,
       xp: { ...DEFAULT_XP, ...parsed.xp, categoryXP: { ...DEFAULT_XP.categoryXP, ...(parsed.xp?.categoryXP || {}) } },
       streak: { ...DEFAULT_STATE.streak, ...parsed.streak },
     };
