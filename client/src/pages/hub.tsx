@@ -229,10 +229,10 @@ export default function HubPage() {
       <div className="max-w-7xl mx-auto p-4 space-y-4">
 
         {/* ── Main 2-column grid ── */}
-        <div className="flex flex-col lg:flex-row gap-4 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-4 items-start">
 
           {/* ═══ LEFT COLUMN ═══ */}
-          <div className="lg:w-72 flex flex-col gap-3 flex-shrink-0">
+          <div className="flex flex-col gap-3">
 
             {/* Character panel */}
             <Card className="p-4 bg-card border-card-border rounded-3xl flex flex-col items-center gap-3">
@@ -342,7 +342,7 @@ export default function HubPage() {
           </div>
 
           {/* ═══ RIGHT COLUMN: Day progress + news + tasks ═══ */}
-          <div className="flex-1 flex flex-col gap-3 min-w-0">
+          <div className="flex flex-col gap-3 min-w-0">
 
             {/* Прогресс дня */}
             <Card className="p-4 bg-card border-card-border rounded-2xl">
