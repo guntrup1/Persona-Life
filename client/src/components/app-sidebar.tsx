@@ -10,7 +10,26 @@ import {
 } from "lucide-react";
 import { useStore, getBerlinTime, getMarketSession } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
+
+const SidebarClock = memo(function SidebarClock() {
+  const [now, setNow] = useState(getBerlinTime());
+  const [session, setSession] = useState(getMarketSession());
+  useEffect(() => {
+    const id = setInterval(() => {
+      setNow(getBerlinTime());
+      setSession(getMarketSession());
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+  const timeStr = now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  return (
+    <div className="min-w-0">
+      <div className="text-muted-foreground font-mono truncate">{timeStr} UTC+1</div>
+      <div className={`font-display font-bold truncate ${session.color}`}>{session.name}</div>
+    </div>
+  );
+});
 
 const navItems = [
   { title: "Главная", url: "/", icon: LayoutDashboard, testId: "nav-hub" },
@@ -27,15 +46,6 @@ export function AppSidebar() {
   const [location] = useLocation();
   const { state } = useStore();
   const { user, logout } = useAuth();
-  const [now, setNow] = useState(getBerlinTime());
-
-  useEffect(() => {
-    const interval = setInterval(() => setNow(getBerlinTime()), 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const session = getMarketSession();
-  const timeStr = now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
 
   const level = Math.floor(state.xp.totalXP / 100) + 1;
   const xpInLevel = state.xp.totalXP % 100;
@@ -93,10 +103,7 @@ export function AppSidebar() {
         </div>
 
         <div className="grid grid-cols-2 gap-1 text-[10px] sm:text-xs overflow-hidden leading-tight">
-          <div className="min-w-0">
-            <div className="text-muted-foreground font-mono truncate">{timeStr} UTC+1</div>
-            <div className={`font-display font-bold truncate ${session.color}`}>{session.name}</div>
-          </div>
+          <SidebarClock />
           <div className="text-right min-w-0">
             <div className="text-muted-foreground font-mono truncate">Стрик</div>
             <div className="font-mono font-bold text-orange-400 truncate">{state.streak.currentStreak}д</div>
