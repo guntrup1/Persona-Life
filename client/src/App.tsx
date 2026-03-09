@@ -220,8 +220,18 @@ function MobileNav() {
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-2 w-56 bg-card border border-card-border rounded-2xl shadow-xl z-[60] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-          <nav className="py-2">
+        <div className="fixed inset-0 top-0 left-0 w-full h-full bg-background z-[60] flex flex-col animate-in fade-in duration-200">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+            <span className="font-display text-sm font-bold uppercase tracking-widest text-foreground">Меню</span>
+            <button
+              onClick={() => setOpen(false)}
+              className="h-9 w-9 flex items-center justify-center rounded-lg hover:bg-muted/50 transition-colors"
+              data-testid="button-mobile-menu-close"
+            >
+              <X className="w-5 h-5 text-foreground" />
+            </button>
+          </div>
+          <nav className="flex-1 flex flex-col py-4 px-2 gap-1">
             {mobileNavItems.map(item => {
               const isActive = location === item.url;
               return (
@@ -230,22 +240,22 @@ function MobileNav() {
                   href={item.url}
                   data-testid={`mobile-nav-${item.title.toLowerCase()}`}
                 >
-                  <div className={`flex items-center gap-3 px-4 py-2.5 transition-colors ${isActive ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted/50"}`}>
-                    <item.icon className={`w-4 h-4 flex-shrink-0 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
-                    <span className={`font-display text-sm tracking-wide ${isActive ? "font-semibold" : ""}`}>{item.title}</span>
-                    {isActive && <div className="ml-auto w-1.5 h-4 bg-primary rounded-full" />}
+                  <div className={`flex items-center gap-4 px-5 py-3.5 rounded-xl transition-colors ${isActive ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted/50"}`}>
+                    <item.icon className={`w-5 h-5 flex-shrink-0 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
+                    <span className={`font-display text-base tracking-wide ${isActive ? "font-semibold" : ""}`}>{item.title}</span>
+                    {isActive && <div className="ml-auto w-1.5 h-5 bg-primary rounded-full" />}
                   </div>
                 </Link>
               );
             })}
-            <div className="border-t border-card-border mt-1 pt-1">
+            <div className="mt-auto border-t border-border pt-3 mx-2">
               <button
                 onClick={logout}
-                className="flex items-center gap-3 px-4 py-2.5 w-full text-left text-red-400 hover:bg-muted/50 transition-colors"
+                className="flex items-center gap-4 px-5 py-3.5 w-full text-left text-red-400 hover:bg-muted/50 transition-colors rounded-xl"
                 data-testid="button-mobile-logout"
               >
-                <LogOut className="w-4 h-4 flex-shrink-0" />
-                <span className="font-display text-sm tracking-wide">Выйти</span>
+                <LogOut className="w-5 h-5 flex-shrink-0" />
+                <span className="font-display text-base tracking-wide">Выйти</span>
               </button>
             </div>
           </nav>

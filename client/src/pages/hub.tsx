@@ -237,8 +237,9 @@ export default function HubPage() {
 
             </Card>
 
-            {/* ── Задачи недели (under emoji) ── */}
-            <CollapsibleBlock
+            {/* ── Задачи недели + Прогресс недели (hidden on mobile) ── */}
+            <div className="hidden md:flex md:flex-col gap-3">
+              <CollapsibleBlock
               title="Задачи недели"
               icon={<Target className="w-4 h-4 text-primary" />}
               badge={weekGoals.length > 0 && <Badge variant="secondary" className="font-mono text-[10px] h-4 px-1.5 rounded-full">{weekGoals.length}</Badge>}
@@ -261,10 +262,9 @@ export default function HubPage() {
                   })}
                 </div>
               )}
-            </CollapsibleBlock>
+              </CollapsibleBlock>
 
-            {/* ── Прогресс недели (under emoji) ── */}
-            <CollapsibleBlock
+              <CollapsibleBlock
               title="Прогресс недели"
               icon={<TrendingUp className="w-4 h-4 text-primary" />}
             >
@@ -295,7 +295,8 @@ export default function HubPage() {
                   </div>
                 )}
               </div>
-            </CollapsibleBlock>
+              </CollapsibleBlock>
+            </div>
           </div>
 
           {/* ═══ RIGHT COLUMN: Day progress + news + tasks ═══ */}
