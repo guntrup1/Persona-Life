@@ -53,15 +53,17 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="px-3 py-3 border-b border-sidebar-border flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center flex-shrink-0">
-            <Zap className="w-4 h-4 text-primary-foreground" />
+        <Link href="/" data-testid="link-logo-home">
+          <div className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
+            <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center flex-shrink-0">
+              <Zap className="w-4 h-4 text-primary-foreground" />
+            </div>
+            <div className="min-w-0">
+              <div className="font-display font-bold text-sm text-foreground tracking-wide truncate">LIFE OS</div>
+              <div className="text-xs text-muted-foreground font-mono truncate">Persona Mode</div>
+            </div>
           </div>
-          <div className="min-w-0">
-            <div className="font-display font-bold text-sm text-foreground tracking-wide truncate">LIFE OS</div>
-            <div className="text-xs text-muted-foreground font-mono truncate">Persona Mode</div>
-          </div>
-        </div>
+        </Link>
       </SidebarHeader>
 
       <SidebarContent className="flex-1 overflow-y-auto overflow-x-hidden">

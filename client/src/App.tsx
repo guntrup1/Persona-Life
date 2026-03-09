@@ -285,17 +285,6 @@ function AppShell() {
               />
             </div>
 
-            <Link href="/" data-testid="link-logo-home">
-              <div className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
-                <div className="w-7 h-7 bg-primary rounded-md flex items-center justify-center flex-shrink-0">
-                  <Zap className="w-3.5 h-3.5 text-primary-foreground" />
-                </div>
-                <span className="font-display text-xs text-muted-foreground tracking-widest uppercase truncate">
-                  Life OS
-                </span>
-              </div>
-            </Link>
-
             <div className="flex items-center gap-1 ml-auto">
               <NewsIndicator />
               <SyncButton />
