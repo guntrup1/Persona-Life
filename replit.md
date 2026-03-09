@@ -4,7 +4,7 @@ A full-featured gamified productivity application inspired by the visual style o
 
 ## Features
 
-- **Main Hub** — Redesigned 2-column layout: left panel (animated character + current session only + XP/level + streak + news alerts), right panel (4 collapsible blocks with smooth animations: week tasks, week progress, day progress, day tasks)
+- **Main Hub** — Redesigned 2-column layout: left panel (animated character + current session only + XP/level + streak), right panel (collapsible blocks: day progress, day tasks)
 - **Task System** — Three task types: Routine (daily templates), Today Tasks, Goal Tasks
 - **Routine Templates** — "Обновить рутину" button syncs enabled templates to today without duplication; hub also has "Синхр. рутину" shortcut
 - **Goals** — Hierarchical Year → Month → Week goal system with custom XP rewards (user-defined per goal)
@@ -48,5 +48,6 @@ State is stored in localStorage under key `lifeos_v1`. The store is a simple rea
 
 - `client/src/lib/store.ts` — Main state management (localStorage)
 - `client/src/pages/` — All page components
-- `client/src/components/app-sidebar.tsx` — Sidebar navigation
+- `client/src/App.tsx` — Header navigation (desktop inline nav, mobile burger menu), sync button, news indicator, quick note
+- `client/src/components/app-sidebar.tsx` — Legacy sidebar (no longer used, replaced by header nav)
 - `server/routes.ts` — Minimal Express backend (not used in MVP)

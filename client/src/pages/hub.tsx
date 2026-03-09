@@ -1,18 +1,17 @@
 import { useState, useEffect, useRef, memo } from "react";
-import { useStore, getBerlinTime, getMarketSession, getCharacterState, getTodayDate, LIFE_AREA_COLORS, getGoalProgress, syncFromServer } from "@/lib/store";
+import { useStore, getBerlinTime, getMarketSession, getCharacterState, getTodayDate, LIFE_AREA_COLORS, getGoalProgress } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
-import { useQuery } from "@tanstack/react-query";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
   CheckCircle, Circle, Trash2, RefreshCw, Flame, Zap, Target, Clock,
-  Newspaper, FileText, TrendingUp, ChevronDown, Star, AlertTriangle,
+  FileText, TrendingUp, ChevronDown, Star,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -146,32 +145,8 @@ export default function HubPage() {
   const [newNoteText, setNewNoteText] = useState("");
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
-  const [syncing, setSyncing] = useState(false);
-  const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const { toast } = useToast();
   const prevCompleted = useRef(completedToday);
-
-  const { data: newsData } = useQuery<{ items: { title: string; currency: string; impact: string; time: string; day: string }[]; todayStr: string; nextStr: string }>({
-    queryKey: ["/api/news"],
-    enabled: false,
-    staleTime: Infinity,
-    select: (raw: unknown) => {
-      if (Array.isArray(raw)) return { items: raw as { title: string; currency: string; impact: string; time: string; day: string }[], todayStr: "", nextStr: "" };
-      return raw as { items: { title: string; currency: string; impact: string; time: string; day: string }[]; todayStr: string; nextStr: string };
-    },
-  });
-  const todayNews = newsData?.items?.filter(n => n.day === "today") || [];
-
-  // Real-time polling every 30 seconds
-  useEffect(() => {
-    const poll = async () => {
-      await syncFromServer();
-      setLastSynced(new Date());
-    };
-    poll();
-    const id = setInterval(poll, 30000);
-    return () => clearInterval(id);
-  }, []);
 
   useEffect(() => {
     if (completedToday > prevCompleted.current) {
@@ -180,14 +155,6 @@ export default function HubPage() {
     }
     prevCompleted.current = completedToday;
   }, [completedToday, todayTasks]);
-
-  const handleSync = async () => {
-    setSyncing(true);
-    const ok = await syncFromServer();
-    setSyncing(false);
-    setLastSynced(new Date());
-    toast({ title: ok ? "Данные синхронизированы" : "Нет соединения" });
-  };
 
   const charState = getCharacterState();
 
@@ -268,53 +235,7 @@ export default function HubPage() {
                 <span className="text-muted-foreground">Рекорд: <span className="text-yellow-400 font-bold">{state.streak.longestStreak} дн.</span></span>
               </div>
 
-              {/* Sync button */}
-              <button
-                onClick={handleSync}
-                disabled={syncing}
-                data-testid="button-sync"
-                className="w-full flex items-center justify-center gap-2 py-2 rounded-xl border border-card-border bg-muted/20 hover:bg-muted/40 transition-colors text-xs text-muted-foreground font-display"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin text-primary" : "text-muted-foreground"}`} />
-                {syncing ? "Синхронизация..." : lastSynced ? `Синхр. ${lastSynced.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}` : "Синхронизировать"}
-              </button>
             </Card>
-
-            {/* Важные новости */}
-            {todayNews.length > 0 && (
-              <Card className="p-3 bg-red-500/10 border-red-500/30 rounded-2xl">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 animate-pulse" />
-                  <span className="font-display text-xs font-bold text-foreground uppercase tracking-wider">
-                    {todayNews.length} важных новостей
-                  </span>
-                </div>
-                <div className="space-y-1">
-                  {todayNews.map((n, i) => (
-                    <div key={i} className="flex items-start gap-2 text-xs border-l-2 border-red-500 pl-2 py-0.5">
-                      <span className="font-mono text-muted-foreground whitespace-nowrap flex-shrink-0">{n.time}</span>
-                      <span className="font-display text-foreground leading-snug">{n.title}</span>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            )}
-            {!newsData && (
-              <Card className="p-3 bg-card border-card-border rounded-2xl">
-                <div className="flex items-center gap-2">
-                  <Newspaper className="w-4 h-4 text-muted-foreground" />
-                  <span className="font-display text-xs text-muted-foreground">Открой Новости → Обновить</span>
-                </div>
-              </Card>
-            )}
-            {newsData && todayNews.length === 0 && (
-              <Card className="p-3 bg-card border-card-border rounded-2xl">
-                <div className="flex items-center gap-2">
-                  <Newspaper className="w-4 h-4 text-muted-foreground" />
-                  <span className="font-display text-xs text-muted-foreground">Важных новостей нет</span>
-                </div>
-              </Card>
-            )}
 
             {/* ── Задачи недели (under emoji) ── */}
             <CollapsibleBlock
