@@ -87,6 +87,36 @@ function parseTimeToMinutes(t: string): number {
   return 9999;
 }
 
+function shiftTime(timeStr: string, offsetHours: number): { time: string; dayDelta: number } {
+  if (!timeStr) return { time: timeStr, dayDelta: 0 };
+  const match = timeStr.match(/^(\d{1,2}):(\d{2})(am|pm)$/i);
+  if (!match) return { time: timeStr, dayDelta: 0 };
+
+  let h = parseInt(match[1]);
+  const m = parseInt(match[2]);
+  const ampm = match[3].toLowerCase();
+
+  if (ampm === "pm" && h < 12) h += 12;
+  if (ampm === "am" && h === 12) h = 0;
+
+  h += offsetHours;
+  let dayDelta = 0;
+  if (h >= 24) { h -= 24; dayDelta = 1; }
+  if (h < 0) { h += 24; dayDelta = -1; }
+
+  const newAmpm = h >= 12 ? "pm" : "am";
+  let h12 = h % 12;
+  if (h12 === 0) h12 = 12;
+  return { time: `${h12}:${String(m).padStart(2, "0")}${newAmpm}`, dayDelta };
+}
+
+function shiftDateStr(dateStr: string, days: number): string {
+  if (!days || !dateStr) return dateStr;
+  const d = new Date(dateStr + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().split("T")[0];
+}
+
 function extractHighImpact(xml: string) {
   const results: Array<{
     title: string; currency: string; impact: string; date: string;
@@ -119,7 +149,9 @@ function extractHighImpact(xml: string) {
       continue;
     }
 
-    results.push({ title, currency, impact, date: rawDate, time, forecast, previous, actual, dateNormalized });
+    const shifted = shiftTime(time, 1);
+    const adjustedDate = shiftDateStr(dateNormalized, shifted.dayDelta);
+    results.push({ title, currency, impact, date: rawDate, time: shifted.time, forecast, previous, actual, dateNormalized: adjustedDate });
   }
 
   return results;
