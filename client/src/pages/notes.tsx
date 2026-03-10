@@ -386,6 +386,13 @@ export default function NotesPage() {
 
   const today = getTodayDate();
 
+  const localDateStr = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
+
   const getFilterDates = () => {
     if (filterPeriod === "today") return [today];
     if (filterPeriod === "week") {
@@ -393,7 +400,7 @@ export default function NotesPage() {
       for (let i = 6; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
-        dates.push(d.toISOString().split("T")[0]);
+        dates.push(localDateStr(d));
       }
       return dates;
     }
@@ -402,7 +409,7 @@ export default function NotesPage() {
       for (let i = 29; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
-        dates.push(d.toISOString().split("T")[0]);
+        dates.push(localDateStr(d));
       }
       return dates;
     }

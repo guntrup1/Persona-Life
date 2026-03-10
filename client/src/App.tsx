@@ -12,11 +12,12 @@ import GoalsPage from "@/pages/goals";
 import TimerPage from "@/pages/timer";
 import StatsPage from "@/pages/stats";
 import NotesPage from "@/pages/notes";
+import IdeasPage from "@/pages/ideas";
 import NewsPage from "@/pages/news";
 import CalendarPage from "@/pages/calendar-page";
 import LoginPage from "@/pages/login";
 import { AuthProvider, useAuth } from "@/lib/auth";
-import { loadFromServerData, useStore, getTodayDate, syncFromServer, onSyncResult } from "@/lib/store";
+import { loadFromServerData, useStore, getTodayDate, syncFromServer, onSyncResult, type NoteType } from "@/lib/store";
 import { useCallback, useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
@@ -24,7 +25,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   FileText, RefreshCw, AlertTriangle, Menu, X,
   LayoutDashboard, CheckSquare, Target, Timer,
-  BarChart3, Newspaper, CalendarDays, LogOut,
+  BarChart3, Newspaper, CalendarDays, LogOut, Lightbulb, TrendingUp,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -37,6 +38,7 @@ function Router() {
       <Route path="/timer" component={TimerPage} />
       <Route path="/stats" component={StatsPage} />
       <Route path="/notes" component={NotesPage} />
+      <Route path="/ideas" component={IdeasPage} />
       <Route path="/news" component={NewsPage} />
       <Route path="/calendar" component={CalendarPage} />
       <Route component={NotFound} />
@@ -48,14 +50,16 @@ function QuickNoteButton() {
   const { actions } = useStore();
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
+  const [noteType, setNoteType] = useState<NoteType>("note");
   const { toast } = useToast();
 
   const handleAdd = () => {
     if (!text.trim()) return;
-    actions.addDayNote(getTodayDate(), text);
+    actions.addDayNote(getTodayDate(), text, noteType);
     setText("");
+    setNoteType("note");
     setOpen(false);
-    toast({ title: "Заметка добавлена" });
+    toast({ title: noteType === "idea" ? "Идея добавлена" : "Заметка добавлена" });
   };
 
   return (
@@ -67,12 +71,28 @@ function QuickNoteButton() {
       </DialogTrigger>
       <DialogContent className="rounded-2xl">
         <DialogHeader>
-          <DialogTitle className="font-display">Заметка дня</DialogTitle>
-          <DialogDescription className="sr-only">Добавить заметку</DialogDescription>
+          <DialogTitle className="font-display">{noteType === "idea" ? "Новая идея" : "Заметка дня"}</DialogTitle>
+          <DialogDescription className="sr-only">Добавить заметку или идею</DialogDescription>
         </DialogHeader>
         <div className="space-y-3 pt-2">
+          <div className="flex gap-2">
+            <button
+              onClick={() => setNoteType("note")}
+              className={`flex-1 py-2 rounded-lg text-xs font-display uppercase tracking-wider transition-colors ${noteType === "note" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+              data-testid="button-type-note"
+            >
+              Заметка
+            </button>
+            <button
+              onClick={() => setNoteType("idea")}
+              className={`flex-1 py-2 rounded-lg text-xs font-display uppercase tracking-wider transition-colors ${noteType === "idea" ? "bg-yellow-500 text-black" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+              data-testid="button-type-idea"
+            >
+              Идея
+            </button>
+          </div>
           <Textarea
-            placeholder="Что хочешь записать?"
+            placeholder={noteType === "idea" ? "Опиши свою идею..." : "Что хочешь записать?"}
             className="min-h-[100px] resize-none rounded-xl"
             value={text}
             onChange={e => setText(e.target.value)}
@@ -81,7 +101,7 @@ function QuickNoteButton() {
             data-testid="input-quick-note"
           />
           <Button onClick={handleAdd} disabled={!text.trim()} className="w-full rounded-full font-display" data-testid="button-quick-note-submit">
-            Добавить заметку
+            {noteType === "idea" ? "Добавить идею" : "Добавить заметку"}
           </Button>
         </div>
       </DialogContent>
@@ -194,7 +214,8 @@ const mobileNavItems = [
   { title: "Цели", url: "/goals", icon: Target },
   { title: "Фокус", url: "/timer", icon: Timer },
   { title: "Статистика", url: "/stats", icon: BarChart3 },
-  { title: "Заметки", url: "/notes", icon: FileText },
+  { title: "Трейдинг", url: "/notes", icon: TrendingUp },
+  { title: "Идеи", url: "/ideas", icon: Lightbulb },
   { title: "Новости", url: "/news", icon: Newspaper },
   { title: "Календарь", url: "/calendar", icon: CalendarDays },
 ];

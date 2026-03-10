@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard, CheckSquare, Target, Timer,
-  BarChart3, FileText, Newspaper, CalendarDays, Zap, LogOut,
+  BarChart3, TrendingUp, Lightbulb, Newspaper, CalendarDays, Zap, LogOut,
 } from "lucide-react";
 import { useStore, getBerlinTime, getMarketSession } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
@@ -37,7 +37,8 @@ const navItems = [
   { title: "Цели", url: "/goals", icon: Target, testId: "nav-goals" },
   { title: "Фокус", url: "/timer", icon: Timer, testId: "nav-timer" },
   { title: "Статистика", url: "/stats", icon: BarChart3, testId: "nav-stats" },
-  { title: "Заметки", url: "/notes", icon: FileText, testId: "nav-notes" },
+  { title: "Трейдинг", url: "/notes", icon: TrendingUp, testId: "nav-notes" },
+  { title: "Идеи", url: "/ideas", icon: Lightbulb, testId: "nav-ideas" },
   { title: "Новости", url: "/news", icon: Newspaper, testId: "nav-news" },
   { title: "Календарь", url: "/calendar", icon: CalendarDays, testId: "nav-calendar" },
 ];

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, memo } from "react";
-import { useStore, getBerlinTime, getMarketSession, getCharacterState, getTodayDate, LIFE_AREA_COLORS, getGoalProgress } from "@/lib/store";
+import { useStore, getBerlinTime, getMarketSession, getCharacterState, getTodayDate, LIFE_AREA_COLORS, getGoalProgress, type NoteType } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -143,6 +143,7 @@ export default function HubPage() {
   const { state, actions, todayTasks, completedToday, totalToday, todayNotes } = useStore();
   const [xpNotif, setXpNotif] = useState<{ xp: number; visible: boolean }>({ xp: 0, visible: false });
   const [newNoteText, setNewNoteText] = useState("");
+  const [newNoteType, setNewNoteType] = useState<NoteType>("note");
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
   const { toast } = useToast();
@@ -179,12 +180,13 @@ export default function HubPage() {
 
   const handleAddNote = () => {
     if (!newNoteText.trim()) return;
-    actions.addDayNote(getTodayDate(), newNoteText);
+    actions.addDayNote(getTodayDate(), newNoteText, newNoteType);
     setNewNoteText("");
+    setNewNoteType("note");
   };
 
   const handleSaveEdit = () => {
-    if (editingNoteId && editingText.trim()) actions.updateDayNote(editingNoteId, editingText);
+    if (editingNoteId && editingText.trim()) actions.updateDayNote(editingNoteId, { content: editingText.trim() });
     setEditingNoteId(null);
     setEditingText("");
   };
@@ -428,7 +430,12 @@ export default function HubPage() {
                 return (
                   <div key={note.id} className="rounded-xl border border-card-border bg-muted/20 p-3 space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="font-mono text-xs text-muted-foreground">{timeLabel}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs text-muted-foreground">{timeLabel}</span>
+                        {note.noteType === "idea" && (
+                          <span className="text-[9px] font-display uppercase tracking-wider bg-yellow-500/20 text-yellow-400 px-1.5 py-0.5 rounded-full">Идея</span>
+                        )}
+                      </div>
                       {!isEditing && (
                         <div className="flex gap-1">
                           <button onClick={() => { setEditingNoteId(note.id); setEditingText(note.content); }} className="p-1 rounded-md text-muted-foreground hover:text-primary transition-colors" data-testid={`button-edit-note-${note.id}`}>
@@ -458,8 +465,24 @@ export default function HubPage() {
           )}
 
           <div className="flex flex-col gap-2">
+            <div className="flex gap-2">
+              <button
+                onClick={() => setNewNoteType("note")}
+                className={`flex-1 py-1.5 rounded-lg text-[10px] font-display uppercase tracking-wider transition-colors ${newNoteType === "note" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                data-testid="hub-type-note"
+              >
+                Заметка
+              </button>
+              <button
+                onClick={() => setNewNoteType("idea")}
+                className={`flex-1 py-1.5 rounded-lg text-[10px] font-display uppercase tracking-wider transition-colors ${newNoteType === "idea" ? "bg-yellow-500 text-black" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                data-testid="hub-type-idea"
+              >
+                Идея
+              </button>
+            </div>
             <Textarea
-              placeholder="Новая заметка дня..."
+              placeholder={newNoteType === "idea" ? "Опиши свою идею..." : "Новая заметка дня..."}
               className="min-h-[70px] resize-none border-card-border focus-visible:ring-primary bg-muted/30 rounded-xl text-sm"
               value={newNoteText}
               onChange={e => setNewNoteText(e.target.value)}
@@ -467,7 +490,7 @@ export default function HubPage() {
               data-testid="input-new-note"
             />
             <Button onClick={handleAddNote} disabled={!newNoteText.trim()} className="w-full font-display uppercase tracking-widest text-xs h-9 rounded-full" data-testid="button-add-note">
-              + Добавить заметку
+              + {newNoteType === "idea" ? "Добавить идею" : "Добавить заметку"}
             </Button>
           </div>
         </Card>

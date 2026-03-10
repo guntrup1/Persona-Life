@@ -10,9 +10,11 @@ A full-featured gamified productivity application inspired by the visual style o
 - **Goals** — Hierarchical Year → Month → Week goal system with custom XP rewards (user-defined per goal)
 - **Focus Timer** — Pomodoro (25min), Deep Work (90min), Custom timer modes with XP rewards
 - **Statistics** — Day/Week/Month/All-time XP charts, category breakdown, streaks
-- **Trading Notes** — Quick notes with asset (GER40/EUR/XAU/GBP), timeframe, tags (мысль/идея/ошибка)
+- **Trading (Трейдинг)** — Trading notes with asset (GER40/EUR/XAU/GBP), timeframe, tags (мысль/идея/ошибка), daily bias with screenshots
+- **Ideas (Идеи)** — Idea bank with categories (Подарок/Хобби/Интересно изучить/Другое), links, creation dates; created via day notes with "idea" type
 - **Financial News** — Forex Factory-style news calendar with impact levels (UTC+1)
 - **Calendar** — Day/Week/Month views with task management
+- **Day Notes** — Support two types: "note" (regular) and "idea" (goes to Ideas page); created from Hub or QuickNote button
 
 ## Technical Stack
 
@@ -50,11 +52,12 @@ State is stored in localStorage under key `lifeos_v2`. The store is a simple rea
 
 ## Architecture
 
-- `client/src/lib/store.ts` — Main state management (localStorage)
+- `client/src/lib/store.ts` — Main state management (localStorage), DayNote has `noteType` ("note" | "idea")
 - `client/src/pages/` — All page components
-- `client/src/App.tsx` — Header navigation (desktop inline nav, mobile burger menu), sync button, news indicator, quick note
-- `client/src/components/app-sidebar.tsx` — Legacy sidebar (no longer used, replaced by header nav)
-- `server/routes.ts` — Minimal Express backend (not used in MVP)
+- `client/src/pages/ideas.tsx` — Ideas page with filtering, sorting, editing
+- `client/src/App.tsx` — Header navigation (desktop inline nav, mobile burger menu), sync button, news indicator, quick note (supports note/idea type)
+- `client/src/components/app-sidebar.tsx` — Desktop sidebar navigation
+- `server/routes.ts` — Minimal Express backend
 
 ## Deployment
 

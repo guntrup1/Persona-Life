@@ -119,12 +119,26 @@ export interface DailyBias {
   createdAt: string;
 }
 
+export type NoteType = "note" | "idea";
+export type IdeaCategory = "gift" | "hobby" | "study" | "other";
+
+export const IDEA_CATEGORIES: { value: IdeaCategory; label: string }[] = [
+  { value: "gift", label: "Подарок" },
+  { value: "hobby", label: "Хобби" },
+  { value: "study", label: "Интересно изучить" },
+  { value: "other", label: "Другое" },
+];
+
 export interface DayNote {
   id: string;
   date: string;
   content: string;
   createdAt: string;
   updatedAt: string;
+  noteType?: NoteType;
+  ideaCategory?: IdeaCategory;
+  link?: string;
+  ideaDone?: boolean;
 }
 
 export interface StreakData {
@@ -685,21 +699,22 @@ export function useStore() {
       mutate(s => ({ ...s, dailyBiases: s.dailyBiases.filter(b => b.id !== id) }));
     }, []),
 
-    addDayNote: useCallback((date: string, content: string) => {
+    addDayNote: useCallback((date: string, content: string, noteType: NoteType = "note") => {
       if (!content.trim()) return;
       mutate(s => ({
         ...s,
         dayNotes: [...s.dayNotes, {
           id: crypto.randomUUID(), date, content: content.trim(),
           createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+          noteType,
         }],
       }));
     }, []),
 
-    updateDayNote: useCallback((id: string, content: string) => {
+    updateDayNote: useCallback((id: string, updates: Partial<Pick<DayNote, "content" | "ideaCategory" | "link" | "ideaDone" | "noteType">>) => {
       mutate(s => ({
         ...s,
-        dayNotes: s.dayNotes.map(n => n.id === id ? { ...n, content: content.trim(), updatedAt: new Date().toISOString() } : n),
+        dayNotes: s.dayNotes.map(n => n.id === id ? { ...n, ...updates, updatedAt: new Date().toISOString() } : n),
       }));
     }, []),
 
