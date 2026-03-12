@@ -152,4 +152,20 @@ export function registerAuthRoutes(app: Express) {
       return res.status(500).json({ message: "Ошибка сервера" });
     }
   });
+
+  app.post("/api/user/data-beacon", requireAuth, async (req, res) => {
+    const { data } = req.body;
+    if (!data) return res.status(400).end();
+
+    try {
+      await UserData.findOneAndUpdate(
+        { userId: req.session.userId },
+        { data, updatedAt: new Date() },
+        { upsert: true }
+      );
+    } catch (err) {
+      console.error("Beacon save error:", err);
+    }
+    return res.status(204).end();
+  });
 }

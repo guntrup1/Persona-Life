@@ -458,6 +458,7 @@ export function onSyncResult(cb: (ok: boolean) => void) {
 function scheduleServerSync(state: AppState) {
   if (serverSyncTimer) clearTimeout(serverSyncTimer);
   serverSyncTimer = setTimeout(async () => {
+    serverSyncTimer = null;
     try {
       const res = await fetch("/api/user/data", {
         method: "PUT",
@@ -492,11 +493,68 @@ export function compressImage(dataUrl: string, maxWidth = 800, quality = 0.6): P
   });
 }
 
+function mergeArraysById<T extends { id: string }>(local: T[], server: T[]): T[] {
+  const map = new Map<string, T>();
+  for (const item of server) map.set(item.id, item);
+  for (const item of local) map.set(item.id, item);
+  return Array.from(map.values());
+}
+
+function mergeArraysByKey<T extends { id: string }>(local: T[], server: T[], keyFn: (item: T) => string): T[] {
+  const byId = new Map<string, T>();
+  const byKey = new Map<string, T>();
+  for (const item of server) {
+    byId.set(item.id, item);
+    byKey.set(keyFn(item), item);
+  }
+  for (const item of local) {
+    const key = keyFn(item);
+    if (byKey.has(key) && !byId.has(item.id)) {
+      byId.delete(byKey.get(key)!.id);
+    }
+    byId.set(item.id, item);
+    byKey.set(key, item);
+  }
+  return Array.from(byId.values());
+}
+
+function mergeStates(local: AppState, server: AppState): AppState {
+  return {
+    ...DEFAULT_STATE,
+    ...server,
+    routineTemplates: mergeArraysById(local.routineTemplates || [], server.routineTemplates || []),
+    todayTasks: mergeArraysByKey(
+      local.todayTasks || [], server.todayTasks || [],
+      (t: TodayTask) => t.routineId ? `${t.routineId}_${t.date}` : t.id
+    ),
+    goals: mergeArraysById(local.goals || [], server.goals || []),
+    focusSessions: mergeArraysById(local.focusSessions || [], server.focusSessions || []),
+    tradingNotes: mergeArraysById(local.tradingNotes || [], server.tradingNotes || []),
+    dailyBiases: mergeArraysByKey(
+      local.dailyBiases || [], server.dailyBiases || [],
+      (b: DailyBias) => `${b.date}_${b.asset}`
+    ),
+    dayNotes: mergeArraysById(local.dayNotes || [], server.dayNotes || []),
+    routineLoadedDates: [...new Set([...(local.routineLoadedDates || []), ...(server.routineLoadedDates || [])])],
+    streak: (local.streak?.currentStreak ?? 0) >= (server.streak?.currentStreak ?? 0)
+      ? { ...DEFAULT_STATE.streak, ...local.streak }
+      : { ...DEFAULT_STATE.streak, ...server.streak },
+    xp: (local.xp?.totalXP ?? 0) >= (server.xp?.totalXP ?? 0)
+      ? { ...DEFAULT_XP, ...local.xp, categoryXP: { ...DEFAULT_XP.categoryXP, ...(local.xp?.categoryXP || {}) } }
+      : { ...DEFAULT_XP, ...server.xp, categoryXP: { ...DEFAULT_XP.categoryXP, ...(server.xp?.categoryXP || {}) } },
+  };
+}
+
 export function loadFromServerData(data: AppState) {
   if (!data || typeof data !== "object") return;
-  globalState = autoLoadRoutine({ ...DEFAULT_STATE, ...data });
+  const prevState = globalState;
+  const merged = mergeStates(globalState, data);
+  globalState = autoLoadRoutine(merged);
   globalState = { ...globalState, xp: recalcXP(globalState) };
   saveState(globalState);
+  if (JSON.stringify(globalState) !== JSON.stringify(prevState)) {
+    scheduleServerSync(globalState);
+  }
   notify();
 }
 
@@ -551,6 +609,17 @@ function startDayChangeChecker() {
 }
 
 startDayChangeChecker();
+
+if (typeof window !== "undefined") {
+  window.addEventListener("beforeunload", () => {
+    if (serverSyncTimer) {
+      clearTimeout(serverSyncTimer);
+      serverSyncTimer = null;
+      const blob = new Blob([JSON.stringify({ data: globalState })], { type: "application/json" });
+      navigator.sendBeacon("/api/user/data-beacon", blob);
+    }
+  });
+}
 
 export function useStore() {
   const state = useSyncExternalStore(subscribeToStore, getSnapshot, getSnapshot);
