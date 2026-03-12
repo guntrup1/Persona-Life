@@ -52,6 +52,7 @@ State is stored in localStorage under key `lifeos_v2`. The store is a simple rea
   - `beforeunload` + `visibilitychange` → `navigator.sendBeacon` flushes pending sync immediately
   - `visibilitychange` → `syncFromServer()` on tab focus to pull latest data
   - Merge strategy: `loadFromServerData` merges local + server arrays by ID (local priority); composite-key dedup for routine tasks (routineId+date) and biases (date+asset); XP/streak keeps higher value
+  - **Deletion tombstones**: `_deletedIds` array (max 200, deduped) tracks IDs of deleted items; merged from both local + server during sync; `mergeArraysById`/`mergeArraysByKey` exclude tombstoned IDs to prevent resurrection of deleted items
   - Data loss guard: refuses merge if result would lose >50% of existing items
   - localStorage backup: every 5 minutes saves `lifeos_v2_backup`, used as fallback during merge
   - Server-side backups: last 10 versions saved in `userdatabackups` collection (10-minute cooldown)

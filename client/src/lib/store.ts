@@ -170,6 +170,7 @@ export interface AppState {
   streak: StreakData;
   xp: XPData;
   routineLoadedDates: string[];
+  _deletedIds?: string[];
 }
 
 const STORAGE_KEY = "lifeos_v2";
@@ -536,14 +537,17 @@ export function compressImage(dataUrl: string, maxWidth = 1200, quality = 0.82):
   });
 }
 
-function mergeArraysById<T extends { id: string }>(local: T[], server: T[]): T[] {
+function mergeArraysById<T extends { id: string }>(local: T[], server: T[], deletedIds?: Set<string>): T[] {
   const map = new Map<string, T>();
   for (const item of server) map.set(item.id, item);
   for (const item of local) map.set(item.id, item);
+  if (deletedIds) {
+    for (const id of deletedIds) map.delete(id);
+  }
   return Array.from(map.values());
 }
 
-function mergeArraysByKey<T extends { id: string }>(local: T[], server: T[], keyFn: (item: T) => string): T[] {
+function mergeArraysByKey<T extends { id: string }>(local: T[], server: T[], keyFn: (item: T) => string, deletedIds?: Set<string>): T[] {
   const byId = new Map<string, T>();
   const byKey = new Map<string, T>();
   for (const item of server) {
@@ -558,26 +562,33 @@ function mergeArraysByKey<T extends { id: string }>(local: T[], server: T[], key
     byId.set(item.id, item);
     byKey.set(key, item);
   }
+  if (deletedIds) {
+    for (const id of deletedIds) byId.delete(id);
+  }
   return Array.from(byId.values());
 }
 
 function mergeStates(local: AppState, server: AppState): AppState {
-  return {
+  const combinedDeletedArr = [...new Set([...(local._deletedIds || []), ...(server._deletedIds || [])])].slice(-200);
+  const deletedIds = new Set(combinedDeletedArr);
+  const merged = {
     ...DEFAULT_STATE,
     ...server,
-    routineTemplates: mergeArraysById(local.routineTemplates || [], server.routineTemplates || []),
+    routineTemplates: mergeArraysById(local.routineTemplates || [], server.routineTemplates || [], deletedIds),
     todayTasks: mergeArraysByKey(
       local.todayTasks || [], server.todayTasks || [],
-      (t: TodayTask) => t.routineId ? `${t.routineId}_${t.date}` : t.id
+      (t: TodayTask) => t.routineId ? `${t.routineId}_${t.date}` : t.id,
+      deletedIds
     ),
-    goals: mergeArraysById(local.goals || [], server.goals || []),
-    focusSessions: mergeArraysById(local.focusSessions || [], server.focusSessions || []),
-    tradingNotes: mergeArraysById(local.tradingNotes || [], server.tradingNotes || []),
+    goals: mergeArraysById(local.goals || [], server.goals || [], deletedIds),
+    focusSessions: mergeArraysById(local.focusSessions || [], server.focusSessions || [], deletedIds),
+    tradingNotes: mergeArraysById(local.tradingNotes || [], server.tradingNotes || [], deletedIds),
     dailyBiases: mergeArraysByKey(
       local.dailyBiases || [], server.dailyBiases || [],
-      (b: DailyBias) => `${b.date}_${b.asset}`
+      (b: DailyBias) => `${b.date}_${b.asset}`,
+      deletedIds
     ),
-    dayNotes: mergeArraysById(local.dayNotes || [], server.dayNotes || []),
+    dayNotes: mergeArraysById(local.dayNotes || [], server.dayNotes || [], deletedIds),
     routineLoadedDates: [...new Set([...(local.routineLoadedDates || []), ...(server.routineLoadedDates || [])])],
     streak: (local.streak?.currentStreak ?? 0) >= (server.streak?.currentStreak ?? 0)
       ? { ...DEFAULT_STATE.streak, ...local.streak }
@@ -585,7 +596,9 @@ function mergeStates(local: AppState, server: AppState): AppState {
     xp: (local.xp?.totalXP ?? 0) >= (server.xp?.totalXP ?? 0)
       ? { ...DEFAULT_XP, ...local.xp, categoryXP: { ...DEFAULT_XP.categoryXP, ...(local.xp?.categoryXP || {}) } }
       : { ...DEFAULT_XP, ...server.xp, categoryXP: { ...DEFAULT_XP.categoryXP, ...(server.xp?.categoryXP || {}) } },
+    _deletedIds: combinedDeletedArr,
   };
+  return merged;
 }
 
 function countItems(s: AppState): number {
@@ -599,7 +612,7 @@ export function loadFromServerData(data: AppState) {
   const backup = getBackupState();
   let best = globalState;
   if (backup && countItems(backup) > countItems(best)) {
-    best = backup;
+    best = { ...backup, _deletedIds: [...new Set([...(backup._deletedIds || []), ...(globalState._deletedIds || [])])] };
   }
   const merged = mergeStates(best, data);
   if (countItems(merged) < countItems(best) * 0.5 && countItems(best) > 5) {
@@ -705,7 +718,7 @@ export function useStore() {
     }, []),
 
     deleteRoutineTemplate: useCallback((id: string) => {
-      mutate(s => ({ ...s, routineTemplates: s.routineTemplates.filter(r => r.id !== id) }));
+      mutate(s => ({ ...s, routineTemplates: s.routineTemplates.filter(r => r.id !== id), _deletedIds: [...(s._deletedIds || []), id].slice(-200) }));
     }, []),
 
     loadRoutineForToday: useCallback(() => {
@@ -749,7 +762,7 @@ export function useStore() {
     }, []),
 
     deleteTask: useCallback((id: string) => {
-      mutate(s => ({ ...s, todayTasks: s.todayTasks.filter(t => t.id !== id) }));
+      mutate(s => ({ ...s, todayTasks: s.todayTasks.filter(t => t.id !== id), _deletedIds: [...(s._deletedIds || []), id].slice(-200) }));
     }, []),
 
     clearTodayTasks: useCallback(() => {
@@ -758,6 +771,7 @@ export function useStore() {
         ...s,
         todayTasks: s.todayTasks.filter(t => t.date !== today),
         routineLoadedDates: s.routineLoadedDates.filter(d => d !== today),
+        _deletedIds: [...(s._deletedIds || []), ...s.todayTasks.filter(t => t.date === today).map(t => t.id)].slice(-200),
       }));
     }, []),
 
@@ -791,7 +805,8 @@ export function useStore() {
     }, []),
 
     deleteGoal: useCallback((id: string) => {
-      mutate(s => ({ ...s, goals: s.goals.filter(g => g.id !== id && g.parentId !== id) }));
+      const childIds = globalState.goals.filter(g => g.parentId === id).map(g => g.id);
+      mutate(s => ({ ...s, goals: s.goals.filter(g => g.id !== id && g.parentId !== id), _deletedIds: [...(s._deletedIds || []), id, ...childIds].slice(-200) }));
     }, []),
 
     addFocusSession: useCallback((session: Omit<FocusSession, "id">) => {
@@ -810,7 +825,7 @@ export function useStore() {
     }, []),
 
     deleteTradingNote: useCallback((id: string) => {
-      mutate(s => ({ ...s, tradingNotes: s.tradingNotes.filter(n => n.id !== id) }));
+      mutate(s => ({ ...s, tradingNotes: s.tradingNotes.filter(n => n.id !== id), _deletedIds: [...(s._deletedIds || []), id].slice(-200) }));
     }, []),
 
     addDailyBias: useCallback((bias: Omit<DailyBias, "id" | "createdAt">) => {
@@ -836,7 +851,7 @@ export function useStore() {
     }, []),
 
     deleteDailyBias: useCallback((id: string) => {
-      mutate(s => ({ ...s, dailyBiases: s.dailyBiases.filter(b => b.id !== id) }));
+      mutate(s => ({ ...s, dailyBiases: s.dailyBiases.filter(b => b.id !== id), _deletedIds: [...(s._deletedIds || []), id].slice(-200) }));
     }, []),
 
     rescheduleTask: useCallback((id: string, newDate: string) => {
@@ -882,7 +897,7 @@ export function useStore() {
     }, []),
 
     deleteDayNote: useCallback((id: string) => {
-      mutate(s => ({ ...s, dayNotes: s.dayNotes.filter(n => n.id !== id) }));
+      mutate(s => ({ ...s, dayNotes: s.dayNotes.filter(n => n.id !== id), _deletedIds: [...(s._deletedIds || []), id].slice(-200) }));
     }, []),
   };
 
