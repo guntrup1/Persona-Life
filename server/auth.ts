@@ -3,7 +3,7 @@ import session from "express-session";
 import ConnectMongo from "connect-mongo";
 const MongoStore = (ConnectMongo as any).default || ConnectMongo;
 import bcrypt from "bcryptjs";
-import { User, UserData } from "./mongodb";
+import { User, UserData, UserDataBackup } from "./mongodb";
 
 export function setupAuth(app: Express) {
   app.use(
@@ -136,16 +136,44 @@ export function registerAuthRoutes(app: Express) {
     }
   });
 
+  const lastBackupTime = new Map<string, number>();
+  const BACKUP_COOLDOWN = 10 * 60 * 1000;
+
+  async function saveWithBackup(userId: string, data: any) {
+    const now = Date.now();
+    const lastTime = lastBackupTime.get(userId) || 0;
+    const shouldBackup = (now - lastTime) > BACKUP_COOLDOWN;
+
+    if (shouldBackup) {
+      const existing = await UserData.findOne({ userId });
+      if (existing?.data && typeof existing.data === "object") {
+        const oldData = existing.data as any;
+        const hasContent = (oldData.todayTasks?.length > 0) || (oldData.dayNotes?.length > 0) ||
+          (oldData.tradingNotes?.length > 0) || (oldData.goals?.length > 0);
+        if (hasContent) {
+          await UserDataBackup.create({ userId, data: existing.data });
+          lastBackupTime.set(userId, now);
+          const backups = await UserDataBackup.find({ userId }).sort({ createdAt: -1 }).skip(10);
+          if (backups.length > 0) {
+            await UserDataBackup.deleteMany({ _id: { $in: backups.map(b => b._id) } });
+          }
+        }
+      }
+    }
+
+    await UserData.findOneAndUpdate(
+      { userId },
+      { data, updatedAt: new Date() },
+      { upsert: true }
+    );
+  }
+
   app.put("/api/user/data", requireAuth, async (req, res) => {
     const { data } = req.body;
     if (!data) return res.status(400).json({ message: "Нет данных" });
 
     try {
-      await UserData.findOneAndUpdate(
-        { userId: req.session.userId },
-        { data, updatedAt: new Date() },
-        { upsert: true }
-      );
+      await saveWithBackup(req.session.userId!, data);
       return res.json({ ok: true });
     } catch (err) {
       console.error("Save data error:", err);
@@ -158,14 +186,48 @@ export function registerAuthRoutes(app: Express) {
     if (!data) return res.status(400).end();
 
     try {
-      await UserData.findOneAndUpdate(
-        { userId: req.session.userId },
-        { data, updatedAt: new Date() },
-        { upsert: true }
-      );
+      await saveWithBackup(req.session.userId!, data);
     } catch (err) {
       console.error("Beacon save error:", err);
     }
     return res.status(204).end();
+  });
+
+  app.get("/api/user/export", requireAuth, async (req, res) => {
+    try {
+      const userData = await UserData.findOne({ userId: req.session.userId });
+      const data = userData?.data || {};
+      res.setHeader("Content-Disposition", `attachment; filename="lifeos-backup-${new Date().toISOString().split("T")[0]}.json"`);
+      res.setHeader("Content-Type", "application/json");
+      return res.json({ data, exportedAt: new Date().toISOString() });
+    } catch (err) {
+      console.error("Export error:", err);
+      return res.status(500).json({ message: "Ошибка экспорта" });
+    }
+  });
+
+  app.get("/api/user/backups", requireAuth, async (req, res) => {
+    try {
+      const backups = await UserDataBackup.find({ userId: req.session.userId })
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .select("_id createdAt");
+      return res.json({ backups: backups.map(b => ({ id: b._id, date: b.createdAt })) });
+    } catch (err) {
+      console.error("Backups list error:", err);
+      return res.status(500).json({ message: "Ошибка" });
+    }
+  });
+
+  app.post("/api/user/restore/:backupId", requireAuth, async (req, res) => {
+    try {
+      const backup = await UserDataBackup.findOne({ _id: req.params.backupId, userId: req.session.userId });
+      if (!backup) return res.status(404).json({ message: "Бэкап не найден" });
+      await saveWithBackup(req.session.userId!, backup.data);
+      return res.json({ ok: true, data: backup.data });
+    } catch (err) {
+      console.error("Restore error:", err);
+      return res.status(500).json({ message: "Ошибка восстановления" });
+    }
   });
 }

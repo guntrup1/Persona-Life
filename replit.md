@@ -45,8 +45,16 @@ A full-featured gamified productivity application inspired by the visual style o
 ## State Management
 
 State is stored in localStorage under key `lifeos_v2`. The store is a simple reactive singleton with listeners.
-- **Auto-sync**: `scheduleServerSync` debounces PUT /api/user/data by 2.5s; shows "Сохранено" toast on success via `onSyncResult` listener; `beforeunload` uses `navigator.sendBeacon` to flush pending sync
-- **Merge strategy**: `loadFromServerData` merges local + server arrays by ID (local priority); composite-key dedup for routine tasks (routineId+date) and biases (date+asset); XP/streak keeps higher value
+- **Auto-sync**: `scheduleServerSync` debounces PUT /api/user/data by 2.5s; shows "Сохранено" toast on success via `onSyncResult` listener
+- **Data protection (multi-layer)**:
+  - `beforeunload` + `visibilitychange` → `navigator.sendBeacon` flushes pending sync immediately
+  - `visibilitychange` → `syncFromServer()` on tab focus to pull latest data
+  - Merge strategy: `loadFromServerData` merges local + server arrays by ID (local priority); composite-key dedup for routine tasks (routineId+date) and biases (date+asset); XP/streak keeps higher value
+  - Data loss guard: refuses merge if result would lose >50% of existing items
+  - localStorage backup: every 5 minutes saves `lifeos_v2_backup`, used as fallback during merge
+  - Server-side backups: last 10 versions saved in `userdatabackups` collection (10-minute cooldown)
+  - Export: GET `/api/user/export` downloads full JSON backup; button in sidebar footer
+  - Restore: GET `/api/user/backups` lists backups; POST `/api/user/restore/:id` restores from backup
 - **Image compression**: `compressImage(dataUrl, maxWidth=800, quality=0.6)` utility compresses screenshots before storing as base64
 - **Bias upsert**: `addDailyBias` upserts by date+asset (no duplicates for same day/instrument)
 - **Calendar**: Day notes shown read-only with timestamps; trading note and bias screenshots displayed inline

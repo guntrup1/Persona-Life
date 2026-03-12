@@ -28,5 +28,12 @@ const userDataSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
 });
 
+const userDataBackupSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
+  data: { type: mongoose.Schema.Types.Mixed, default: {} },
+  createdAt: { type: Date, default: Date.now },
+});
+
 export const User = mongoose.model("User", userSchema);
 export const UserData = mongoose.model("UserData", userDataSchema);
+export const UserDataBackup = mongoose.model("UserDataBackup", userDataBackupSchema);

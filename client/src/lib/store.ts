@@ -231,10 +231,28 @@ function loadState(): AppState {
   }
 }
 
+const BACKUP_KEY = "lifeos_v2_backup";
+const BACKUP_INTERVAL = 5 * 60 * 1000;
+let lastBackupTime = 0;
+
 function saveState(state: AppState) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    const now = Date.now();
+    if (now - lastBackupTime > BACKUP_INTERVAL) {
+      lastBackupTime = now;
+      localStorage.setItem(BACKUP_KEY, JSON.stringify({ state, timestamp: now }));
+    }
   } catch {}
+}
+
+function getBackupState(): AppState | null {
+  try {
+    const raw = localStorage.getItem(BACKUP_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed?.state || null;
+  } catch { return null; }
 }
 
 export function getTodayDate(): string {
@@ -545,10 +563,25 @@ function mergeStates(local: AppState, server: AppState): AppState {
   };
 }
 
+function countItems(s: AppState): number {
+  return (s.todayTasks?.length || 0) + (s.dayNotes?.length || 0) +
+    (s.tradingNotes?.length || 0) + (s.goals?.length || 0) +
+    (s.focusSessions?.length || 0) + (s.dailyBiases?.length || 0);
+}
+
 export function loadFromServerData(data: AppState) {
   if (!data || typeof data !== "object") return;
+  const backup = getBackupState();
+  let best = globalState;
+  if (backup && countItems(backup) > countItems(best)) {
+    best = backup;
+  }
+  const merged = mergeStates(best, data);
+  if (countItems(merged) < countItems(best) * 0.5 && countItems(best) > 5) {
+    console.warn("[store] Merge would lose >50% of data, keeping local state");
+    return;
+  }
   const prevState = globalState;
-  const merged = mergeStates(globalState, data);
   globalState = autoLoadRoutine(merged);
   globalState = { ...globalState, xp: recalcXP(globalState) };
   saveState(globalState);
@@ -617,6 +650,19 @@ if (typeof window !== "undefined") {
       serverSyncTimer = null;
       const blob = new Blob([JSON.stringify({ data: globalState })], { type: "application/json" });
       navigator.sendBeacon("/api/user/data-beacon", blob);
+    }
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      syncFromServer();
+    } else if (document.visibilityState === "hidden") {
+      if (serverSyncTimer) {
+        clearTimeout(serverSyncTimer);
+        serverSyncTimer = null;
+        const blob = new Blob([JSON.stringify({ data: globalState })], { type: "application/json" });
+        navigator.sendBeacon("/api/user/data-beacon", blob);
+      }
     }
   });
 }

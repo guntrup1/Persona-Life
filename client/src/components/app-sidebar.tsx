@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard, CheckSquare, Target, Timer,
-  BarChart3, TrendingUp, Lightbulb, Newspaper, CalendarDays, Zap, LogOut,
+  BarChart3, TrendingUp, Lightbulb, Newspaper, CalendarDays, Zap, LogOut, Download,
 } from "lucide-react";
 import { useStore, getBerlinTime, getMarketSession } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
@@ -118,6 +118,14 @@ export function AppSidebar() {
             <span className="text-[10px] text-muted-foreground font-mono truncate flex-1" data-testid="text-user-email">
               {user.email}
             </span>
+            <a
+              href="/api/user/export"
+              className="flex-shrink-0 p-1 rounded-md text-muted-foreground hover:text-green-400 transition-colors"
+              title="Скачать бэкап данных"
+              data-testid="button-export"
+            >
+              <Download className="w-3.5 h-3.5" />
+            </a>
             <button
               onClick={logout}
               className="flex-shrink-0 p-1 rounded-md text-muted-foreground hover:text-red-400 transition-colors"
