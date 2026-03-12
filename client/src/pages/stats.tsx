@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useStore, LIFE_AREAS, LIFE_AREA_COLORS, LIFE_AREA_BG, getTodayDate, type LifeArea } from "@/lib/store";
+import { useStore, LIFE_AREAS, LIFE_AREA_COLORS, LIFE_AREA_BG, getTodayDate, getLevelFromXP, type LifeArea } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -74,8 +74,7 @@ export default function StatsPage() {
     xp: state.xp.categoryXP[area] || 0,
   })).filter(d => d.xp > 0).sort((a, b) => b.xp - a.xp);
 
-  const level = Math.floor(totalXP / 100) + 1;
-  const xpInLevel = totalXP % 100;
+  const { level, xpInLevel, xpForNext } = getLevelFromXP(totalXP);
 
   const completionRate = filteredTasks.length > 0
     ? Math.round((completedTasks.length / filteredTasks.length) * 100)
@@ -141,10 +140,10 @@ export default function StatsPage() {
               <div className="flex-1 h-3 bg-muted rounded-full overflow-hidden">
                 <div
                   className="h-full bg-primary rounded-full transition-all duration-700"
-                  style={{ width: `${xpInLevel}%` }}
+                  style={{ width: `${Math.round((xpInLevel / xpForNext) * 100)}%` }}
                 />
               </div>
-              <span className="font-mono text-xs text-primary">{xpInLevel}/100 XP</span>
+              <span className="font-mono text-xs text-primary">{xpInLevel}/{xpForNext} XP</span>
             </div>
             <div className="grid grid-cols-3 gap-2 text-center text-xs">
               <div>

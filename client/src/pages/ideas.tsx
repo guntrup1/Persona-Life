@@ -46,6 +46,9 @@ function IdeaCard({ idea, onEdit, onDelete }: {
               <Badge variant="secondary" className="text-[9px] bg-green-500/20 text-green-400 border-0">Реализовано</Badge>
             )}
           </div>
+          {idea.title && (
+            <h3 className="text-sm font-bold text-foreground">{idea.title}</h3>
+          )}
           <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{idea.content}</p>
           {idea.link && (
             <a
@@ -85,8 +88,9 @@ function EditIdeaDialog({ idea, open, onOpenChange, onSave }: {
   idea: DayNote | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (id: string, updates: Partial<Pick<DayNote, "content" | "ideaCategory" | "link" | "ideaDone">>) => void;
+  onSave: (id: string, updates: Partial<Pick<DayNote, "content" | "title" | "ideaCategory" | "link" | "ideaDone">>) => void;
 }) {
+  const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [category, setCategory] = useState<IdeaCategory | "none">("none");
   const [link, setLink] = useState("");
@@ -94,6 +98,7 @@ function EditIdeaDialog({ idea, open, onOpenChange, onSave }: {
 
   useEffect(() => {
     if (open && idea) {
+      setTitle(idea.title || "");
       setContent(idea.content);
       setCategory(idea.ideaCategory || "none");
       setLink(idea.link || "");
@@ -108,6 +113,7 @@ function EditIdeaDialog({ idea, open, onOpenChange, onSave }: {
   const handleSave = () => {
     if (!idea || !content.trim()) return;
     onSave(idea.id, {
+      title: title.trim() || undefined,
       content: content.trim(),
       ideaCategory: category === "none" ? undefined : category,
       link: link.trim() || undefined,
@@ -123,6 +129,13 @@ function EditIdeaDialog({ idea, open, onOpenChange, onSave }: {
           <DialogTitle className="font-display">Редактировать идею</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 pt-2">
+          <Input
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            placeholder="Заголовок идеи (опционально)"
+            className="rounded-xl"
+            data-testid="input-edit-idea-title"
+          />
           <Textarea
             value={content}
             onChange={e => setContent(e.target.value)}

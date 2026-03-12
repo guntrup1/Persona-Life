@@ -16,7 +16,10 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
-import { CheckCircle, Circle, Plus, Trash2, RefreshCw, CheckSquare, Repeat, Zap, Pencil, Clock } from "lucide-react";
+import {
+  Popover, PopoverContent, PopoverTrigger
+} from "@/components/ui/popover";
+import { CheckCircle, Circle, Plus, Trash2, RefreshCw, CheckSquare, Repeat, Zap, Pencil, Clock, ChevronDown, ChevronRight, CalendarDays, Target } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 function AddTaskDialog({ onAdd, taskToEdit, open: externalOpen, onOpenChange }: { 
@@ -401,6 +404,23 @@ export default function TasksPage() {
 
   const routineTasks = todayTasks.filter(t => t.type === "routine");
   const regularTasks = todayTasks.filter(t => t.type !== "routine");
+  const unlinkedTasks = regularTasks.filter(t => !t.weekGoalId);
+  const linkedTasks = regularTasks.filter(t => !!t.weekGoalId);
+
+  const goalGroups = linkedTasks.reduce<Record<string, TodayTask[]>>((acc, task) => {
+    const gid = task.weekGoalId!;
+    if (!acc[gid]) acc[gid] = [];
+    acc[gid].push(task);
+    return acc;
+  }, {});
+
+  const [collapsedGoals, setCollapsedGoals] = useState<Record<string, boolean>>({});
+  const toggleGoalCollapse = (goalId: string) => setCollapsedGoals(prev => ({ ...prev, [goalId]: !prev[goalId] }));
+
+  const handleReschedule = (taskId: string, newDate: string) => {
+    actions.rescheduleTask(taskId, newDate);
+    toast({ title: "Задача перенесена", description: `Новая дата: ${newDate}` });
+  };
 
   return (
     <div className="h-full overflow-auto">
@@ -452,31 +472,67 @@ export default function TasksPage() {
                       onToggle={handleToggle} 
                       onDelete={actions.deleteTask}
                       onEdit={() => setEditingTask(task)}
+                      onReschedule={handleReschedule}
                     />
                   ))}
                 </div>
               </div>
             )}
 
-            {regularTasks.length > 0 && (
+            {unlinkedTasks.length > 0 && (
               <div>
                 <div className="text-xs font-display uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-1">
                   <Zap className="w-3 h-3" />
-                  Сегодняшние задачи
+                  Задачи
                 </div>
                 <div className="space-y-2">
-                  {regularTasks.map(task => (
+                  {unlinkedTasks.map(task => (
                     <TaskRow 
                       key={task.id} 
                       task={task} 
                       onToggle={handleToggle} 
                       onDelete={actions.deleteTask}
                       onEdit={() => setEditingTask(task)}
+                      onReschedule={handleReschedule}
                     />
                   ))}
                 </div>
               </div>
             )}
+
+            {Object.keys(goalGroups).length > 0 && Object.entries(goalGroups).map(([goalId, tasks]) => {
+              const goal = state.goals.find(g => g.id === goalId);
+              const isCollapsed = collapsedGoals[goalId];
+              const completedCount = tasks.filter(t => t.completed).length;
+              return (
+                <div key={goalId}>
+                  <button
+                    className="w-full text-xs font-display uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-1 hover:text-foreground transition-colors"
+                    onClick={() => toggleGoalCollapse(goalId)}
+                    data-testid={`goal-group-toggle-${goalId}`}
+                  >
+                    {isCollapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                    <Target className="w-3 h-3 text-primary" />
+                    {goal?.title || "Цель"}
+                    <span className="font-mono text-[10px] ml-1 text-primary">{completedCount}/{tasks.length}</span>
+                  </button>
+                  {!isCollapsed && (
+                    <div className="space-y-2 pl-1 border-l-2 border-primary/20 ml-1">
+                      {tasks.map(task => (
+                        <TaskRow
+                          key={task.id}
+                          task={task}
+                          onToggle={handleToggle}
+                          onDelete={actions.deleteTask}
+                          onEdit={() => setEditingTask(task)}
+                          onReschedule={handleReschedule}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
 
             {todayTasks.length === 0 && (
               <Card className="p-8 text-center border-dashed border-border">
@@ -617,14 +673,23 @@ export default function TasksPage() {
   );
 }
 
-function TaskRow({ task, onToggle, onDelete, onEdit }: {
+function TaskRow({ task, onToggle, onDelete, onEdit, onReschedule }: {
   task: TodayTask;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
   onEdit: () => void;
+  onReschedule?: (id: string, newDate: string) => void;
 }) {
   const { state } = useStore();
   const weekGoal = task.weekGoalId ? state.goals.find(g => g.id === task.weekGoalId) : null;
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
+  const [customDate, setCustomDate] = useState("");
+
+  const getNextDay = () => {
+    const d = new Date(task.date || getTodayDate());
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  };
 
   return (
     <Card
@@ -679,6 +744,60 @@ function TaskRow({ task, onToggle, onDelete, onEdit }: {
           <span className={`font-mono text-xs font-bold mr-2 ${task.completed ? "text-muted-foreground" : "text-primary"}`}>
             +{task.xp} XP
           </span>
+          {onReschedule && !task.completed && (
+            <Popover open={rescheduleOpen} onOpenChange={setRescheduleOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 invisible group-hover:visible"
+                  onClick={(e) => { e.stopPropagation(); }}
+                  data-testid={`task-reschedule-${task.id}`}
+                >
+                  <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-2 space-y-2" onClick={(e) => e.stopPropagation()}>
+                <p className="text-xs font-display text-muted-foreground uppercase tracking-wider px-1">Перенести задачу</p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full justify-start text-xs gap-2"
+                  onClick={() => { onReschedule(task.id, getNextDay()); setRescheduleOpen(false); }}
+                  data-testid={`task-reschedule-tomorrow-${task.id}`}
+                >
+                  <CalendarDays className="w-3 h-3" />
+                  Завтра
+                </Button>
+                <div className="flex gap-1">
+                  <Input
+                    type="date"
+                    value={customDate}
+                    onChange={e => setCustomDate(e.target.value)}
+                    className="text-xs h-8 flex-1"
+                    data-testid={`task-reschedule-date-${task.id}`}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <Button
+                    size="sm"
+                    variant="default"
+                    className="h-8 text-xs px-2"
+                    disabled={!customDate}
+                    onClick={() => {
+                      if (customDate) {
+                        onReschedule(task.id, customDate);
+                        setRescheduleOpen(false);
+                        setCustomDate("");
+                      }
+                    }}
+                    data-testid={`task-reschedule-confirm-${task.id}`}
+                  >
+                    OK
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
           <Button
             size="icon"
             variant="ghost"

@@ -106,6 +106,8 @@ export interface TradingNote {
   screenshotUrl?: string;
   date: string;
   createdAt: string;
+  isTradingIdea?: boolean;
+  tradingIdeaDone?: boolean;
 }
 
 export interface DailyBias {
@@ -132,6 +134,7 @@ export const IDEA_CATEGORIES: { value: IdeaCategory; label: string }[] = [
 export interface DayNote {
   id: string;
   date: string;
+  title?: string;
   content: string;
   createdAt: string;
   updatedAt: string;
@@ -302,6 +305,28 @@ export function getCharacterState(): { state: string; label: string; emoji: stri
   if (hour >= 9 && hour < 14) return { state: "working", label: "Работа", emoji: "💪" };
   if (hour >= 14 && hour < 21) return { state: "resting", label: "Отдых", emoji: "☕" };
   return { state: "evening", label: "Вечер", emoji: "🌙" };
+}
+
+export function getXPForLevel(level: number): number {
+  if (level <= 1) return 100;
+  let threshold = 100;
+  for (let i = 2; i <= level; i++) {
+    threshold = Math.round(threshold + 40 + threshold * 0.12);
+  }
+  return threshold;
+}
+
+export function getLevelFromXP(totalXP: number): { level: number; xpInLevel: number; xpForNext: number } {
+  let level = 1;
+  let accumulated = 0;
+  while (true) {
+    const needed = getXPForLevel(level);
+    if (accumulated + needed > totalXP) {
+      return { level, xpInLevel: totalXP - accumulated, xpForNext: needed };
+    }
+    accumulated += needed;
+    level++;
+  }
 }
 
 export function xpForDifficulty(difficulty: TaskDifficulty): number {
@@ -492,7 +517,7 @@ function scheduleServerSync(state: AppState) {
   }, 2500);
 }
 
-export function compressImage(dataUrl: string, maxWidth = 800, quality = 0.6): Promise<string> {
+export function compressImage(dataUrl: string, maxWidth = 1200, quality = 0.82): Promise<string> {
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
@@ -814,19 +839,23 @@ export function useStore() {
       mutate(s => ({ ...s, dailyBiases: s.dailyBiases.filter(b => b.id !== id) }));
     }, []),
 
-    addDayNote: useCallback((date: string, content: string, noteType: NoteType = "note") => {
+    rescheduleTask: useCallback((id: string, newDate: string) => {
+      mutate(s => ({ ...s, todayTasks: s.todayTasks.map(t => t.id === id ? { ...t, date: newDate, completed: false, completedAt: undefined } : t) }));
+    }, []),
+
+    addDayNote: useCallback((date: string, content: string, noteType: NoteType = "note", title?: string) => {
       if (!content.trim()) return;
       mutate(s => ({
         ...s,
         dayNotes: [...s.dayNotes, {
-          id: crypto.randomUUID(), date, content: content.trim(),
+          id: crypto.randomUUID(), date, content: content.trim(), title: title?.trim() || undefined,
           createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
           noteType,
         }],
       }));
     }, []),
 
-    updateDayNote: useCallback((id: string, updates: Partial<Pick<DayNote, "content" | "ideaCategory" | "link" | "ideaDone" | "noteType">>) => {
+    updateDayNote: useCallback((id: string, updates: Partial<Pick<DayNote, "content" | "title" | "ideaCategory" | "link" | "ideaDone" | "noteType">>) => {
       mutate(s => ({
         ...s,
         dayNotes: s.dayNotes.map(n => n.id === id ? { ...n, ...updates, updatedAt: new Date().toISOString() } : n),

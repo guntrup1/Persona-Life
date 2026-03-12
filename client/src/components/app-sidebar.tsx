@@ -8,7 +8,7 @@ import {
   LayoutDashboard, CheckSquare, Target, Timer,
   BarChart3, TrendingUp, Lightbulb, Newspaper, CalendarDays, Zap, LogOut, Download,
 } from "lucide-react";
-import { useStore, getBerlinTime, getMarketSession } from "@/lib/store";
+import { useStore, getBerlinTime, getMarketSession, getLevelFromXP } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { useState, useEffect, memo } from "react";
 
@@ -48,8 +48,7 @@ export function AppSidebar() {
   const { state } = useStore();
   const { user, logout } = useAuth();
 
-  const level = Math.floor(state.xp.totalXP / 100) + 1;
-  const xpInLevel = state.xp.totalXP % 100;
+  const { level, xpInLevel, xpForNext } = getLevelFromXP(state.xp.totalXP);
 
   return (
     <Sidebar>
@@ -98,10 +97,10 @@ export function AppSidebar() {
         <div className="space-y-1 overflow-hidden">
           <div className="flex items-center justify-between gap-1 overflow-hidden">
             <span className="font-display text-xs text-muted-foreground truncate">Ур. {level}</span>
-            <span className="font-mono text-xs text-primary flex-shrink-0">{xpInLevel}/100</span>
+            <span className="font-mono text-xs text-primary flex-shrink-0">{xpInLevel}/{xpForNext}</span>
           </div>
           <div className="w-full h-1 bg-muted rounded-full overflow-hidden">
-            <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${xpInLevel}%` }} />
+            <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${Math.round((xpInLevel / xpForNext) * 100)}%` }} />
           </div>
         </div>
 

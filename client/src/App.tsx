@@ -3,6 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Input } from "@/components/ui/input";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import NotFound from "@/pages/not-found";
@@ -50,13 +51,15 @@ function QuickNoteButton() {
   const { actions } = useStore();
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
+  const [title, setTitle] = useState("");
   const [noteType, setNoteType] = useState<NoteType>("note");
   const { toast } = useToast();
 
   const handleAdd = () => {
     if (!text.trim()) return;
-    actions.addDayNote(getTodayDate(), text, noteType);
+    actions.addDayNote(getTodayDate(), text, noteType, noteType === "idea" ? title : undefined);
     setText("");
+    setTitle("");
     setNoteType("note");
     setOpen(false);
     toast({ title: noteType === "idea" ? "Идея добавлена" : "Заметка добавлена" });
@@ -91,6 +94,15 @@ function QuickNoteButton() {
               Идея
             </button>
           </div>
+          {noteType === "idea" && (
+            <Input
+              placeholder="Заголовок идеи (опционально)"
+              className="rounded-xl"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              data-testid="input-quick-note-title"
+            />
+          )}
           <Textarea
             placeholder={noteType === "idea" ? "Опиши свою идею..." : "Что хочешь записать?"}
             className="min-h-[100px] resize-none rounded-xl"

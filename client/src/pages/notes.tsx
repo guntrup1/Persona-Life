@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { FileText, Plus, Trash2, Clock, TrendingUp, ArrowUpRight, ArrowDownRight, MoveRight, Camera, X, Pencil } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { FileText, Plus, Trash2, Clock, TrendingUp, ArrowUpRight, ArrowDownRight, MoveRight, Camera, X, Pencil, Lightbulb, CheckCircle, Circle } from "lucide-react";
 
 const ASSETS: TradeAsset[] = ["GER40", "EUR", "XAU", "GBP"];
 const TIMEFRAMES = ["M1", "M5", "M15", "M30", "H1", "H4", "D1"];
@@ -195,6 +196,7 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
   const [text, setText] = useState(editNote?.text || "");
   const [time, setTime] = useState(editNote?.time || new Date().toTimeString().slice(0, 5));
   const [screenshotUrl, setScreenshotUrl] = useState<string | undefined>(editNote?.screenshotUrl);
+  const [isTradingIdea, setIsTradingIdea] = useState(editNote?.isTradingIdea || false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -206,6 +208,7 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
       setText(editNote.text);
       setTime(editNote.time);
       setScreenshotUrl(editNote.screenshotUrl);
+      setIsTradingIdea(editNote.isTradingIdea || false);
     }
   }, [editNote]);
 
@@ -232,6 +235,7 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
       tag,
       text: text.trim(),
       screenshotUrl,
+      isTradingIdea: tag === "идея" ? isTradingIdea : false,
       date: editNote?.date || getTodayDate(),
     });
     if (!editNote) {
@@ -368,6 +372,24 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
               </div>
             )}
           </div>
+
+          {tag === "идея" && (
+            <div className="flex items-center justify-between py-1">
+              <div className="space-y-0.5">
+                <Label htmlFor="trading-idea-toggle" className="text-yellow-400 flex items-center gap-1">
+                  <Lightbulb className="w-3.5 h-3.5" />
+                  Торговая идея
+                </Label>
+                <div className="text-[10px] text-muted-foreground">Сохранить в список торговых идей</div>
+              </div>
+              <Switch
+                id="trading-idea-toggle"
+                checked={isTradingIdea}
+                onCheckedChange={setIsTradingIdea}
+                data-testid="switch-trading-idea"
+              />
+            </div>
+          )}
 
           <Button type="submit" className="w-full" data-testid="button-note-submit">
             Сохранить заметку
@@ -646,7 +668,99 @@ export default function NotesPage() {
             })}
           </div>
         )}
+
+        {/* Trading Ideas Section */}
+        <TradingIdeasSection />
       </div>
     </div>
+  );
+}
+
+function TradingIdeasSection() {
+  const { state, actions } = useStore();
+  const [showDone, setShowDone] = useState(false);
+
+  const tradingIdeas = state.tradingNotes
+    .filter(n => n.isTradingIdea)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+  const activeIdeas = tradingIdeas.filter(n => !n.tradingIdeaDone);
+  const doneIdeas = tradingIdeas.filter(n => n.tradingIdeaDone);
+  const displayedIdeas = showDone ? tradingIdeas : activeIdeas;
+
+  if (tradingIdeas.length === 0) return null;
+
+  return (
+    <section className="space-y-3 pt-4 border-t border-border">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h2 className="font-display text-lg font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
+          <Lightbulb className="w-5 h-5 text-yellow-400" />
+          Торговые идеи
+        </h2>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground font-mono">
+            {activeIdeas.length} активных{doneIdeas.length > 0 && ` · ${doneIdeas.length} выполнено`}
+          </span>
+          {doneIdeas.length > 0 && (
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showDone}
+                onChange={e => setShowDone(e.target.checked)}
+                className="accent-green-500"
+                data-testid="checkbox-show-done-ideas"
+              />
+              <span className="text-xs text-muted-foreground">Выполненные</span>
+            </label>
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {displayedIdeas.map(idea => (
+          <Card
+            key={idea.id}
+            className={`p-3 border-card-border hover-elevate group ${idea.tradingIdeaDone ? "opacity-60" : ""}`}
+            data-testid={`trading-idea-${idea.id}`}
+          >
+            <div className="flex items-start gap-3">
+              <button
+                className="flex-shrink-0 mt-0.5"
+                onClick={() => actions.updateTradingNote(idea.id, { tradingIdeaDone: !idea.tradingIdeaDone })}
+                data-testid={`trading-idea-toggle-${idea.id}`}
+              >
+                {idea.tradingIdeaDone ? (
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                ) : (
+                  <Circle className="w-5 h-5 text-yellow-400" />
+                )}
+              </button>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap mb-1">
+                  <Badge variant="outline" className="text-xs font-mono font-bold text-primary border-primary/30">
+                    {idea.asset}
+                  </Badge>
+                  <Badge variant="outline" className="text-xs font-mono text-muted-foreground">
+                    {idea.timeframe}
+                  </Badge>
+                  <span className="text-[10px] text-muted-foreground font-mono ml-auto flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {idea.time} · {new Date(idea.date).toLocaleDateString("ru-RU", { day: "2-digit", month: "short" })}
+                  </span>
+                </div>
+                {idea.title && (
+                  <h3 className={`text-sm font-bold mb-0.5 ${idea.tradingIdeaDone ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                    {idea.title}
+                  </h3>
+                )}
+                <p className={`text-sm leading-relaxed ${idea.tradingIdeaDone ? "text-muted-foreground" : "text-foreground"}`}>
+                  {idea.text}
+                </p>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+    </section>
   );
 }

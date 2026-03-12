@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, memo } from "react";
-import { useStore, getBerlinTime, getMarketSession, getCharacterState, getTodayDate, LIFE_AREA_COLORS, getGoalProgress, type NoteType } from "@/lib/store";
+import { useStore, getBerlinTime, getMarketSession, getCharacterState, getTodayDate, LIFE_AREA_COLORS, getGoalProgress, getLevelFromXP, type NoteType } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -143,6 +144,7 @@ export default function HubPage() {
   const { state, actions, todayTasks, completedToday, totalToday, todayNotes } = useStore();
   const [xpNotif, setXpNotif] = useState<{ xp: number; visible: boolean }>({ xp: 0, visible: false });
   const [newNoteText, setNewNoteText] = useState("");
+  const [newNoteTitle, setNewNoteTitle] = useState("");
   const [newNoteType, setNewNoteType] = useState<NoteType>("note");
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
@@ -162,8 +164,7 @@ export default function HubPage() {
   const dayProgress = totalToday > 0 ? (completedToday / totalToday) * 100 : 0;
   const dayXP = todayTasks.filter(t => t.completed).reduce((s, t) => s + t.xp, 0);
 
-  const level = Math.floor(state.xp.totalXP / 100) + 1;
-  const xpInLevel = state.xp.totalXP % 100;
+  const { level, xpInLevel, xpForNext } = getLevelFromXP(state.xp.totalXP);
 
   const weekGoals = state.goals.filter(g => g.type === "week" && !g.completed);
   const monthGoals = state.goals.filter(g => g.type === "month" && !g.completed);
@@ -180,8 +181,9 @@ export default function HubPage() {
 
   const handleAddNote = () => {
     if (!newNoteText.trim()) return;
-    actions.addDayNote(getTodayDate(), newNoteText, newNoteType);
+    actions.addDayNote(getTodayDate(), newNoteText, newNoteType, newNoteType === "idea" ? newNoteTitle : undefined);
     setNewNoteText("");
+    setNewNoteTitle("");
     setNewNoteType("note");
   };
 
@@ -221,10 +223,10 @@ export default function HubPage() {
                   <span className="font-display text-muted-foreground flex items-center gap-1">
                     <Star className="w-3 h-3 text-primary" /> Уровень {level}
                   </span>
-                  <span className="font-mono text-primary font-bold">{xpInLevel}/100 XP</span>
+                  <span className="font-mono text-primary font-bold">{xpInLevel}/{xpForNext} XP</span>
                 </div>
                 <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-                  <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${xpInLevel}%` }} />
+                  <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${Math.round((xpInLevel / xpForNext) * 100)}%` }} />
                 </div>
               </div>
 
@@ -481,6 +483,15 @@ export default function HubPage() {
                 Идея
               </button>
             </div>
+            {newNoteType === "idea" && (
+              <Input
+                placeholder="Заголовок идеи (опционально)"
+                className="border-card-border focus-visible:ring-primary bg-muted/30 rounded-xl text-sm"
+                value={newNoteTitle}
+                onChange={e => setNewNoteTitle(e.target.value)}
+                data-testid="input-new-note-title"
+              />
+            )}
             <Textarea
               placeholder={newNoteType === "idea" ? "Опиши свою идею..." : "Новая заметка дня..."}
               className="min-h-[70px] resize-none border-card-border focus-visible:ring-primary bg-muted/30 rounded-xl text-sm"

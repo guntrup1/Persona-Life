@@ -5,13 +5,13 @@ A full-featured gamified productivity application inspired by the visual style o
 ## Features
 
 - **Main Hub** — Redesigned 2-column layout: left panel (animated character + current session only + XP/level + streak), right panel (collapsible blocks: day progress, day tasks)
-- **Task System** — Three task types: Routine (daily templates), Today Tasks, Goal Tasks
+- **Task System** — Three task types: Routine (daily templates), Today Tasks, Goal Tasks; collapsible goal-linked task groups on tasks page; task rescheduling (move to tomorrow or chosen date)
 - **Routine Templates** — "Обновить рутину" button syncs enabled templates to today without duplication; hub also has "Синхр. рутину" shortcut
 - **Goals** — Hierarchical Year → Month → Week goal system with custom XP rewards (user-defined per goal)
 - **Focus Timer** — Pomodoro (25min), Deep Work (90min), Custom timer modes with XP rewards
 - **Statistics** — Day/Week/Month/All-time XP charts, category breakdown, streaks
-- **Trading (Трейдинг)** — Trading notes with asset (GER40/EUR/XAU/GBP), timeframe, tags (мысль/идея/ошибка), daily bias with screenshots
-- **Ideas (Идеи)** — Idea bank with categories (Подарок/Хобби/Интересно изучить/Другое), links, creation dates; created via day notes with "idea" type
+- **Trading (Трейдинг)** — Trading notes with asset (GER40/EUR/XAU/GBP), timeframe, tags (мысль/идея/ошибка), daily bias with screenshots; Trading Ideas section (notes tagged "идея" + isTradingIdea flag) with done/active toggle
+- **Ideas (Идеи)** — Idea bank with categories (Подарок/Хобби/Интересно изучить/Другое), links, creation dates, optional titles; created via day notes with "idea" type
 - **Financial News** — Forex Factory-style news calendar with impact levels (UTC+1)
 - **Calendar** — Day/Week/Month views with task management
 - **Day Notes** — Support two types: "note" (regular) and "idea" (goes to Ideas page); created from Hub or QuickNote button
@@ -37,6 +37,8 @@ A full-featured gamified productivity application inspired by the visual style o
 
 ## XP System
 
+- **Exponential levels**: L1=100 XP, each next level += 40 + 2% of previous threshold (L2=152, L3≈207, etc.)
+- **Level functions**: `getXPForLevel(level)` returns threshold, `getLevelFromXP(totalXP)` returns {level, xpInLevel, xpForNext}
 - **Routine XP**: 5–20 XP per task, max 50/day
 - **Daily Task XP**: Low=10, Medium=25, High=50 XP
 - **Goal XP**: Week=100, Month=250, Year=1000 XP
@@ -55,13 +57,13 @@ State is stored in localStorage under key `lifeos_v2`. The store is a simple rea
   - Server-side backups: last 10 versions saved in `userdatabackups` collection (10-minute cooldown)
   - Export: GET `/api/user/export` downloads full JSON backup; button in sidebar footer
   - Restore: GET `/api/user/backups` lists backups; POST `/api/user/restore/:id` restores from backup
-- **Image compression**: `compressImage(dataUrl, maxWidth=800, quality=0.6)` utility compresses screenshots before storing as base64
+- **Image compression**: `compressImage(dataUrl, maxWidth=1200, quality=0.82)` utility compresses screenshots before storing as base64
 - **Bias upsert**: `addDailyBias` upserts by date+asset (no duplicates for same day/instrument)
 - **Calendar**: Day notes shown read-only with timestamps; trading note and bias screenshots displayed inline
 
 ## Architecture
 
-- `client/src/lib/store.ts` — Main state management (localStorage), DayNote has `noteType` ("note" | "idea")
+- `client/src/lib/store.ts` — Main state management (localStorage), DayNote has `noteType` ("note" | "idea"), optional `title`; TradingNote has `isTradingIdea` + `tradingIdeaDone` flags; `rescheduleTask` action moves task to new date
 - `client/src/pages/` — All page components
 - `client/src/pages/ideas.tsx` — Ideas page with filtering, sorting, editing
 - `client/src/App.tsx` — Header navigation (desktop inline nav, mobile burger menu), sync button, news indicator, quick note (supports note/idea type)
