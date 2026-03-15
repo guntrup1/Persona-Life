@@ -631,21 +631,12 @@ function countItems(s: AppState): number {
 
 export function loadFromServerData(data: AppState) {
   if (!data || typeof data !== "object") return;
-  const backup = getBackupState();
-  let best = globalState;
-  if (backup && countItems(backup) > countItems(best)) {
-    best = { ...backup, _deletedIds: [...new Set([...(backup._deletedIds || []), ...(globalState._deletedIds || [])])] };
-  }
-  const merged = mergeStates(best, data);
-  if (countItems(merged) < countItems(best) * 0.5 && countItems(best) > 5) {
-    console.warn("[store] Merge would lose >50% of data, keeping local state");
-    return;
-  }
-  const prevState = globalState;
+  
+  const merged = mergeStates(globalState, data);
+  
   globalState = autoLoadRoutine(merged);
   globalState = { ...globalState, xp: recalcXP(globalState) };
   saveState(globalState);
-  
   notify();
 }
 
