@@ -17,6 +17,8 @@ import IdeasPage from "@/pages/ideas";
 import NewsPage from "@/pages/news";
 import CalendarPage from "@/pages/calendar-page";
 import LoginPage from "@/pages/login";
+import ForgotPasswordPage from "@/pages/forgot-password";
+import ResetPasswordPage from "@/pages/reset-password";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { loadFromServerData, useStore, getTodayDate, syncFromServer, onSyncResult, type NoteType } from "@/lib/store";
 import { useCallback, useState, useEffect, useRef } from "react";
@@ -42,6 +44,8 @@ function Router() {
       <Route path="/ideas" component={IdeasPage} />
       <Route path="/news" component={NewsPage} />
       <Route path="/calendar" component={CalendarPage} />
+      <Route path="/forgot-password" component={ForgotPasswordPage} />
+      <Route path="/reset-password" component={ResetPasswordPage} />
       <Route component={NotFound} />
     </Switch>
   );
