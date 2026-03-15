@@ -326,6 +326,9 @@ function AppShell() {
   }
 
   if (!user) {
+    const path = window.location.pathname;
+    if (path === "/forgot-password") return <ForgotPasswordPage />;
+    if (path === "/reset-password") return <ResetPasswordPage />;
     return <LoginPage />;
   }
 
