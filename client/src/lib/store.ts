@@ -636,7 +636,11 @@ export function loadFromServerData(data: AppState) {
 
 export async function syncFromServer(): Promise<boolean> {
   try {
-    const res = await fetch("/api/user/data", { credentials: "include" });
+    const res = await fetch("/api/user/data", {
+      credentials: "include",
+      cache: "no-store",
+      headers: { "Cache-Control": "no-cache" },
+    });
     if (!res.ok) return false;
     const json = await res.json();
     if (json?.data) {
