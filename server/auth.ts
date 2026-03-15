@@ -3,7 +3,7 @@ import session from "express-session";
 import ConnectMongo from "connect-mongo";
 const MongoStore = (ConnectMongo as any).default || ConnectMongo;
 import bcrypt from "bcryptjs";
-import { User, UserData, UserDataBackup } from "./mongodb";
+import { User, UserData, UserDataBackup, ResetToken } from "./mongodb";
 
 export function setupAuth(app: Express) {
   app.use(
