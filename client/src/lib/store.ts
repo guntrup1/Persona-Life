@@ -682,6 +682,8 @@ function startDayChangeChecker() {
 startDayChangeChecker();
 
 if (typeof window !== "undefined") {
+  syncFromServer();
+
   window.addEventListener("beforeunload", () => {
     if (serverSyncTimer) {
       clearTimeout(serverSyncTimer);
