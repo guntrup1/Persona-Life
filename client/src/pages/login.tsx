@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -117,7 +118,15 @@ export default function LoginPage() {
                 data-testid="input-password"
               />
             </div>
-
+            {mode === "login" && (
+              <div className="text-right">
+                <Link href="/forgot-password">
+                  <button className="text-xs text-muted-foreground hover:text-primary transition-colors">
+                    Забыл пароль?
+                  </button>
+                </Link>
+              </div>
+            )}
             <Button
               type="submit"
               disabled={loading || !email.trim() || !password.trim()}
