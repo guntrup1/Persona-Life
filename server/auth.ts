@@ -127,9 +127,11 @@ export function registerAuthRoutes(app: Express) {
   });
 
   app.get("/api/user/data", requireAuth, async (req, res) => {
-    try {
-      const userData = await UserData.findOne({ userId: req.session.userId });
-      return res.json({ data: userData?.data || null });
+  try {
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.set("Pragma", "no-cache");
+    const userData = await UserData.findOne({ userId: req.session.userId });
+    return res.json({ data: userData?.data || null });
     } catch (err) {
       console.error("Get data error:", err);
       return res.status(500).json({ message: "Ошибка сервера" });
