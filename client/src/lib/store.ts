@@ -623,9 +623,7 @@ export function loadFromServerData(data: AppState) {
   globalState = autoLoadRoutine(merged);
   globalState = { ...globalState, xp: recalcXP(globalState) };
   saveState(globalState);
-  if (JSON.stringify(globalState) !== JSON.stringify(prevState)) {
-    scheduleServerSync(globalState);
-  }
+  
   notify();
 }
 
