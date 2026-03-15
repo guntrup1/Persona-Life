@@ -325,10 +325,11 @@ function AppShell() {
     );
   }
 
+  const [location] = useLocation();
+
   if (!user) {
-    const path = window.location.pathname;
-    if (path === "/forgot-password") return <ForgotPasswordPage />;
-    if (path === "/reset-password") return <ResetPasswordPage />;
+    if (location === "/forgot-password") return <ForgotPasswordPage />;
+    if (location.startsWith("/reset-password")) return <ResetPasswordPage />;
     return <LoginPage />;
   }
 
