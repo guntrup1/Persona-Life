@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function LoginPage() {
   const { login, register } = useAuth();
+  const [, navigate] = useLocation();
   const { toast } = useToast();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
@@ -120,11 +121,9 @@ export default function LoginPage() {
             </div>
             {mode === "login" && (
               <div className="text-right">
-                <Link href="/forgot-password">
-                  <button className="text-xs text-muted-foreground hover:text-primary transition-colors">
-                    Забыл пароль?
-                  </button>
-                </Link>
+                <button onClick={() => navigate("/forgot-password")} className="text-xs text-muted-foreground hover:text-primary transition-colors">
+                  Забыл пароль?
+                </button>
               </div>
             )}
             <Button
