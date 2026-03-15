@@ -631,10 +631,12 @@ function countItems(s: AppState): number {
 
 export function loadFromServerData(data: AppState) {
   if (!data || typeof data !== "object") return;
-  
-  const merged = mergeStates(globalState, data);
-  
-  globalState = autoLoadRoutine(merged);
+  globalState = autoLoadRoutine({
+    ...DEFAULT_STATE,
+    ...data,
+    xp: { ...DEFAULT_XP, ...data.xp, categoryXP: { ...DEFAULT_XP.categoryXP, ...(data.xp?.categoryXP || {}) } },
+    streak: { ...DEFAULT_STATE.streak, ...data.streak },
+  });
   globalState = { ...globalState, xp: recalcXP(globalState) };
   saveState(globalState);
   notify();
