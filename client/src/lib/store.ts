@@ -566,7 +566,22 @@ function mergeArraysByKey<T extends { id: string }>(local: T[], server: T[], key
     if (byKey.has(key) && !byId.has(item.id)) {
       byId.delete(byKey.get(key)!.id);
     }
-    byId.set(item.id, item);
+    const existing = byId.get(item.id);
+    if (existing && 'completed' in item && 'completed' in existing) {
+      // Победитель тот у кого completed: true, или у кого есть completedAt
+      const serverCompleted = (existing as any).completed;
+      const localCompleted = (item as any).completed;
+      const serverTime = (existing as any).completedAt || "";
+      const localTime = (item as any).completedAt || "";
+      const winner = (serverCompleted && !localCompleted)
+        ? existing
+        : (localCompleted && !serverCompleted)
+          ? item
+          : localTime >= serverTime ? item : existing;
+      byId.set(winner.id, winner);
+    } else {
+      byId.set(item.id, item);
+    }
     byKey.set(key, item);
   }
   if (deletedIds) {
