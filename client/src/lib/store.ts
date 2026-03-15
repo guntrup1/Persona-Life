@@ -540,7 +540,14 @@ export function compressImage(dataUrl: string, maxWidth = 1200, quality = 0.82):
 function mergeArraysById<T extends { id: string }>(local: T[], server: T[], deletedIds?: Set<string>): T[] {
   const map = new Map<string, T>();
   for (const item of server) map.set(item.id, item);
-  for (const item of local) map.set(item.id, item);
+  for (const item of local) {
+    const existing = map.get(item.id);
+    if (existing && 'completed' in item && 'completed' in existing) {
+      map.set(item.id, { ...item, completed: (item as any).completed || (existing as any).completed } as T);
+    } else {
+      map.set(item.id, item);
+    }
+  }
   if (deletedIds) {
     for (const id of deletedIds) map.delete(id);
   }
