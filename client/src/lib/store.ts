@@ -650,7 +650,17 @@ export async function syncFromServer(): Promise<boolean> {
     if (!res.ok) return false;
     const json = await res.json();
     if (json?.data) {
-      loadFromServerData(json.data);
+      const serverData = json.data as AppState;
+      // Сервер — единственный источник правды
+      globalState = autoLoadRoutine({
+        ...DEFAULT_STATE,
+        ...serverData,
+        xp: { ...DEFAULT_XP, ...serverData.xp, categoryXP: { ...DEFAULT_XP.categoryXP, ...(serverData.xp?.categoryXP || {}) } },
+        streak: { ...DEFAULT_STATE.streak, ...serverData.streak },
+      });
+      globalState = { ...globalState, xp: recalcXP(globalState) };
+      saveState(globalState);
+      notify();
       return true;
     }
     return false;
