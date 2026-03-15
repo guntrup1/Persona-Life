@@ -232,4 +232,67 @@ export function registerAuthRoutes(app: Express) {
       return res.status(500).json({ message: "Ошибка восстановления" });
     }
   });
+
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: "Email обязателен" });
+
+    try {
+      const user = await User.findOne({ email: email.toLowerCase() });
+      if (!user) return res.json({ ok: true });
+
+      const token = require("crypto").randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+      await ResetToken.deleteMany({ userId: user._id });
+      await ResetToken.create({ userId: user._id, token, expiresAt });
+
+      const resetUrl = `${process.env.APP_URL || "https://persona-life.onrender.com"}/reset-password?token=${token}`;
+
+      const { Resend } = require("resend");
+      const resend = new Resend(process.env.RESEND_API_KEY);
+
+      await resend.emails.send({
+        from: "Persona Life <onboarding@resend.dev>",
+        to: user.email,
+        subject: "Сброс пароля — Persona Life",
+        html: `
+          <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+            <h2>Сброс пароля</h2>
+            <p>Ты запросил сброс пароля для Persona Life.</p>
+            <p>Нажми на кнопку ниже — ссылка действует 1 час:</p>
+            <a href="${resetUrl}" style="display:inline-block;padding:12px 24px;background:#ef4444;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;">
+              Сбросить пароль
+            </a>
+            <p style="color:#888;font-size:12px;margin-top:24px;">Если ты не запрашивал сброс — просто проигнорируй это письмо.</p>
+          </div>
+        `,
+      });
+
+      return res.json({ ok: true });
+    } catch (err) {
+      console.error("Forgot password error:", err);
+      return res.status(500).json({ message: "Ошибка сервера" });
+    }
+  });
+
+  app.post("/api/auth/reset-password", async (req, res) => {
+    const { token, password } = req.body;
+    if (!token || !password) return res.status(400).json({ message: "Токен и пароль обязательны" });
+    if (password.length < 6) return res.status(400).json({ message: "Пароль должен быть не менее 6 символов" });
+
+    try {
+      const resetToken = await ResetToken.findOne({ token, expiresAt: { $gt: new Date() } });
+      if (!resetToken) return res.status(400).json({ message: "Ссылка недействительна или истекла" });
+
+      const hash = await bcrypt.hash(password, 12);
+      await User.findByIdAndUpdate(resetToken.userId, { password_hash: hash });
+      await ResetToken.deleteMany({ userId: resetToken.userId });
+
+      return res.json({ ok: true });
+    } catch (err) {
+      console.error("Reset password error:", err);
+      return res.status(500).json({ message: "Ошибка сервера" });
+    }
+  });
 }
