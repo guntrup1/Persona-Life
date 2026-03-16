@@ -236,6 +236,7 @@ const mobileNavItems = [
   { title: "Идеи", url: "/ideas", icon: Lightbulb },
   { title: "Новости", url: "/news", icon: Newspaper },
   { title: "Календарь", url: "/calendar", icon: CalendarDays },
+  { title: "Настройки", url: "/settings", icon: Settings },
 ];
 
 function MobileNav() {
