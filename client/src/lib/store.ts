@@ -268,10 +268,10 @@ export function getTodayDate(): string {
 }
 
 export function getBerlinTime(): Date {
+  const settings = loadUserSettings();
   const now = new Date();
-  const berlinOffset = 1 * 60;
   const utc = now.getTime() + now.getTimezoneOffset() * 60000;
-  return new Date(utc + berlinOffset * 60000);
+  return new Date(utc + settings.utcOffset * 3600000);
 }
 
 export function getBerlinHour(): number {
