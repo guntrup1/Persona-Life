@@ -349,29 +349,54 @@ function AppShell() {
         </div>
 
         <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-          <header className="flex items-center gap-2 px-3 sm:px-4 py-2 border-b border-border flex-shrink-0 bg-background sticky top-0 z-50">
-            <div className="md:hidden">
-              <MobileNav />
-            </div>
-
-            <div className="hidden md:block">
-              <SidebarTrigger
-                data-testid="button-sidebar-toggle"
-                className="text-muted-foreground h-9 w-9 flex-shrink-0"
-              />
-            </div>
-
-            <div className="flex items-center gap-1 ml-auto">
-              <NewsIndicator />
-              <SyncButton />
-              <QuickNoteButton />
-              <Link href="/settings">
-                <button className="h-9 w-9 flex items-center justify-center rounded-lg hover:bg-muted/50 transition-colors flex-shrink-0" data-testid="button-settings">
-                  <Settings className="w-[18px] h-[18px] text-muted-foreground" />
-                </button>
-              </Link>
-            </div>
-          </header>
+      <header className="flex items-center gap-2 px-3 sm:px-4 py-2 border-b border-border flex-shrink-0 bg-background sticky top-0 z-50 overflow-hidden">
+        {/* P5 красная полоса сверху */}
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-primary p5-glow-sm" />
+      
+        {/* P5 диагональный акцент слева */}
+        <div
+          className="absolute left-0 top-0 bottom-0 w-1 bg-primary hidden md:block"
+          style={{ clipPath: "polygon(0 0, 100% 15%, 100% 85%, 0 100%)" }}
+        />
+      
+        <div className="md:hidden">
+          <MobileNav />
+        </div>
+      
+        <div className="hidden md:block">
+          <SidebarTrigger
+            data-testid="button-sidebar-toggle"
+            className="text-muted-foreground h-9 w-9 flex-shrink-0 hover:text-primary transition-colors"
+          />
+        </div>
+      
+        {/* Название в хедере для мобилки */}
+        <div className="md:hidden flex items-center gap-1.5 flex-1">
+          <div
+            className="w-6 h-6 bg-primary flex items-center justify-center flex-shrink-0"
+            style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))" }}
+          >
+            <span className="font-p5 text-white text-[10px] font-bold">TP</span>
+          </div>
+          <span className="font-p5 text-xs tracking-widest text-foreground uppercase" style={{ letterSpacing: "0.2em" }}>
+            Trade <span className="text-primary">Persona</span>
+          </span>
+        </div>
+      
+        <div className="flex items-center gap-1 ml-auto">
+          <NewsIndicator />
+          <SyncButton />
+          <QuickNoteButton />
+          <Link href="/settings">
+            <button
+              className="h-9 w-9 flex items-center justify-center hover:text-primary transition-colors flex-shrink-0"
+              data-testid="button-settings"
+            >
+              <Settings className="w-[18px] h-[18px] text-muted-foreground hover:text-primary transition-colors" />
+            </button>
+          </Link>
+        </div>
+      </header>
 
           <main className="flex-1 overflow-auto" style={{ contain: "paint layout" }}>
             <Router />
