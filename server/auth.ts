@@ -3,7 +3,7 @@ import session from "express-session";
 import ConnectMongo from "connect-mongo";
 const MongoStore = (ConnectMongo as any).default || ConnectMongo;
 import bcrypt from "bcryptjs";
-import { User, UserData, UserDataBackup, ResetToken } from "./mongodb";
+import { User, UserData, UserDataBackup, ResetToken, UserSettings } from "./mongodb";
 
 export function setupAuth(app: Express) {
   app.use(
@@ -292,6 +292,34 @@ export function registerAuthRoutes(app: Express) {
       return res.json({ ok: true });
     } catch (err) {
       console.error("Reset password error:", err);
+      return res.status(500).json({ message: "Ошибка сервера" });
+    }
+  });
+
+  app.get("/api/user/settings", requireAuth, async (req, res) => {
+    try {
+      let settings = await UserSettings.findOne({ userId: req.session.userId });
+      if (!settings) {
+        settings = await UserSettings.create({ userId: req.session.userId });
+      }
+      return res.json({ settings });
+    } catch (err) {
+      console.error("Get settings error:", err);
+      return res.status(500).json({ message: "Ошибка сервера" });
+    }
+  });
+
+  app.put("/api/user/settings", requireAuth, async (req, res) => {
+    const { utcOffset, workStart, workEnd, restStart, restEnd, sleepStart, sleepEnd } = req.body;
+    try {
+      const settings = await UserSettings.findOneAndUpdate(
+        { userId: req.session.userId },
+        { utcOffset, workStart, workEnd, restStart, restEnd, sleepStart, sleepEnd, updatedAt: new Date() },
+        { upsert: true, new: true }
+      );
+      return res.json({ settings });
+    } catch (err) {
+      console.error("Save settings error:", err);
       return res.status(500).json({ message: "Ошибка сервера" });
     }
   });
