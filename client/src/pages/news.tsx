@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Newspaper, AlertTriangle, Clock, RefreshCw, Loader2, CalendarDays } from "lucide-react";
-import { getBerlinTime } from "@/lib/store";
+import { getUserTime, loadUserSettings } from "@/lib/store";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -94,7 +94,8 @@ function SkeletonRows() {
 }
 
 export default function NewsPage() {
-  const [berlinTime, setBerlinTime] = useState(getBerlinTime());
+  const [berlinTime, setBerlinTime] = useState(getUserTime());
+const utcOffset = loadUserSettings().utcOffset;
   const [refreshing, setRefreshing] = useState(false);
   const { toast } = useToast();
 
@@ -109,7 +110,7 @@ export default function NewsPage() {
   });
 
   useEffect(() => {
-    const interval = setInterval(() => setBerlinTime(getBerlinTime()), 15000);
+    const interval = setInterval(() => setBerlinTime(getUserTime()), 15000);
     return () => clearInterval(interval);
   }, []);
 
@@ -150,7 +151,7 @@ export default function NewsPage() {
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono bg-muted/20 px-2.5 py-1.5 rounded-full border border-border">
               <Clock className="w-3 h-3" />
-              <span>UTC+1 — {timeStr}</span>
+              <span>{utcOffset >= 0 ? `UTC+${utcOffset}` : `UTC${utcOffset}`} — {timeStr}</span>
             </div>
             <Button
               onClick={handleRefresh}
