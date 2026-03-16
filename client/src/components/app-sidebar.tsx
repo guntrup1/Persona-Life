@@ -8,24 +8,39 @@ import {
   LayoutDashboard, CheckSquare, Target, Timer,
   BarChart3, TrendingUp, Lightbulb, Newspaper, CalendarDays, Zap, LogOut, Download,
 } from "lucide-react";
-import { useStore, getBerlinTime, getMarketSession, getLevelFromXP } from "@/lib/store";
+import { useStore, getUserTime, loadUserSettings, getMarketSession, getLevelFromXP } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { useState, useEffect, memo } from "react";
 
 const SidebarClock = memo(function SidebarClock() {
-  const [now, setNow] = useState(getBerlinTime());
+  const [now, setNow] = useState(getUserTime());
   const [session, setSession] = useState(getMarketSession());
+
   useEffect(() => {
     const id = setInterval(() => {
-      setNow(getBerlinTime());
+      setNow(getUserTime());
       setSession(getMarketSession());
     }, 1000);
-    return () => clearInterval(id);
+
+    const onSettings = () => {
+      setNow(getUserTime());
+      setSession(getMarketSession());
+    };
+    window.addEventListener("settingsUpdated", onSettings);
+
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("settingsUpdated", onSettings);
+    };
   }, []);
+
+  const utcOffset = loadUserSettings().utcOffset;
+  const utcLabel = utcOffset >= 0 ? `UTC+${utcOffset}` : `UTC${utcOffset}`;
   const timeStr = now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+
   return (
     <div className="min-w-0">
-      <div className="text-muted-foreground font-mono truncate">{timeStr} UTC+1</div>
+      <div className="text-muted-foreground font-mono truncate">{timeStr} {utcLabel}</div>
       <div className={`font-display font-bold truncate ${session.color}`}>{session.name}</div>
     </div>
   );
