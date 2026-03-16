@@ -44,3 +44,16 @@ const resetTokenSchema = new mongoose.Schema({
 });
 
 export const ResetToken = mongoose.model("ResetToken", resetTokenSchema);
+const userSettingsSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, unique: true },
+  utcOffset: { type: Number, default: 1 },
+  workStart: { type: Number, default: 9 },
+  workEnd: { type: Number, default: 18 },
+  restStart: { type: Number, default: 18 },
+  restEnd: { type: Number, default: 23 },
+  sleepStart: { type: Number, default: 23 },
+  sleepEnd: { type: Number, default: 7 },
+  updatedAt: { type: Date, default: Date.now },
+});
+
+export const UserSettings = mongoose.model("UserSettings", userSettingsSchema);
