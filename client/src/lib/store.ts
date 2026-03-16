@@ -299,13 +299,79 @@ export function getMarketSession(): { name: string; active: boolean; color: stri
   return { name: "Закрыто", active: false, color: "text-muted-foreground" };
 }
 
+export interface UserSettings {
+  utcOffset: number;
+  workStart: number;
+  workEnd: number;
+  restStart: number;
+  restEnd: number;
+  sleepStart: number;
+  sleepEnd: number;
+}
+
+const STATE_EMOJIS: Record<string, string[]> = {
+  sleeping: ["😴", "🛌", "💤", "🌛"],
+  morning:  ["🌅", "🌄", "🌞", "🍳"],
+  working:  ["💪", "🔥", "⚡", "🎯", "🧠", "🚀"],
+  resting:  ["☕", "🍵", "🎮", "📖", "🎧", "🛋️"],
+  evening:  ["🌙", "🌆", "🌃", "✨"],
+};
+
+function getDailyEmojiIndex(state: string): number {
+  const day = new Date().getDate();
+  const arr = STATE_EMOJIS[state] || ["😎"];
+  return day % arr.length;
+}
+
+function loadUserSettings(): UserSettings {
+  try {
+    const raw = localStorage.getItem("userSettings");
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return {
+    utcOffset: 1,
+    workStart: 9,
+    workEnd: 18,
+    restStart: 18,
+    restEnd: 23,
+    sleepStart: 23,
+    sleepEnd: 7,
+  };
+}
+
+export function getUserTime(): Date {
+  const settings = loadUserSettings();
+  const now = new Date();
+  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+  return new Date(utc + settings.utcOffset * 3600000);
+}
+
 export function getCharacterState(): { state: string; label: string; emoji: string } {
-  const hour = getBerlinHour();
-  if (hour >= 0 && hour < 6) return { state: "sleeping", label: "Сон", emoji: "😴" };
-  if (hour >= 6 && hour < 9) return { state: "morning", label: "Утро", emoji: "🌅" };
-  if (hour >= 9 && hour < 14) return { state: "working", label: "Работа", emoji: "💪" };
-  if (hour >= 14 && hour < 21) return { state: "resting", label: "Отдых", emoji: "☕" };
-  return { state: "evening", label: "Вечер", emoji: "🌙" };
+  const settings = loadUserSettings();
+  const hour = getUserTime().getHours();
+
+  const inRange = (h: number, start: number, end: number): boolean => {
+    if (start <= end) return h >= start && h < end;
+    return h >= start || h < end;
+  };
+
+  let state = "evening";
+  let label = "Вечер";
+
+  if (inRange(hour, settings.sleepStart, settings.sleepEnd)) {
+    state = "sleeping"; label = "Сон";
+  } else if (inRange(hour, settings.sleepEnd, settings.workStart)) {
+    state = "morning"; label = "Утро";
+  } else if (inRange(hour, settings.workStart, settings.workEnd)) {
+    state = "working"; label = "Работа";
+  } else if (inRange(hour, settings.restStart, settings.restEnd)) {
+    state = "resting"; label = "Отдых";
+  }
+
+  const emojis = STATE_EMOJIS[state] || ["😎"];
+  const emoji = emojis[getDailyEmojiIndex(state)];
+
+  return { state, label, emoji };
 }
 
 export function getXPForLevel(level: number): number {
