@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, memo } from "react";
-import { useStore, getBerlinTime, getMarketSession, getCharacterState, getTodayDate, LIFE_AREA_COLORS, getGoalProgress, getLevelFromXP, type NoteType } from "@/lib/store";
+import { useStore, getUserTime, loadUserSettings, getMarketSession, getCharacterState, getTodayDate, LIFE_AREA_COLORS, getGoalProgress, getLevelFromXP, type NoteType } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -60,19 +60,31 @@ function XPNotification({ xp, visible, onHide }: { xp: number; visible: boolean;
 // ─── Self-contained clock ─────────────────────────────────────────────────────
 
 function ClockWidget() {
-  const [berlinTime, setBerlinTime] = useState(getBerlinTime());
+  const [now, setNow] = useState(getUserTime());
   const [session, setSession] = useState(getMarketSession());
 
   useEffect(() => {
     const id = setInterval(() => {
-      setBerlinTime(getBerlinTime());
+      setNow(getUserTime());
       setSession(getMarketSession());
     }, 1000);
-    return () => clearInterval(id);
+
+    const onSettings = () => {
+      setNow(getUserTime());
+      setSession(getMarketSession());
+    };
+    window.addEventListener("settingsUpdated", onSettings);
+
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("settingsUpdated", onSettings);
+    };
   }, []);
 
-  const timeStr = berlinTime.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  const dateStr = berlinTime.toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
+  const utcOffset = loadUserSettings().utcOffset;
+  const utcLabel = utcOffset >= 0 ? `UTC+${utcOffset}` : `UTC${utcOffset}`;
+  const timeStr = now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const dateStr = now.toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
 
   return (
     <>
@@ -85,7 +97,7 @@ function ClockWidget() {
           <div className={`w-2 h-2 rounded-full ${session.active ? "bg-green-500 animate-pulse" : "bg-muted-foreground"}`} />
           <span className={`font-display text-xs font-semibold ${session.color}`}>{session.name}</span>
         </div>
-        <span className="text-xs text-muted-foreground font-mono">UTC+1</span>
+        <span className="text-xs text-muted-foreground font-mono">{utcLabel}</span>
       </div>
     </>
   );
