@@ -433,7 +433,10 @@ export default function HubPage() {
           {todayNotes.length > 0 && (
             <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
               {todayNotes.map(note => {
-                const timeLabel = new Date(note.createdAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+                const noteDate = new Date(note.createdAt);
+                const utcOffset = loadUserSettings().utcOffset;
+                const adjustedNote = new Date(noteDate.getTime() + (utcOffset * 3600000) + noteDate.getTimezoneOffset() * 60000);
+                const timeLabel = adjustedNote.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
                 const isEditing = editingNoteId === note.id;
                 return (
                   <div key={note.id} className="rounded-xl border border-card-border bg-muted/20 p-3 space-y-2">
