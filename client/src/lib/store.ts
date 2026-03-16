@@ -268,24 +268,21 @@ export function getTodayDate(): string {
 }
 
 export function getBerlinTime(): Date {
-  const settings = loadUserSettings();
-  const now = new Date();
-  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
-  return new Date(utc + settings.utcOffset * 3600000);
+  return getUserTime();
 }
 
 export function getBerlinHour(): number {
-  return getBerlinTime().getHours();
+  return getUserTime().getHours();
 }
 
 export function getBerlinDateString(): string {
-  return getBerlinTime().toISOString().split("T")[0];
+  return getUserTime().toISOString().split("T")[0];
 }
 
 export function getTomorrowBerlinDate(): string {
-  const berlin = getBerlinTime();
-  berlin.setDate(berlin.getDate() + 1);
-  return berlin.toISOString().split("T")[0];
+  const t = getUserTime();
+  t.setDate(t.getDate() + 1);
+  return t.toISOString().split("T")[0];
 }
 
 const SESSION_COLORS = [
