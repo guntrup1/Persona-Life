@@ -19,6 +19,7 @@ import CalendarPage from "@/pages/calendar-page";
 import LoginPage from "@/pages/login";
 import ForgotPasswordPage from "@/pages/forgot-password";
 import ResetPasswordPage from "@/pages/reset-password";
+import SettingsPage from "@/pages/settings";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { loadFromServerData, useStore, getTodayDate, syncFromServer, onSyncResult, type NoteType } from "@/lib/store";
 import { useCallback, useState, useEffect, useRef } from "react";
@@ -28,7 +29,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   FileText, RefreshCw, AlertTriangle, Menu, X,
   LayoutDashboard, CheckSquare, Target, Timer,
-  BarChart3, Newspaper, CalendarDays, LogOut, Lightbulb, TrendingUp,
+  BarChart3, Newspaper, CalendarDays, LogOut, Lightbulb, TrendingUp, Settings,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -46,6 +47,7 @@ function Router() {
       <Route path="/calendar" component={CalendarPage} />
       <Route path="/forgot-password" component={ForgotPasswordPage} />
       <Route path="/reset-password" component={ResetPasswordPage} />
+      <Route path="/settings" component={SettingsPage} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -362,6 +364,11 @@ function AppShell() {
               <NewsIndicator />
               <SyncButton />
               <QuickNoteButton />
+              <Link href="/settings">
+                <button className="h-9 w-9 flex items-center justify-center rounded-lg hover:bg-muted/50 transition-colors flex-shrink-0" data-testid="button-settings">
+                  <Settings className="w-[18px] h-[18px] text-muted-foreground" />
+                </button>
+              </Link>
             </div>
           </header>
 
