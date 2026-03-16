@@ -323,7 +323,7 @@ function getDailyEmojiIndex(state: string): number {
   return day % arr.length;
 }
 
-function loadUserSettings(): UserSettings {
+export function loadUserSettings(): UserSettings {
   try {
     const raw = localStorage.getItem("userSettings");
     if (raw) return JSON.parse(raw);
