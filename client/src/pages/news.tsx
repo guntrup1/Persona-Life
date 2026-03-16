@@ -56,15 +56,40 @@ function formatFullDate(dateStr: string): { weekday: string; full: string } {
   }
 }
 
-function NewsRow({ item }: { item: NewsItem }) {
+function convertNewsTime(timeStr: string, utcOffset: number): string {
+  if (!timeStr) return timeStr;
+  const match = timeStr.match(/^(\d{1,2}):(\d{2})(am|pm)$/i);
+  if (!match) return timeStr;
+
+  let h = parseInt(match[1]);
+  const m = parseInt(match[2]);
+  const ampm = match[3].toLowerCase();
+
+  if (ampm === "pm" && h < 12) h += 12;
+  if (ampm === "am" && h === 12) h = 0;
+
+  // Время новостей хранится в UTC+1, конвертируем в UTC пользователя
+  h = h - 1 + utcOffset;
+  let dayDelta = 0;
+  if (h >= 24) { h -= 24; dayDelta = 1; }
+  if (h < 0) { h += 24; dayDelta = -1; }
+
+  const newAmpm = h >= 12 ? "pm" : "am";
+  let h12 = h % 12;
+  if (h12 === 0) h12 = 12;
+  return `${h12}:${String(m).padStart(2, "0")}${newAmpm}`;
+}
+
+function NewsRow({ item, utcOffset }: { item: NewsItem; utcOffset: number }) {
   const style = CURRENCY_STYLE[item.currency] || { badge: "bg-muted border-border text-foreground", dot: "bg-muted-foreground" };
+  const displayTime = convertNewsTime(item.time, utcOffset);
   return (
     <div
       className="flex items-center gap-3 py-3 border-b border-card-border last:border-0"
       data-testid={`news-row-${item.currency}-${item.time}`}
     >
       <div className="flex-shrink-0 w-[60px] text-right">
-        <span className="font-mono text-sm font-bold text-foreground">{item.time}</span>
+        <span className="font-mono text-sm font-bold text-foreground">{displayTime}</span>
       </div>
       <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${style.dot}`} />
       <Badge
@@ -215,7 +240,7 @@ export default function NewsPage() {
                   <p className="text-sm text-muted-foreground font-display">Важных новостей по EUR/USD сегодня нет</p>
                 </div>
               ) : (
-                todayItems.map((n, i) => <NewsRow key={`today-${i}`} item={n} />)
+                todayItems.map((n, i) => <NewsRow key={`today-${i}`} item={n} utcOffset={utcOffset} />)
               )}
             </Card>
           </TabsContent>
@@ -242,7 +267,7 @@ export default function NewsPage() {
                   <p className="text-sm text-muted-foreground font-display">Нет предстоящих важных новостей по EUR/USD</p>
                 </div>
               ) : (
-                nextItems.map((n, i) => <NewsRow key={`next-${i}`} item={n} />)
+                nextItems.map((n, i) => <NewsRow key={`next-${i}`} item={n} utcOffset={utcOffset} />)
               )}
             </Card>
           </TabsContent>
