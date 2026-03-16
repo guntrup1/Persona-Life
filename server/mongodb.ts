@@ -53,6 +53,20 @@ const userSettingsSchema = new mongoose.Schema({
   restEnd: { type: Number, default: 23 },
   sleepStart: { type: Number, default: 23 },
   sleepEnd: { type: Number, default: 7 },
+  tradingSessions: {
+    type: [{
+      name: { type: String, default: "" },
+      start: { type: Number, default: 0 },
+      end: { type: Number, default: 0 },
+      enabled: { type: Boolean, default: true },
+    }],
+    default: [
+      { name: "Азия",      start: 3,  end: 8,  enabled: true },
+      { name: "Франкфурт", start: 8,  end: 9,  enabled: true },
+      { name: "Лондон",    start: 9,  end: 14, enabled: true },
+      { name: "Нью-Йорк",  start: 14, end: 17, enabled: true },
+    ],
+  },
   updatedAt: { type: Date, default: Date.now },
 });
 
