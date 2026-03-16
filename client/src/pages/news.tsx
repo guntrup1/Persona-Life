@@ -99,7 +99,6 @@ export default function NewsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const { toast } = useToast();
 
-  const utcOffset = loadUserSettings().utcOffset;
 
   const { data, isLoading, isFetching } = useQuery<NewsResponse>({
     queryKey: ["/api/news", utcOffset],
