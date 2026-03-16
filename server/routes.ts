@@ -283,15 +283,54 @@ export async function registerRoutes(
 ): Promise<Server> {
   registerAuthRoutes(app);
 
-  app.get("/api/news", async (_req, res) => {
+
+
+
+
+  app.get("/api/news", async (req, res) => {
     try {
+      const utcOffset = parseFloat(req.query.utcOffset as string);
       const cache = await getNews();
+
+      if (!isNaN(utcOffset)) {
+        const now = new Date();
+        const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+        const userTime = new Date(utc + utcOffset * 3600000);
+        const todayStr = userTime.toISOString().split("T")[0];
+
+        const futureDates = [...new Set(
+          cache.allHighImpact
+            .map(e => e.dateNormalized)
+            .filter(d => d > todayStr)
+        )].sort();
+        const nextStr = futureDates[0] || "";
+
+        const items = cache.allHighImpact.map(e => ({
+          ...e,
+          day: e.dateNormalized === todayStr ? "today" : (e.dateNormalized === nextStr ? "next" : "other"),
+        }));
+
+        return res.json({ items, todayStr, nextStr });
+      }
+
       res.json({ items: cache.allHighImpact, todayStr: cache.todayStr, nextStr: cache.nextStr });
     } catch (err) {
       console.error("[api/news]", err);
-      res.json({ items: [], todayStr: getBerlinDateString(), nextStr: "" });
+      res.json({ items: [], todayStr: "", nextStr: "" });
     }
   });
+
+
+
+
+
+
+
+
+
+
+
+  
 
   app.get("/api/news/today", async (_req, res) => {
     try {
