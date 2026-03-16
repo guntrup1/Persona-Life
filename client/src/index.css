@@ -416,19 +416,19 @@ body::before {
 }
 
 /* P5 карточки с острыми углами */
+/* P5 — срезанный угол через outline trick */
 [class*="border-card-border"] {
   position: relative;
-}
-[class*="border-card-border"]::before {
-  content: '';
-  position: absolute;
-  top: 0; right: 0;
-  width: 0; height: 0;
-  border-style: solid;
-  border-width: 0 10px 10px 0;
-  border-color: transparent hsl(var(--background)) transparent transparent;
-  z-index: 1;
-  pointer-events: none;
+  border: none !important;
+  outline: 1px solid hsl(var(--card-border));
+  clip-path: polygon(
+    0 0,
+    calc(100% - 12px) 0,
+    100% 12px,
+    100% 100%,
+    12px 100%,
+    0 calc(100% - 12px)
+  );
 }
 
 /* ═══════════════════════════════════════════
