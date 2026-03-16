@@ -288,14 +288,42 @@ export function getTomorrowBerlinDate(): string {
   return berlin.toISOString().split("T")[0];
 }
 
+const SESSION_COLORS = [
+  "text-gray-400",
+  "text-purple-400",
+  "text-green-400",
+  "text-orange-400",
+  "text-blue-400",
+  "text-yellow-400",
+  "text-pink-400",
+  "text-cyan-400",
+];
+
 export function getMarketSession(): { name: string; active: boolean; color: string } {
-  const hour = getBerlinHour();
-  const min = getBerlinTime().getMinutes();
-  const totalMin = hour * 60 + min;
-  if (totalMin >= 3 * 60 && totalMin < 8 * 60) return { name: "Азия", active: true, color: "text-gray-400" };
-  if (totalMin >= 8 * 60 && totalMin < 9 * 60) return { name: "Франкфурт", active: true, color: "text-purple-400" };
-  if (totalMin >= 9 * 60 && totalMin < 14 * 60) return { name: "Лондон", active: true, color: "text-green-400" };
-  if (totalMin >= 14 * 60 && totalMin < 17 * 60) return { name: "Нью-Йорк", active: true, color: "text-orange-400" };
+  const settings = loadUserSettings();
+  const now = getUserTime();
+  const totalMin = now.getHours() * 60 + now.getMinutes();
+
+  const sessions = settings.tradingSessions || [
+    { name: "Азия",      start: 3,  end: 8,  enabled: true },
+    { name: "Франкфурт", start: 8,  end: 9,  enabled: true },
+    { name: "Лондон",    start: 9,  end: 14, enabled: true },
+    { name: "Нью-Йорк",  start: 14, end: 17, enabled: true },
+  ];
+
+  for (let i = 0; i < sessions.length; i++) {
+    const s = sessions[i];
+    if (!s.enabled) continue;
+    const startMin = s.start * 60;
+    const endMin = s.end * 60;
+    const inRange = startMin <= endMin
+      ? totalMin >= startMin && totalMin < endMin
+      : totalMin >= startMin || totalMin < endMin;
+    if (inRange) {
+      return { name: s.name, active: true, color: SESSION_COLORS[i % SESSION_COLORS.length] };
+    }
+  }
+
   return { name: "Закрыто", active: false, color: "text-muted-foreground" };
 }
 
