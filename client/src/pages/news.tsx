@@ -95,12 +95,18 @@ function SkeletonRows() {
 
 export default function NewsPage() {
   const [berlinTime, setBerlinTime] = useState(getUserTime());
-const utcOffset = loadUserSettings().utcOffset;
+  const utcOffset = loadUserSettings().utcOffset;
   const [refreshing, setRefreshing] = useState(false);
   const { toast } = useToast();
 
+  const utcOffset = loadUserSettings().utcOffset;
+
   const { data, isLoading, isFetching } = useQuery<NewsResponse>({
-    queryKey: ["/api/news"],
+    queryKey: ["/api/news", utcOffset],
+    queryFn: async () => {
+      const res = await fetch(`/api/news?utcOffset=${utcOffset}`, { credentials: "include" });
+      return res.json();
+    },
     staleTime: msTillMidnightBerlin(),
     gcTime: msTillMidnightBerlin() + 60000,
     select: (raw: unknown) => {
