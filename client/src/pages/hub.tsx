@@ -18,13 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 
 // ─── Character emoji ─────────────────────────────────────────────────────────
 
-const CharacterEmoji = memo(function CharacterEmoji({ state }: { state: string }) {
-  const emoji =
-    state === "sleeping" ? "😴" :
-    state === "morning"  ? "🌅" :
-    state === "working"  ? "💪" :
-    state === "resting"  ? "☕" :
-    state === "evening"  ? "🌙" : "😎";
+const CharacterEmoji = memo(function CharacterEmoji({ state, emoji }: { state: string; emoji: string }) {
 
   const animClass =
     state === "sleeping" ? "char-anim-glow" :
@@ -208,7 +202,7 @@ export default function HubPage() {
             {/* Character panel */}
             <Card className="p-4 bg-card border-card-border rounded-3xl flex flex-col items-center gap-3">
               <div className="w-32 h-36 overflow-visible flex items-center justify-center">
-                <CharacterEmoji state={charState.state} />
+                <CharacterEmoji state={charState.state} emoji={charState.emoji} />
               </div>
 
               <div className="text-xs font-display text-muted-foreground uppercase tracking-widest text-center">
