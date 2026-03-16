@@ -117,18 +117,23 @@ const CollapsibleBlock = memo(function CollapsibleBlock({
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <Card className="border-card-border rounded-2xl overflow-hidden">
+    <div className="border border-card-border bg-card relative overflow-hidden">
+      {/* P5 угловой акцент */}
+      <div className="absolute top-0 right-0 w-3 h-3 bg-primary/60"
+        style={{ clipPath: "polygon(0 0, 100% 0, 100% 100%)" }} />
+      <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-primary/80 via-primary/20 to-transparent" />
+
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/10 transition-colors"
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-primary/5 transition-colors"
         data-testid={`collapse-toggle-${title}`}
       >
         <div className="flex items-center gap-2">
           {icon}
-          <span className="font-display text-sm font-bold uppercase tracking-wider text-foreground">{title}</span>
+          <span className="font-display text-xs font-bold uppercase tracking-widest text-foreground">{title}</span>
           {badge}
         </div>
-        <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${open ? "rotate-180" : ""}`} />
+        <ChevronDown className={`w-4 h-4 text-primary transition-transform duration-300 ${open ? "rotate-180" : ""}`} />
       </button>
       <div
         className="overflow-hidden"
@@ -140,7 +145,7 @@ const CollapsibleBlock = memo(function CollapsibleBlock({
           {children}
         </div>
       </div>
-    </Card>
+    </div>
   );
 });
 
@@ -212,7 +217,9 @@ export default function HubPage() {
           <div className="flex flex-col gap-3">
 
             {/* Character panel */}
-            <Card className="p-4 bg-card border-card-border rounded-3xl flex flex-col items-center gap-3">
+            <div className="p-4 bg-card border border-card-border flex flex-col items-center gap-3 relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-primary via-primary/50 to-transparent" />
+              <div className="absolute top-0 right-0 w-4 h-4 bg-primary" style={{ clipPath: "polygon(0 0, 100% 0, 100% 100%)" }} />
               <div className="w-32 h-36 overflow-visible flex items-center justify-center">
                 <CharacterEmoji state={charState.state} emoji={charState.emoji} />
               </div>
@@ -245,7 +252,7 @@ export default function HubPage() {
                 <span className="text-muted-foreground">Рекорд: <span className="text-yellow-400 font-bold">{state.streak.longestStreak} дн.</span></span>
               </div>
 
-            </Card>
+            </div>
 
             {/* ── Задачи недели + Прогресс недели (hidden on mobile) ── */}
             <div className="hidden md:flex md:flex-col gap-3">
@@ -313,11 +320,13 @@ export default function HubPage() {
           <div className="flex flex-col gap-3 min-w-0">
 
             {/* Прогресс дня */}
-            <Card className="p-4 bg-card border-card-border rounded-2xl">
+            <div className="p-4 bg-card border border-card-border relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-primary via-primary/50 to-transparent" />
+              <div className="absolute top-0 right-0 w-3 h-3 bg-primary/60" style={{ clipPath: "polygon(0 0, 100% 0, 100% 100%)" }} />
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Zap className="w-4 h-4 text-primary" />
-                  <span className="font-display text-sm font-bold uppercase tracking-wider text-foreground">Прогресс дня</span>
+                  <span className="font-display text-xs font-bold uppercase tracking-widest text-foreground">Прогресс дня</span>
                   <span className="font-mono text-xs text-primary font-bold">{completedToday}/{totalToday}</span>
                 </div>
                 <span className="font-mono text-sm font-bold text-primary">+{dayXP} XP</span>
@@ -335,7 +344,7 @@ export default function HubPage() {
                 </span>
                 <span>Рекорд: <span className="text-yellow-400 font-bold">{state.streak.longestStreak} дн.</span></span>
               </div>
-            </Card>
+            </div>
 
             {/* Задачи на сегодня */}
             <CollapsibleBlock
@@ -421,7 +430,8 @@ export default function HubPage() {
         </div>
 
         {/* ── Notes (full width) ── */}
-        <Card className="p-4 bg-card border-card-border rounded-2xl flex flex-col gap-3">
+        <div className="p-4 bg-card border border-card-border flex flex-col gap-3 relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-primary via-primary/50 to-transparent" />
           <div className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-primary" />
             <div className="font-display text-base font-bold uppercase tracking-wider text-foreground">Заметки дня</div>
@@ -513,7 +523,7 @@ export default function HubPage() {
               + {newNoteType === "idea" ? "Добавить идею" : "Добавить заметку"}
             </Button>
           </div>
-        </Card>
+        </div>
       </div>
     </div>
   );
