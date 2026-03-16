@@ -162,13 +162,7 @@ export function AppSidebar() {
               {user.email}
             </span>
             
-              href="/api/user/export"
-              className="flex-shrink-0 p-1 text-muted-foreground hover:text-primary transition-colors"
-              title="Экспорт данных"
-              data-testid="button-export"
-            >
-              <Download className="w-3.5 h-3.5" />
-            </a>
+              <a href="/api/user/export" className="flex-shrink-0 p-1 text-muted-foreground hover:text-primary transition-colors" title="Экспорт данных" data-testid="button-export"><Download className="w-3.5 h-3.5" /></a>
             <button
               onClick={logout}
               className="flex-shrink-0 p-1 text-muted-foreground hover:text-red-400 transition-colors"
