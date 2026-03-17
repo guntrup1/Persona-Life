@@ -12,6 +12,10 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendDone, setResendDone] = useState(false);
+  const verified = new URLSearchParams(window.location.search).get("verified") === "1";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,9 +28,11 @@ export default function LoginPage() {
         toast({ title: "Ошибка входа", description: result.error, variant: "destructive" });
       }
     } else {
-      const result = await register(email, password);
+    const result = await register(email, password);
       if (result.error) {
         toast({ title: "Ошибка регистрации", description: result.error, variant: "destructive" });
+      } else if ((result as any).needsVerification) {
+        setNeedsVerification(true);
       } else {
         toast({ title: "Аккаунт создан" });
       }
@@ -187,7 +193,38 @@ export default function LoginPage() {
               {loading ? "..." : mode === "login" ? "Войти" : "Создать аккаунт"}
             </button>
           </form>
+        {verified && (
+            <div className="mt-3 p-3 bg-green-500/10 border border-green-500/30 text-green-400 text-xs font-mono text-center">
+              ✅ Email подтверждён! Можешь войти.
+            </div>
+          )}
 
+          {needsVerification && (
+            <div className="mt-3 p-3 bg-primary/10 border border-primary/30 text-xs font-mono space-y-2">
+              <p className="text-primary font-bold">📧 Проверь почту!</p>
+              <p className="text-muted-foreground">Отправили письмо на <span className="text-foreground">{email}</span>. Подтверди email чтобы войти.</p>
+              {!resendDone ? (
+                <button
+                  onClick={async () => {
+                    setResendLoading(true);
+                    await fetch("/api/auth/resend-verification", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ email }),
+                    });
+                    setResendLoading(false);
+                    setResendDone(true);
+                  }}
+                  disabled={resendLoading}
+                  className="text-primary hover:text-primary/80 underline transition-colors"
+                >
+                  {resendLoading ? "Отправляем..." : "Отправить повторно"}
+                </button>
+              ) : (
+                <p className="text-green-400">✅ Письмо отправлено повторно</p>
+              )}
+            </div>
+          )}
           <p className="text-center text-[10px] text-muted-foreground mt-4 font-mono">
             {mode === "login" ? "Нет аккаунта?" : "Уже есть аккаунт?"}{" "}
             <button
