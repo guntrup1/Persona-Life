@@ -6,6 +6,7 @@ import { setupAuth } from "./auth";
 import { connectMongoDB } from "./mongodb";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import mongoSanitize from "express-mongo-sanitize";
 
 const app = express();
 const httpServer = createServer(app);
@@ -41,6 +42,16 @@ const forgotPasswordLimiter = rateLimit({
 });
 
 app.use(globalLimiter);
+// ── Защита от NoSQL инъекций ──
+app.use(mongoSanitize({
+  replaceWith: "_",
+  onSanitize: ({ req, key }) => {
+    console.warn(`[security] Sanitized key "${key}" from ${req.ip}`);
+  },
+}));
+
+// ── Ограничение размера тела запроса ──
+app.use(express.json({ limit: "2mb" }));
 app.use("/api/auth/login", authLimiter);
 app.use("/api/auth/register", authLimiter);
 app.use("/api/auth/forgot-password", forgotPasswordLimiter);
