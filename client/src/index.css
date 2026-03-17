@@ -448,11 +448,146 @@ input:focus, textarea:focus {
 }
 
 /* ═══════════════════════════════════════════
-   BUTTONS — P5 style
+   NAV TRANSITIONS — плавные переходы
 ═══════════════════════════════════════════ */
-button[class*="bg-primary"], a[class*="bg-primary"] {
-  clip-path: polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%);
-  letter-spacing: 0.1em;
+
+/* Плавный переход страниц */
+main > * {
+  animation: slide-in-up 0.2s ease-out;
+}
+
+/* Hover на nav items */
+[data-testid*="nav-"] > div,
+[data-testid*="mobile-nav-"] > div {
+  transition: all 0.12s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Карточки задач — hover lift */
+[data-testid*="task-row-"],
+[data-testid*="task-item-"] {
+  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+}
+[data-testid*="task-row-"]:hover,
+[data-testid*="task-item-"]:hover {
+  transform: translateX(3px) !important;
+  box-shadow: -3px 0 0 hsl(var(--primary)) !important;
+}
+
+/* Завершённая задача — анимация */
+[data-testid*="task-row-"]:has(svg.text-primary) {
+  animation: task-done-flash 0.4s ease-out;
+}
+@keyframes task-done-flash {
+  0% { background: hsl(var(--primary) / 0.15); }
+  100% { background: transparent; }
+}
+
+/* Toggle анимация для коллапса */
+[data-testid*="collapse-content-"] {
+  transition: max-height 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* XP нотификация — P5 стиль */
+.animate-xp-gain {
+  animation: p5-xp-pop 1.4s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+}
+@keyframes p5-xp-pop {
+  0%   { opacity: 0; transform: translateY(10px) scale(0.8) skewX(-5deg); }
+  20%  { opacity: 1; transform: translateY(-5px) scale(1.2) skewX(-5deg); }
+  40%  { transform: translateY(-15px) scale(1.1) skewX(-3deg); }
+  80%  { opacity: 1; transform: translateY(-30px) scale(1) skewX(-5deg); }
+  100% { opacity: 0; transform: translateY(-50px) scale(0.9) skewX(-5deg); }
+}
+
+/* Sidebar активный элемент — slide in */
+@keyframes p5-nav-activate {
+  from { clip-path: polygon(0 0, 0 0, 0 100%, 0 100%); opacity: 0; }
+  to   { clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%); opacity: 1; }
+}
+
+/* Badge появление */
+.animate-slide-in-up {
+  animation: slide-in-up 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Progress bar shine */
+.bg-primary.h-full {
+  position: relative;
+  overflow: hidden;
+}
+.bg-primary.h-full::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 60%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  animation: xp-shine 2s infinite 0.5s;
+}
+
+/* ═══════════════════════════════════════════
+   BUTTONS — P5 параллелограмм
+═══════════════════════════════════════════ */
+
+/* Все кнопки — параллелограмм */
+button:not([class*="rounded-full"]):not([data-sidebar]):not([role="checkbox"]):not([role="switch"]) {
+  clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%) !important;
+  border-radius: 0 !important;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Ripple эффект при клике */
+button:not([data-sidebar])::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(255,255,255,0.25) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+button:not([data-sidebar]):active::after {
+  opacity: 1;
+  transition: opacity 0s;
+}
+
+/* Hover эффект для primary кнопок */
+button[class*="bg-primary"]:not([disabled]):hover,
+a[class*="bg-primary"]:hover {
+  clip-path: polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%) !important;
+  box-shadow: 0 0 20px rgba(225, 29, 72, 0.6), 0 0 40px rgba(225, 29, 72, 0.2);
+  transform: translateY(-1px);
+  filter: brightness(1.1);
+}
+
+/* Active press эффект */
+button[class*="bg-primary"]:not([disabled]):active {
+  transform: translateY(1px) scaleX(0.98);
+  box-shadow: 0 0 8px rgba(225, 29, 72, 0.4);
+}
+
+/* Ghost/outline кнопки */
+button[class*="border"]:not([class*="bg-primary"]):not([disabled]):hover {
+  border-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary)) !important;
+  box-shadow: inset 0 0 12px rgba(225, 29, 72, 0.08);
+}
+
+/* Disabled состояние */
+button[disabled] {
+  opacity: 0.4 !important;
+  filter: grayscale(0.3);
+  transform: none !important;
+}
+
+/* Иконки-кнопки (маленькие квадратные) — без параллелограмма */
+button.h-8.w-8,
+button.h-9.w-9,
+button[size="icon"],
+button[class*="h-8 w-8"],
+button[class*="h-9 w-9"] {
+  clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%) !important;
 }
 
 /* ═══════════════════════════════════════════
