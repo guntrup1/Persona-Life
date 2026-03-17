@@ -4,9 +4,46 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { setupAuth } from "./auth";
 import { connectMongoDB } from "./mongodb";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 
 const app = express();
 const httpServer = createServer(app);
+// ── Helmet — безопасные HTTP заголовки ──
+app.use(helmet({
+  contentSecurityPolicy: false, // отключаем CSP чтобы не ломать Vite/React
+  crossOriginEmbedderPolicy: false,
+}));
+
+// ── Rate limiting ──
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 минут
+  max: 200, // макс 200 запросов с одного IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Слишком много запросов, попробуй позже" },
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10, // макс 10 попыток входа/регистрации за 15 минут
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Слишком много попыток входа, подожди 15 минут" },
+});
+
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 час
+  max: 3, // макс 3 запроса сброса пароля в час
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Слишком много запросов сброса пароля, попробуй через час" },
+});
+
+app.use(globalLimiter);
+app.use("/api/auth/login", authLimiter);
+app.use("/api/auth/register", authLimiter);
+app.use("/api/auth/forgot-password", forgotPasswordLimiter);
 
 declare module "http" {
   interface IncomingMessage {
