@@ -3,7 +3,36 @@ import session from "express-session";
 import ConnectMongo from "connect-mongo";
 const MongoStore = (ConnectMongo as any).default || ConnectMongo;
 import bcrypt from "bcryptjs";
+import { z } from "zod";
 import { User, UserData, UserDataBackup, ResetToken, UserSettings } from "./mongodb";
+
+// ── Zod схемы валидации ──
+const registerSchema = z.object({
+  email: z.string()
+    .email("Некорректный email")
+    .min(5, "Email слишком короткий")
+    .max(100, "Email слишком длинный")
+    .toLowerCase(),
+  password: z.string()
+    .min(6, "Пароль должен быть не менее 6 символов")
+    .max(100, "Пароль слишком длинный"),
+});
+
+const loginSchema = z.object({
+  email: z.string().email("Некорректный email").toLowerCase(),
+  password: z.string().min(1, "Пароль обязателен"),
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(32).max(128),
+  password: z.string()
+    .min(6, "Пароль должен быть не менее 6 символов")
+    .max(100, "Пароль слишком длинный"),
+});
+
+const forgotPasswordSchema = z.object({
+  email: z.string().email("Некорректный email").toLowerCase(),
+});
 
 export function setupAuth(app: Express) {
   app.use(
@@ -40,14 +69,12 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
 }
 
 export function registerAuthRoutes(app: Express) {
-  app.post("/api/auth/register", async (req, res) => {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email и пароль обязательны" });
-    }
-    if (password.length < 6) {
-      return res.status(400).json({ message: "Пароль должен быть не менее 6 символов" });
-    }
+    app.post("/api/auth/register", async (req, res) => {
+        const parsed = registerSchema.safeParse(req.body);
+        if (!parsed.success) {
+          return res.status(400).json({ message: parsed.error.errors[0].message });
+        }
+        const { email, password } = parsed.data;
 
     try {
       const existing = await User.findOne({ email: email.toLowerCase() });
@@ -73,11 +100,12 @@ export function registerAuthRoutes(app: Express) {
     }
   });
 
-  app.post("/api/auth/login", async (req, res) => {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email и пароль обязательны" });
-    }
+    app.post("/api/auth/login", async (req, res) => {
+        const parsed = loginSchema.safeParse(req.body);
+        if (!parsed.success) {
+          return res.status(400).json({ message: parsed.error.errors[0].message });
+        }
+        const { email, password } = parsed.data;
 
     try {
       const user = await User.findOne({ email: email.toLowerCase() });
@@ -233,9 +261,10 @@ export function registerAuthRoutes(app: Express) {
     }
   });
 
-  app.post("/api/auth/forgot-password", async (req, res) => {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ message: "Email обязателен" });
+    app.post("/api/auth/forgot-password", async (req, res) => {
+        const parsed = forgotPasswordSchema.safeParse(req.body);
+        if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+        const { email } = parsed.data;
 
     try {
       const user = await User.findOne({ email: email.toLowerCase() });
@@ -277,9 +306,9 @@ export function registerAuthRoutes(app: Express) {
   });
 
   app.post("/api/auth/reset-password", async (req, res) => {
-    const { token, password } = req.body;
-    if (!token || !password) return res.status(400).json({ message: "Токен и пароль обязательны" });
-    if (password.length < 6) return res.status(400).json({ message: "Пароль должен быть не менее 6 символов" });
+    const parsed = resetPasswordSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+    const { token, password } = parsed.data;
 
     try {
       const resetToken = await ResetToken.findOne({ token, expiresAt: { $gt: new Date() } });
