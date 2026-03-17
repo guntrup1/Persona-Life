@@ -43,6 +43,8 @@
     "@tanstack/react-query": "^5.60.5",
     "@types/bcryptjs": "^2.4.6",
     "bcryptjs": "^3.0.3",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^8.0.0",
     "resend": "^4.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
