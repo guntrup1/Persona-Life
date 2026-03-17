@@ -83,17 +83,49 @@ export function registerAuthRoutes(app: Express) {
       }
 
       const hash = await bcrypt.hash(password, 12);
+      const verifyToken = require("crypto").randomBytes(32).toString("hex");
+      const verifyTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 часа
+
       const user = await User.create({
         email: email.toLowerCase(),
         password_hash: hash,
+        isVerified: false,
+        verifyToken,
+        verifyTokenExpires,
       });
 
       await UserData.create({ userId: user._id, data: {} });
 
-      req.session.userId = user._id.toString();
-      req.session.email = user.email;
+      // Отправляем письмо верификации
+      try {
+        const { Resend } = require("resend");
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const verifyUrl = `${process.env.APP_URL || "https://persona-life.onrender.com"}/verify-email?token=${verifyToken}`;
+        await resend.emails.send({
+          from: "Trade Persona <onboarding@resend.dev>",
+          to: user.email,
+          subject: "Подтверди email — Trade Persona",
+          html: `
+            <div style="font-family:sans-serif;max-width:480px;margin:0 auto;background:#0a0a0a;color:#fff;padding:32px;">
+              <h2 style="color:#E11D48;letter-spacing:0.2em;font-size:24px;">TRADE PERSONA</h2>
+              <p style="color:#aaa;">Подтверди свой email чтобы войти в систему.</p>
+              <a href="${verifyUrl}"
+                style="display:inline-block;margin:24px 0;padding:12px 32px;background:#E11D48;color:#fff;text-decoration:none;font-weight:bold;letter-spacing:0.1em;clip-path:polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%);">
+                ПОДТВЕРДИТЬ EMAIL
+              </a>
+              <p style="color:#666;font-size:12px;">Ссылка действует 24 часа. Если ты не регистрировался — просто проигнорируй письмо.</p>
+            </div>
+          `,
+        });
+      } catch (emailErr) {
+        console.error("Verify email send error:", emailErr);
+      }
 
-      return res.json({ id: user._id, email: user.email });
+      return res.json({
+        ok: true,
+        message: "Аккаунт создан! Проверь почту и подтверди email.",
+        needsVerification: true,
+      });
     } catch (err) {
       console.error("Register error:", err);
       return res.status(500).json({ message: "Ошибка сервера" });
@@ -116,6 +148,10 @@ export function registerAuthRoutes(app: Express) {
       const valid = await bcrypt.compare(password, user.password_hash);
       if (!valid) {
         return res.status(401).json({ message: "Неверный email или пароль" });
+      }
+
+      if (!user.isVerified) {
+        return res.status(403).json({ message: "Подтверди email перед входом. Проверь почту." });
       }
 
       req.session.userId = user._id.toString();
@@ -349,6 +385,69 @@ export function registerAuthRoutes(app: Express) {
       return res.json({ settings });
     } catch (err) {
       console.error("Save settings error:", err);
+      return res.status(500).json({ message: "Ошибка сервера" });
+    }
+  });
+  // Верификация email
+  app.get("/api/auth/verify-email", async (req, res) => {
+    const { token } = req.query;
+    if (!token || typeof token !== "string") {
+      return res.status(400).json({ message: "Неверный токен" });
+    }
+    try {
+      const user = await User.findOne({
+        verifyToken: token,
+        verifyTokenExpires: { $gt: new Date() },
+        isVerified: false,
+      });
+      if (!user) {
+        return res.status(400).json({ message: "Ссылка недействительна или истекла" });
+      }
+      await User.findByIdAndUpdate(user._id, {
+        isVerified: true,
+        verifyToken: null,
+        verifyTokenExpires: null,
+      });
+      // Редирект на страницу входа с успехом
+      return res.redirect("/?verified=1");
+    } catch (err) {
+      console.error("Verify email error:", err);
+      return res.status(500).json({ message: "Ошибка сервера" });
+    }
+  });
+
+  // Повторная отправка письма верификации
+  app.post("/api/auth/resend-verification", async (req, res) => {
+    const parsed = forgotPasswordSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Некорректный email" });
+    const { email } = parsed.data;
+    try {
+      const user = await User.findOne({ email, isVerified: false });
+      if (!user) return res.json({ ok: true }); // не раскрываем существование
+
+      const verifyToken = require("crypto").randomBytes(32).toString("hex");
+      const verifyTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      await User.findByIdAndUpdate(user._id, { verifyToken, verifyTokenExpires });
+
+      const { Resend } = require("resend");
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      const verifyUrl = `${process.env.APP_URL || "https://persona-life.onrender.com"}/verify-email?token=${verifyToken}`;
+      await resend.emails.send({
+        from: "Trade Persona <onboarding@resend.dev>",
+        to: user.email,
+        subject: "Подтвердить email — Trade Persona",
+        html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;">
+          <h2 style="color:#E11D48;">TRADE PERSONA</h2>
+          <p>Нажми кнопку чтобы подтвердить email:</p>
+          <a href="${verifyUrl}" style="display:inline-block;padding:12px 24px;background:#E11D48;color:#fff;text-decoration:none;font-weight:bold;">
+            ПОДТВЕРДИТЬ
+          </a>
+          <p style="color:#888;font-size:12px;">Ссылка действует 24 часа.</p>
+        </div>`,
+      });
+      return res.json({ ok: true });
+    } catch (err) {
+      console.error("Resend verification error:", err);
       return res.status(500).json({ message: "Ошибка сервера" });
     }
   });
