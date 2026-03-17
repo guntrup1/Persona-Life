@@ -99,22 +99,24 @@ export function AppSidebar() {
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild isActive={isActive} data-testid={item.testId}>
                       <Link href={item.url}>
-                        <div
-                          className={`flex items-center gap-3 w-full px-3 py-2 transition-all duration-150 ${
+                        <div className={`flex items-center gap-3 w-full px-3 py-2 transition-all duration-150 relative ${
                             isActive
-                              ? "bg-primary text-white p5-glow-sm"
-                              : "text-sidebar-foreground hover:bg-primary/10 hover:text-primary hover:pl-4"
+                              ? "bg-primary text-white"
+                              : "text-sidebar-foreground hover:bg-primary/10 hover:text-primary"
                           }`}
                           style={isActive ? {
-                            clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)"
-                          } : {}}
-                        >
+                            clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)"
+                          } : {}} >
+                          {/* Левая красная полоса для активного */}
+                          {isActive && (
+                            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-white/80" />
+                          )}
                           <item.icon className="w-4 h-4 flex-shrink-0" />
-                          <span className="font-display text-xs tracking-widest uppercase truncate">
+                          <span className="font-display text-xs tracking-widest uppercase truncate font-bold">
                             {item.title}
                           </span>
                           {isActive && (
-                            <div className="ml-auto w-1 h-4 bg-white/70 flex-shrink-0" style={{ clipPath: "polygon(0 0, 100% 0, 100% 100%, 0 100%)" }} />
+                            <div className="ml-auto w-1 h-3 bg-white/60 flex-shrink-0" />
                           )}
                         </div>
                       </Link>
