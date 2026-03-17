@@ -371,17 +371,8 @@ function AppShell() {
         </div>
       
         {/* Название в хедере для мобилки */}
-        <div className="md:hidden flex items-center gap-1.5 flex-1">
-          <div
-            className="w-6 h-6 bg-primary flex items-center justify-center flex-shrink-0"
-            style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))" }}
-          >
-            <span className="font-p5 text-white text-[10px] font-bold">TP</span>
-          </div>
-          <span className="font-p5 text-xs tracking-widest text-foreground uppercase" style={{ letterSpacing: "0.2em" }}>
-            Trade <span className="text-primary">Persona</span>
-          </span>
-        </div>
+        {/* Пустой flex-1 для правильного выравнивания на мобилке */}
+        <div className="md:hidden flex-1" />
       
         <div className="flex items-center gap-1 ml-auto">
           <NewsIndicator />
