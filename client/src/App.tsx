@@ -20,6 +20,7 @@ import LoginPage from "@/pages/login";
 import ForgotPasswordPage from "@/pages/forgot-password";
 import ResetPasswordPage from "@/pages/reset-password";
 import SettingsPage from "@/pages/settings";
+import VerifyEmailPage from "@/pages/verify-email";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { loadFromServerData, useStore, getTodayDate, syncFromServer, onSyncResult, type NoteType } from "@/lib/store";
 import { useCallback, useState, useEffect, useRef } from "react";
@@ -48,6 +49,7 @@ function Router() {
       <Route path="/forgot-password" component={ForgotPasswordPage} />
       <Route path="/reset-password" component={ResetPasswordPage} />
       <Route path="/settings" component={SettingsPage} />
+      <Route path="/verify-email" component={VerifyEmailPage} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -333,6 +335,7 @@ function AppShell() {
   if (!user) {
     if (location === "/forgot-password") return <ForgotPasswordPage />;
     if (location.startsWith("/reset-password")) return <ResetPasswordPage />;
+    if (location.startsWith("/verify-email")) return <VerifyEmailPage />;
     return <LoginPage />;
   }
 
