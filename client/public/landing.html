@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trade Persona — Gamified Trading OS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oxanium:wght@300;400;600;700;800&family=JetBrains+Mono:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --red:#E11D48;
+  --red-dim:rgba(225,29,72,0.15);
+  --red-glow:rgba(225,29,72,0.5);
+  --bg:#070707;
+  --bg2:#0d0d0d;
+  --bg3:#111;
+  --text:#f5f5f5;
+  --muted:#666;
+  --border:rgba(255,255,255,0.07);
+  --font-title:'Bebas Neue',sans-serif;
+  --font-ui:'Oxanium',sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--font-ui);
+  overflow-x:hidden;
+  cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M4 2 L4 20 L8 16 L11 22 L13 21 L10 15 L15 15 Z' fill='%23E11D48' stroke='%23000' stroke-width='1.5'/%3E%3C/svg%3E") 4 2,auto;
+}
+a,button{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M4 2 L4 20 L8 16 L11 22 L13 21 L10 15 L15 15 Z' fill='%23E11D48' stroke='%23000' stroke-width='1.5'/%3E%3Ccircle cx='20' cy='8' r='5' fill='%23E11D48' stroke='%23000' stroke-width='1.5'/%3E%3C/svg%3E") 4 2,pointer}
+
+/* ═══ LOADER ═══ */
+#loader{
+  position:fixed;inset:0;z-index:9999;
+  background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  transition:opacity 0.6s ease, visibility 0.6s ease;
+}
+#loader.hidden{opacity:0;visibility:hidden}
+.loader-logo{
+  font-family:var(--font-title);
+  font-size:clamp(48px,8vw,96px);
+  letter-spacing:0.3em;
+  color:var(--red);
+  text-shadow:0 0 40px var(--red-glow),0 0 80px rgba(225,29,72,0.2);
+  animation:loaderPulse 0.8s ease-in-out infinite alternate;
+}
+.loader-sub{
+  font-family:var(--font-mono);
+  font-size:11px;letter-spacing:0.4em;color:var(--muted);
+  margin-top:8px;text-transform:uppercase;
+}
+.loader-bar-wrap{
+  width:200px;height:2px;background:rgba(255,255,255,0.06);
+  margin-top:32px;overflow:hidden;
+}
+.loader-bar{
+  height:100%;background:var(--red);
+  box-shadow:0 0 12px var(--red-glow);
+  animation:loaderBar 1.8s cubic-bezier(0.4,0,0.2,1) forwards;
+}
+@keyframes loaderPulse{from{text-shadow:0 0 20px var(--red-glow)}to{text-shadow:0 0 60px var(--red-glow),0 0 100px rgba(225,29,72,0.3)}}
+@keyframes loaderBar{0%{width:0}60%{width:70%}80%{width:85%}100%{width:100%}}
+
+/* ═══ NOISE TEXTURE ═══ */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  background-size:200px;opacity:0.4;
+}
+/* Diagonal stripe */
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:repeating-linear-gradient(-45deg,transparent,transparent 6px,rgba(255,255,255,0.008) 6px,rgba(255,255,255,0.008) 7px);
+}
+
+/* ═══ NAV ═══ */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  padding:16px 40px;
+  display:flex;align-items:center;justify-content:space-between;
+  background:rgba(7,7,7,0.85);
+  backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);
+  transition:all 0.3s ease;
+}
+nav::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--red);box-shadow:0 0 8px var(--red-glow)}
+.nav-logo{display:flex;align-items:center;gap:12px;text-decoration:none}
+.nav-logo-box{
+  width:36px;height:36px;background:var(--red);
+  display:flex;align-items:center;justify-content:center;
+  clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,6px 100%,0 calc(100% - 6px));
+  box-shadow:0 0 12px var(--red-glow);
+}
+.nav-logo-box span{font-family:var(--font-title);color:#fff;font-size:14px;letter-spacing:0.05em}
+.nav-name{font-family:var(--font-title);font-size:22px;letter-spacing:0.15em;color:var(--text)}
+.nav-name small{display:block;font-family:var(--font-mono);font-size:9px;letter-spacing:0.3em;color:var(--red);margin-top:-2px}
+.nav-links{display:flex;align-items:center;gap:32px}
+.nav-links a{font-family:var(--font-mono);font-size:11px;letter-spacing:0.15em;color:var(--muted);text-decoration:none;text-transform:uppercase;transition:color 0.2s}
+.nav-links a:hover{color:var(--red)}
+.nav-cta{
+  font-family:var(--font-title);font-size:14px;letter-spacing:0.15em;
+  color:#fff;background:var(--red);
+  padding:8px 24px;text-decoration:none;
+  clip-path:polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%);
+  box-shadow:0 0 16px var(--red-glow);
+  transition:all 0.2s;
+}
+.nav-cta:hover{box-shadow:0 0 30px var(--red-glow);filter:brightness(1.1)}
+
+/* ═══ SCROLL REVEAL ═══ */
+.reveal{opacity:0;transform:translateY(30px);transition:opacity 0.7s cubic-bezier(0.4,0,0.2,1),transform 0.7s cubic-bezier(0.4,0,0.2,1)}
+.reveal.visible{opacity:1;transform:translateY(0)}
+.reveal-left{opacity:0;transform:translateX(-40px);transition:opacity 0.7s cubic-bezier(0.4,0,0.2,1),transform 0.7s cubic-bezier(0.4,0,0.2,1)}
+.reveal-left.visible{opacity:1;transform:translateX(0)}
+.reveal-right{opacity:0;transform:translateX(40px);transition:opacity 0.7s cubic-bezier(0.4,0,0.2,1),transform 0.7s cubic-bezier(0.4,0,0.2,1)}
+.reveal-right.visible{opacity:1;transform:translateX(0)}
+.delay-1{transition-delay:0.1s}.delay-2{transition-delay:0.2s}.delay-3{transition-delay:0.3s}.delay-4{transition-delay:0.4s}.delay-5{transition-delay:0.5s}
+
+/* ═══ HERO ═══ */
+#hero{
+  min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  position:relative;padding:120px 40px 80px;text-align:center;overflow:hidden;
+}
+.hero-bg-text{
+  position:absolute;font-family:var(--font-title);font-size:clamp(80px,18vw,220px);
+  letter-spacing:0.1em;color:rgba(225,29,72,0.04);pointer-events:none;
+  white-space:nowrap;user-select:none;top:50%;transform:translateY(-50%);
+  animation:bgTextDrift 20s ease-in-out infinite alternate;
+}
+@keyframes bgTextDrift{from{transform:translateY(-50%) translateX(-10px)}to{transform:translateY(-50%) translateX(10px)}}
+.hero-eyebrow{
+  font-family:var(--font-mono);font-size:11px;letter-spacing:0.4em;
+  color:var(--red);text-transform:uppercase;margin-bottom:24px;
+  display:flex;align-items:center;gap:12px;
+}
+.hero-eyebrow::before,.hero-eyebrow::after{content:'';flex:1;max-width:60px;height:1px;background:var(--red);opacity:0.5}
+.hero-title{
+  font-family:var(--font-title);font-size:clamp(60px,10vw,140px);
+  letter-spacing:0.08em;line-height:0.9;margin-bottom:8px;
+  animation:neonFlicker 3s ease-in-out infinite;
+}
+.hero-title .accent{color:var(--red);text-shadow:0 0 40px var(--red-glow),0 0 80px rgba(225,29,72,0.3)}
+@keyframes neonFlicker{
+  0%,60%,100%{opacity:1;text-shadow:0 0 60px rgba(225,29,72,0.12)}
+  65%{opacity:0.75;text-shadow:none}
+  68%{opacity:1;text-shadow:0 0 60px rgba(225,29,72,0.12)}
+  72%{opacity:0.4;text-shadow:none}
+  75%{opacity:1;text-shadow:0 0 140px rgba(225,29,72,0.6),0 0 220px rgba(225,29,72,0.25)}
+  80%{opacity:0.8;text-shadow:0 0 60px rgba(225,29,72,0.12)}
+  83%{opacity:0.6;text-shadow:none}
+  86%{opacity:1;text-shadow:0 0 60px rgba(225,29,72,0.12)}
+}
+.hero-subtitle{
+  font-family:var(--font-mono);font-size:clamp(13px,1.5vw,16px);
+  color:var(--muted);letter-spacing:0.15em;margin:24px 0 48px;
+  text-transform:uppercase;max-width:500px;line-height:1.8;
+}
+.hero-btns{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+.btn-primary{
+  font-family:var(--font-title);font-size:16px;letter-spacing:0.2em;
+  color:#fff;background:var(--red);padding:14px 40px;text-decoration:none;
+  clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);
+  box-shadow:0 0 30px var(--red-glow);
+  transition:all 0.25s;display:inline-block;
+  animation:heroBtnPulse 2s ease-in-out infinite;
+}
+@keyframes heroBtnPulse{0%,100%{box-shadow:0 0 20px var(--red-glow)}50%{box-shadow:0 0 45px var(--red-glow),0 0 80px rgba(225,29,72,0.2)}}
+.btn-primary:hover{filter:brightness(1.15);transform:translateY(-2px)}
+.btn-secondary{
+  font-family:var(--font-title);font-size:16px;letter-spacing:0.2em;
+  color:var(--text);background:transparent;padding:14px 40px;text-decoration:none;
+  clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);
+  border:1px solid rgba(255,255,255,0.15);
+  transition:all 0.25s;display:inline-block;
+}
+.btn-secondary:hover{border-color:var(--red);color:var(--red);box-shadow:inset 0 0 20px rgba(225,29,72,0.05)}
+.hero-stats{
+  display:flex;gap:48px;justify-content:center;margin-top:64px;
+  padding-top:48px;border-top:1px solid var(--border);flex-wrap:wrap;
+}
+.hero-stat-num{font-family:var(--font-title);font-size:48px;letter-spacing:0.05em;color:var(--red);line-height:1}
+.hero-stat-label{font-family:var(--font-mono);font-size:10px;letter-spacing:0.2em;color:var(--muted);text-transform:uppercase;margin-top:4px}
+
+/* Scan line */
+.scanline{
+  position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,transparent,rgba(225,29,72,0.3),transparent);
+  animation:scanline 4s linear infinite;pointer-events:none;
+}
+@keyframes scanline{from{top:0}to{top:100%}}
+
+/* Corner decorations */
+.corner{position:absolute;width:40px;height:40px}
+.corner-tl{top:20px;left:20px;border-top:2px solid var(--red);border-left:2px solid var(--red)}
+.corner-tr{top:20px;right:20px;border-top:2px solid var(--red);border-right:2px solid var(--red)}
+.corner-bl{bottom:20px;left:20px;border-bottom:2px solid rgba(225,29,72,0.4);border-left:2px solid rgba(225,29,72,0.4)}
+.corner-br{bottom:20px;right:20px;border-bottom:2px solid rgba(225,29,72,0.4);border-right:2px solid rgba(225,29,72,0.4)}
+
+/* ═══ SECTION STYLES ═══ */
+section{position:relative;z-index:1}
+.container{max-width:1200px;margin:0 auto;padding:0 40px}
+.section-label{
+  font-family:var(--font-mono);font-size:10px;letter-spacing:0.4em;
+  color:var(--red);text-transform:uppercase;margin-bottom:16px;
+  display:flex;align-items:center;gap:12px;
+}
+.section-label::before{content:'//';color:rgba(225,29,72,0.4)}
+.section-title{
+  font-family:var(--font-title);font-size:clamp(40px,6vw,80px);
+  letter-spacing:0.05em;line-height:0.95;margin-bottom:20px;
+}
+.section-title .red{color:var(--red)}
+.section-desc{font-size:15px;color:var(--muted);line-height:1.8;max-width:540px}
+
+/* ═══ FEATURES SECTION ═══ */
+#features{padding:120px 0}
+.features-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));
+  gap:2px;margin-top:64px;background:var(--border);
+}
+.feature-card{
+  background:var(--bg2);padding:40px;position:relative;overflow:hidden;
+  transition:background 0.3s ease;
+}
+.feature-card:hover{background:var(--bg3)}
+.feature-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:var(--red);transform:scaleX(0);transform-origin:left;
+  transition:transform 0.4s cubic-bezier(0.4,0,0.2,1);
+}
+.feature-card:hover::before{transform:scaleX(1)}
+.feature-num{
+  font-family:var(--font-title);font-size:80px;letter-spacing:0.05em;
+  color:rgba(225,29,72,0.08);position:absolute;top:-10px;right:20px;line-height:1;
+}
+.feature-icon{
+  width:48px;height:48px;background:var(--red-dim);border:1px solid rgba(225,29,72,0.2);
+  display:flex;align-items:center;justify-content:center;margin-bottom:24px;
+  clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,6px 100%,0 calc(100% - 6px));
+  transition:all 0.3s;
+}
+.feature-card:hover .feature-icon{background:rgba(225,29,72,0.25);box-shadow:0 0 20px var(--red-glow)}
+.feature-icon svg{width:22px;height:22px;stroke:var(--red);fill:none;stroke-width:1.5}
+.feature-title{font-family:var(--font-ui);font-size:18px;font-weight:700;margin-bottom:12px;letter-spacing:0.05em}
+.feature-desc{font-size:14px;color:var(--muted);line-height:1.7}
+
+/* ═══ HOW IT WORKS ═══ */
+#how{padding:120px 0;background:linear-gradient(180deg,var(--bg) 0%,rgba(225,29,72,0.02) 50%,var(--bg) 100%)}
+.steps{display:flex;flex-direction:column;gap:0;margin-top:64px}
+.step{
+  display:grid;grid-template-columns:80px 1fr;gap:32px;align-items:start;
+  padding:40px 0;border-bottom:1px solid var(--border);position:relative;
+}
+.step:last-child{border-bottom:none}
+.step-num-wrap{display:flex;flex-direction:column;align-items:center;gap:0}
+.step-num{
+  width:64px;height:64px;background:var(--red-dim);border:1px solid rgba(225,29,72,0.3);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px));
+}
+.step-num span{font-family:var(--font-title);font-size:28px;color:var(--red)}
+.step-line{width:1px;flex:1;min-height:40px;background:linear-gradient(180deg,rgba(225,29,72,0.3),transparent)}
+.step-content{padding-top:8px}
+.step-label{font-family:var(--font-mono);font-size:10px;letter-spacing:0.3em;color:var(--red);text-transform:uppercase;margin-bottom:10px}
+.step-title{font-family:var(--font-ui);font-size:22px;font-weight:700;margin-bottom:12px}
+.step-desc{font-size:14px;color:var(--muted);line-height:1.8;max-width:560px}
+.step-tags{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.tag{
+  font-family:var(--font-mono);font-size:10px;letter-spacing:0.1em;
+  color:var(--red);background:var(--red-dim);border:1px solid rgba(225,29,72,0.2);
+  padding:4px 12px;text-transform:uppercase;
+}
+
+/* ═══ MODULES SECTION ═══ */
+#modules{padding:120px 0}
+.modules-header{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:end;margin-bottom:64px}
+.modules-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+.module-card{
+  background:var(--bg2);border:1px solid var(--border);padding:28px 24px;
+  position:relative;overflow:hidden;
+  transition:all 0.3s cubic-bezier(0.4,0,0.2,1);
+  clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,0 100%);
+}
+.module-card:hover{
+  border-color:rgba(225,29,72,0.4);
+  background:var(--bg3);
+  transform:translateY(-4px);
+  box-shadow:0 12px 40px rgba(0,0,0,0.5),0 0 20px rgba(225,29,72,0.1);
+}
+.module-card::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(225,29,72,0.05) 0%,transparent 50%);
+  opacity:0;transition:opacity 0.3s;
+}
+.module-card:hover::after{opacity:1}
+.module-icon{font-size:28px;margin-bottom:16px;display:block;filter:grayscale(1) brightness(0.6);transition:filter 0.3s}
+.module-card:hover .module-icon{filter:none}
+.module-name{font-family:var(--font-ui);font-size:15px;font-weight:700;margin-bottom:6px;letter-spacing:0.05em}
+.module-desc{font-size:12px;color:var(--muted);line-height:1.6}
+.module-badge{
+  position:absolute;top:12px;right:12px;
+  font-family:var(--font-mono);font-size:9px;letter-spacing:0.1em;
+  color:var(--red);background:var(--red-dim);padding:2px 8px;text-transform:uppercase;
+}
+
+/* ═══ XP / GAMIFICATION ═══ */
+#gamification{
+  padding:120px 0;
+  background:linear-gradient(135deg,rgba(225,29,72,0.03) 0%,var(--bg) 40%,var(--bg) 60%,rgba(225,29,72,0.02) 100%);
+}
+.xp-layout{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center}
+.xp-visual{position:relative}
+.xp-card{
+  background:var(--bg2);border:1px solid var(--border);padding:32px;
+  clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));
+  position:relative;overflow:hidden;
+}
+.xp-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--red),rgba(225,29,72,0.2))}
+.xp-card-label{font-family:var(--font-mono);font-size:10px;letter-spacing:0.3em;color:var(--muted);text-transform:uppercase;margin-bottom:6px}
+.xp-card-value{font-family:var(--font-title);font-size:48px;letter-spacing:0.05em;color:var(--red);line-height:1}
+.xp-bar-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.xp-bar-wrap{height:8px;background:rgba(255,255,255,0.05);margin:12px 0;overflow:hidden;position:relative}
+.xp-bar-fill{
+  height:100%;background:linear-gradient(90deg,var(--red),#ff6b6b);
+  clip-path:polygon(0 0,calc(100% - 4px) 0,100% 100%,0 100%);
+  box-shadow:0 0 10px var(--red-glow);
+  animation:xpBarAnim 2s ease-out 1.5s both;
+}
+@keyframes xpBarAnim{from{width:0}to{width:72%}}
+.xp-streak{display:flex;gap:12px;margin-top:20px}
+.xp-streak-day{
+  width:32px;height:32px;display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-mono);font-size:9px;letter-spacing:0.05em;
+  border:1px solid var(--border);transition:all 0.2s;
+}
+.xp-streak-day.active{background:var(--red);border-color:var(--red);box-shadow:0 0 8px var(--red-glow)}
+.xp-glow-orb{
+  position:absolute;width:300px;height:300px;border-radius:50%;
+  background:radial-gradient(circle,rgba(225,29,72,0.08) 0%,transparent 70%);
+  right:-100px;top:50%;transform:translateY(-50%);pointer-events:none;
+  animation:orbPulse 3s ease-in-out infinite;
+}
+@keyframes orbPulse{0%,100%{transform:translateY(-50%) scale(1);opacity:0.6}50%{transform:translateY(-50%) scale(1.2);opacity:1}}
+
+/* ═══ TESTIMONIAL / QUOTE ═══ */
+#quote{padding:80px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.quote-inner{
+  max-width:800px;margin:0 auto;text-align:center;padding:0 40px;
+}
+.quote-mark{font-family:var(--font-title);font-size:120px;color:rgba(225,29,72,0.12);line-height:0.7;margin-bottom:16px;display:block}
+.quote-text{
+  font-family:var(--font-ui);font-size:clamp(20px,3vw,28px);font-weight:300;
+  line-height:1.6;color:rgba(255,255,255,0.85);letter-spacing:0.02em;
+  font-style:italic;
+}
+.quote-text strong{color:var(--red);font-weight:700;font-style:normal}
+
+/* ═══ CTA SECTION ═══ */
+#cta{
+  padding:120px 40px;text-align:center;position:relative;overflow:hidden;
+}
+.cta-glow{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:600px;height:600px;border-radius:50%;
+  background:radial-gradient(circle,rgba(225,29,72,0.12) 0%,transparent 65%);
+  pointer-events:none;animation:orbPulse 4s ease-in-out infinite;
+}
+.cta-title{
+  font-family:var(--font-title);font-size:clamp(50px,9vw,120px);
+  letter-spacing:0.05em;line-height:0.9;margin-bottom:32px;
+}
+.cta-sub{font-family:var(--font-mono);font-size:13px;letter-spacing:0.2em;color:var(--muted);text-transform:uppercase;margin-bottom:48px}
+.cta-url{
+  font-family:var(--font-mono);font-size:12px;letter-spacing:0.15em;color:rgba(255,255,255,0.2);
+  margin-top:40px;text-transform:uppercase;
+}
+
+/* ═══ FOOTER ═══ */
+footer{
+  padding:40px;border-top:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;
+}
+.footer-logo{font-family:var(--font-title);font-size:18px;letter-spacing:0.2em;color:var(--muted)}
+.footer-logo span{color:var(--red)}
+.footer-copy{font-family:var(--font-mono);font-size:10px;letter-spacing:0.15em;color:rgba(255,255,255,0.15);text-transform:uppercase}
+.footer-links{display:flex;gap:24px}
+.footer-links a{font-family:var(--font-mono);font-size:10px;letter-spacing:0.15em;color:var(--muted);text-decoration:none;text-transform:uppercase;transition:color 0.2s}
+.footer-links a:hover{color:var(--red)}
+
+/* ═══ PARTICLE CANVAS ═══ */
+#particles{position:fixed;inset:0;pointer-events:none;z-index:0;opacity:0.4}
+
+/* Responsive */
+@media(max-width:768px){
+  nav{padding:14px 20px}
+  .nav-links{display:none}
+  .container{padding:0 20px}
+  #hero{padding:100px 20px 60px}
+  .hero-stats{gap:24px}
+  .features-grid{grid-template-columns:1fr}
+  .modules-header{grid-template-columns:1fr}
+  .xp-layout{grid-template-columns:1fr}
+  .step{grid-template-columns:56px 1fr;gap:20px}
+  footer{padding:24px 20px}
+}
+</style>
+</head>
+<body>
+
+<!-- PARTICLES -->
+<canvas id="particles" style="position:fixed;inset:0;pointer-events:none;z-index:0;opacity:0.65"></canvas>
+
+<!-- LOADER -->
+<div id="loader">
+  <div class="loader-logo">TP</div>
+  <div class="loader-sub">Trade Persona — Loading</div>
+  <div class="loader-bar-wrap"><div class="loader-bar"></div></div>
+</div>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-logo">
+    <div class="nav-logo-box"><span>TP</span></div>
+    <div class="nav-name">TRADE PERSONA<small>GAMIFIED TRADING OS</small></div>
+  </a>
+  <div class="nav-links">
+    <a href="#features">Функции</a>
+    <a href="#how">Как работает</a>
+    <a href="#modules">Модули</a>
+    <a href="#gamification">Прогресс</a>
+  </div>
+  <a href="https://persona-life.onrender.com" class="nav-cta">НАЧАТЬ</a>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="scanline"></div>
+  <div class="corner corner-tl"></div>
+  <div class="corner corner-tr"></div>
+  <div class="corner corner-bl"></div>
+  <div class="corner corner-br"></div>
+  <div class="hero-bg-text">TRADE PERSONA</div>
+
+  <div class="hero-eyebrow reveal">Версия 1.0 — Доступно сейчас</div>
+  <h1 class="hero-title reveal delay-1">
+    TRADE<br><span class="accent">PERSONA</span>
+  </h1>
+  <p class="hero-subtitle reveal delay-2">
+    Операционная система трейдера.<br>
+    Задачи, цели, дневник, фокус — всё в одном месте
+  </p>
+  <div class="hero-btns reveal delay-3">
+    <a href="https://persona-life.onrender.com" class="btn-primary">ОТКРЫТЬ ПРИЛОЖЕНИЕ</a>
+    <a href="#features" class="btn-secondary">КАК ЭТО РАБОТАЕТ</a>
+  </div>
+
+  <div class="hero-stats reveal delay-4">
+    <div>
+      <div class="hero-stat-num">10+</div>
+      <div class="hero-stat-label">Модулей</div>
+    </div>
+    <div>
+      <div class="hero-stat-num">100%</div>
+      <div class="hero-stat-label">Твой прогресс</div>
+    </div>
+    <div>
+      <div class="hero-stat-num">0</div>
+      <div class="hero-stat-label">Оправданий</div>
+    </div>
+    <div>
+      <div class="hero-stat-num">365</div>
+      <div class="hero-stat-label">Дней упорства</div>
+    </div>
+  </div>
+</section>
+
+<!-- STORYTELLING -->
+<section id="story" style="padding:120px 0;background:linear-gradient(180deg,var(--bg) 0%,rgba(225,29,72,0.025) 50%,var(--bg) 100%)">
+  <div class="container">
+    <div style="max-width:760px;margin:0 auto">
+      <div class="section-label reveal">История</div>
+      <h2 class="section-title reveal delay-1" style="margin-bottom:48px">ТЫ УЖЕ ЗНАЕШЬ<br><span class="red">ЭТУ ИСТОРИЮ</span></h2>
+
+      <div class="reveal delay-1" style="font-size:16px;color:rgba(245,245,245,0.75);line-height:2;margin-bottom:32px;border-left:2px solid rgba(225,29,72,0.3);padding-left:24px">
+        Ты открываешь терминал. Смотришь на график. Делаешь сделку.<br>
+        Потом ещё одну. Без плана. Без журнала. Без системы.<br>
+        <span style="color:var(--red)">И снова сливаешь то, что зарабатывал неделями.</span>
+      </div>
+
+      <div class="reveal delay-2" style="font-size:16px;color:rgba(245,245,245,0.75);line-height:2;margin-bottom:32px;border-left:2px solid rgba(225,29,72,0.3);padding-left:24px">
+        Проблема не в стратегии. Не в брокере. Не в рынке.<br>
+        Проблема в отсутствии <strong style="color:var(--text)">операционной системы для трейдера</strong> —<br>
+        инструмента, который держит тебя в дисциплине каждый день.
+      </div>
+
+      <div class="reveal delay-3" style="font-size:16px;color:rgba(245,245,245,0.85);line-height:2;padding:28px 32px;background:var(--bg2);border:1px solid rgba(225,29,72,0.2);position:relative">
+        <div style="position:absolute;top:0;left:0;width:3px;height:100%;background:var(--red)"></div>
+        Именно для этого создан <strong style="color:var(--red)">Trade Persona</strong>.<br>
+        Это не просто приложение — это твоя <strong style="color:var(--text)">ежедневная система</strong>.<br>
+        Задачи. Фокус. Дневник. Цели. Прогресс. Всё в одном месте.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="container">
+    <div class="reveal">
+      <div class="section-label">Возможности</div>
+      <h2 class="section-title">ВСЁ ЧТО НУЖНО<br><span class="red">ТРЕЙДЕРУ</span></h2>
+    </div>
+    <div class="features-grid">
+
+      <div class="feature-card reveal delay-1">
+        <div class="feature-num">01</div>
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+        </div>
+        <div class="feature-title">Задачи дня</div>
+        <div class="feature-desc">Планируй и выполняй задачи на каждый день. Отмечай прогресс, зарабатывай XP за каждое выполненное задание.</div>
+      </div>
+
+      <div class="feature-card reveal delay-2">
+        <div class="feature-num">02</div>
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div class="feature-title">Фокус-таймер</div>
+        <div class="feature-desc">Помодоро-таймер с отсчётом. Рабочие сессии, короткий отдых, трекинг фокус-времени с визуализацией прогресса.</div>
+      </div>
+
+      <div class="feature-card reveal delay-3">
+        <div class="feature-num">03</div>
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <div class="feature-title">Дневник трейдинга</div>
+        <div class="feature-desc">Записывай торговые сделки, анализируй решения, добавляй заметки по рынку. Весь контекст всегда под рукой.</div>
+      </div>
+
+      <div class="feature-card reveal delay-1">
+        <div class="feature-num">04</div>
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+        </div>
+        <div class="feature-title">Статистика</div>
+        <div class="feature-desc">Графики продуктивности, стрик активности, XP-прогресс по уровням. Видь свой рост в реальных числах.</div>
+      </div>
+
+      <div class="feature-card reveal delay-2">
+        <div class="feature-num">05</div>
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        </div>
+        <div class="feature-title">Цели и RPG-система</div>
+        <div class="feature-desc">Ставь долгосрочные цели, разбивай на шаги. Система уровней и XP превращает дисциплину в игру.</div>
+      </div>
+
+      <div class="feature-card reveal delay-3">
+        <div class="feature-num">06</div>
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
+        <div class="feature-title">Экономический календарь</div>
+        <div class="feature-desc">Автоматический парсинг High-Impact новостей ForexFactory. Никогда не пропускай важные события рынка.</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how">
+  <div class="container">
+    <div class="reveal">
+      <div class="section-label">Как работает</div>
+      <h2 class="section-title">ТВОЙ ДЕНЬ<br><span class="red">ШАГ ЗА ШАГОМ</span></h2>
+    </div>
+    <div class="steps">
+
+      <div class="step reveal">
+        <div class="step-num-wrap">
+          <div class="step-num"><span>01</span></div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-content">
+          <div class="step-label">Утро</div>
+          <div class="step-title">Открываешь приложение</div>
+          <div class="step-desc">Смотришь дашборд: текущий уровень, стрик, задачи на сегодня, новости с высоким импактом. Всё важное — в одном экране.</div>
+          <div class="step-tags"><span class="tag">Главная</span><span class="tag">Новости</span><span class="tag">Задачи</span></div>
+        </div>
+      </div>
+
+      <div class="step reveal delay-1">
+        <div class="step-num-wrap">
+          <div class="step-num"><span>02</span></div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-content">
+          <div class="step-label">Рабочий день</div>
+          <div class="step-title">Работаешь в фокус-режиме</div>
+          <div class="step-desc">Запускаешь таймер, выполняешь задачи, записываешь трейды в дневник. За каждое действие получаешь XP и двигаешься к следующему уровню.</div>
+          <div class="step-tags"><span class="tag">Фокус</span><span class="tag">Задачи</span><span class="tag">Трейдинг</span></div>
+        </div>
+      </div>
+
+      <div class="step reveal delay-2">
+        <div class="step-num-wrap">
+          <div class="step-num"><span>03</span></div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-content">
+          <div class="step-label">Вечер</div>
+          <div class="step-title">Подводишь итоги</div>
+          <div class="step-desc">Заполняешь заметки дня, проверяешь прогресс по целям, смотришь статистику. Стрик растёт — мотивация не падает.</div>
+          <div class="step-tags"><span class="tag">Заметки</span><span class="tag">Цели</span><span class="tag">Статистика</span></div>
+        </div>
+      </div>
+
+      <div class="step reveal delay-3">
+        <div class="step-num-wrap">
+          <div class="step-num"><span>04</span></div>
+        </div>
+        <div class="step-content">
+          <div class="step-label">Синхронизация</div>
+          <div class="step-title">Данные везде с тобой</div>
+          <div class="step-desc">Всё сохраняется в облаке. Открывай с телефона, планшета или другого компьютера — контекст никогда не теряется.</div>
+          <div class="step-tags"><span class="tag">Облако</span><span class="tag">Все устройства</span><span class="tag">Резервные копии</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- MODULES -->
+<section id="modules">
+  <div class="container">
+    <div class="modules-header">
+      <div class="reveal">
+        <div class="section-label">Модули</div>
+        <h2 class="section-title">10 РАЗДЕЛОВ<br><span class="red">ДЛЯ РОСТА</span></h2>
+      </div>
+      <div class="reveal delay-2">
+        <p class="section-desc">Каждый раздел заточен под конкретную задачу. Навигация быстрая, чёткая, без лишнего.</p>
+      </div>
+    </div>
+    <div class="modules-grid">
+      <div class="module-card reveal delay-1">
+        <span class="module-icon">🎯</span>
+        <div class="module-name">Главная</div>
+        <div class="module-desc">Дашборд дня. Всё важное сразу</div>
+      </div>
+      <div class="module-card reveal delay-2">
+        <span class="module-icon">✅</span>
+        <div class="module-name">Задачи</div>
+        <div class="module-desc">Ежедневные задачи с XP</div>
+        <div class="module-badge">XP</div>
+      </div>
+      <div class="module-card reveal delay-3">
+        <span class="module-icon">⭐</span>
+        <div class="module-name">Цели</div>
+        <div class="module-desc">Долгосрочные цели и шаги</div>
+      </div>
+      <div class="module-card reveal delay-1">
+        <span class="module-icon">⏱</span>
+        <div class="module-name">Фокус</div>
+        <div class="module-desc">Помодоро-таймер</div>
+        <div class="module-badge">NEW</div>
+      </div>
+      <div class="module-card reveal delay-2">
+        <span class="module-icon">📊</span>
+        <div class="module-name">Статистика</div>
+        <div class="module-desc">Графики и аналитика</div>
+      </div>
+      <div class="module-card reveal delay-3">
+        <span class="module-icon">📈</span>
+        <div class="module-name">Трейдинг</div>
+        <div class="module-desc">Дневник сделок</div>
+      </div>
+      <div class="module-card reveal delay-1">
+        <span class="module-icon">💡</span>
+        <div class="module-name">Идеи</div>
+        <div class="module-desc">Сохраняй инсайты</div>
+      </div>
+      <div class="module-card reveal delay-2">
+        <span class="module-icon">📰</span>
+        <div class="module-name">Новости</div>
+        <div class="module-desc">Экономический календарь</div>
+      </div>
+      <div class="module-card reveal delay-3">
+        <span class="module-icon">📅</span>
+        <div class="module-name">Календарь</div>
+        <div class="module-desc">Планирование</div>
+      </div>
+      <div class="module-card reveal delay-1">
+        <span class="module-icon">⚙️</span>
+        <div class="module-name">Настройки</div>
+        <div class="module-desc">Часовой пояс, сессии</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- GAMIFICATION -->
+<section id="gamification">
+  <div class="container">
+    <div class="xp-layout">
+      <div class="reveal-left">
+        <div class="section-label">Геймификация</div>
+        <h2 class="section-title">РАСТИ КАК<br><span class="red">ПЕРСОНАЖ</span></h2>
+        <p class="section-desc" style="margin-bottom:32px">Дисциплина скучна без наград. В Trade Persona каждое действие приносит опыт. Выполняй задачи — повышай уровень.</p>
+        <div class="step-tags">
+          <span class="tag">XP за задачи</span>
+          <span class="tag">Уровни</span>
+          <span class="tag">Стрик</span>
+          <span class="tag">Рейтинг</span>
+        </div>
+      </div>
+      <div class="reveal-right">
+        <div class="xp-glow-orb"></div>
+        <div class="xp-card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+            <div>
+              <div class="xp-card-label">Текущий уровень</div>
+              <div class="xp-card-value">12</div>
+            </div>
+            <div style="text-align:right">
+              <div class="xp-card-label">Класс</div>
+              <div style="font-family:var(--font-ui);font-size:18px;font-weight:700;color:var(--red)">Трейдер</div>
+            </div>
+          </div>
+          <div class="xp-bar-row">
+            <span style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">XP до следующего уровня</span>
+            <span style="font-family:var(--font-mono);font-size:10px;color:var(--red)">720/1000</span>
+          </div>
+          <div class="xp-bar-wrap"><div class="xp-bar-fill"></div></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px">
+            <div>
+              <div class="xp-card-label">Стрик</div>
+              <div style="font-family:var(--font-title);font-size:32px;color:var(--red)">14 дней</div>
+            </div>
+            <div>
+              <div class="xp-card-label">Задач выполнено</div>
+              <div style="font-family:var(--font-title);font-size:32px;color:var(--text)">247</div>
+            </div>
+          </div>
+          <div class="xp-streak" style="margin-top:20px">
+            <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;width:100%;margin-bottom:8px">Последние 7 дней</div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <div class="xp-streak-day active">ПН</div>
+            <div class="xp-streak-day active">ВТ</div>
+            <div class="xp-streak-day active">СР</div>
+            <div class="xp-streak-day active">ЧТ</div>
+            <div class="xp-streak-day active">ПТ</div>
+            <div class="xp-streak-day active">СБ</div>
+            <div class="xp-streak-day" style="opacity:0.3">ВС</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- QUOTE -->
+<section id="quote">
+  <div class="quote-inner reveal">
+    <span class="quote-mark">"</span>
+    <p class="quote-text">
+      Оставь надежду всяк сюда входящий —<br>
+      здесь лишь <strong>упорство</strong>, вера и труды.<br>
+      И лишь познав искусство <strong>дисциплины</strong>,<br>
+      ты сможешь познать свои <strong>плоды</strong>.
+    </p>
+    <div style="margin-top:24px;font-family:var(--font-mono);font-size:11px;letter-spacing:0.2em;color:var(--red);opacity:0.7">— Trade Persona</div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section id="cta">
+  <div class="cta-glow"></div>
+  <div class="reveal">
+    <h2 class="cta-title">НАЧНИ<br><span style="color:var(--red)">СЕГОДНЯ</span></h2>
+    <p class="cta-sub">Бесплатно. Синхронизация. Всё в одном</p>
+    <a href="https://persona-life.onrender.com" class="btn-primary" style="font-size:18px;padding:18px 56px">
+      ОТКРЫТЬ TRADE PERSONA
+    </a>
+    <div class="cta-url">persona-life.onrender.com</div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">TRADE <span>PERSONA</span></div>
+  <div class="footer-copy">© 2026 Trade Persona. Gamified Trading OS</div>
+  <div class="footer-links">
+    <a href="https://persona-life.onrender.com">Приложение</a>
+    <a href="https://persona-life.onrender.com/forgot-password">Поддержка</a>
+  </div>
+</footer>
+
+<script>
+// Clean URL — убираем .html из адресной строки
+(function(){
+  var loc = window.location;
+  if (loc.pathname.endsWith('.html')) {
+    var clean = loc.pathname.slice(0, -5);
+    history.replaceState(null, '', clean + loc.search + loc.hash);
+  }
+})();
+</script>
+<script>
+// LOADER
+window.addEventListener('load',()=>{
+  setTimeout(()=>{
+    document.getElementById('loader').classList.add('hidden');
+  },2000);
+});
+
+// PARTICLES
+(function(){
+  const canvas=document.getElementById('particles');
+  const ctx=canvas.getContext('2d');
+  let W,H,particles=[];
+  function resize(){W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight}
+  resize();window.addEventListener('resize',resize);
+  class P{
+    constructor(){this.reset()}
+    reset(){
+      this.x=Math.random()*W;this.y=Math.random()*H;
+      this.size=Math.random()*2+0.3;
+      this.speedX=(Math.random()-0.5)*0.5;
+      this.speedY=-Math.random()*0.6-0.15;
+      this.opacity=Math.random()*0.55+0.08;
+      this.life=0;this.maxLife=Math.random()*200+100;
+    }
+    update(){
+      this.x+=this.speedX;this.y+=this.speedY;this.life++;
+      if(this.life>this.maxLife||this.y<-5)this.reset();
+    }
+    draw(){
+      const fade=Math.min(this.life/20,(this.maxLife-this.life)/20,1);
+      ctx.beginPath();ctx.arc(this.x,this.y,this.size,0,Math.PI*2);
+      ctx.fillStyle=`rgba(225,29,72,${this.opacity*fade})`;ctx.fill();
+    }
+  }
+  for(let i=0;i<200;i++)particles.push(new P());
+  function animate(){
+    ctx.clearRect(0,0,W,H);
+    particles.forEach(p=>{p.update();p.draw()});
+    requestAnimationFrame(animate);
+  }
+  animate();
+})();
+
+// SCROLL REVEAL
+const observer=new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){e.target.classList.add('visible')}
+  });
+},{threshold:0.1,rootMargin:'0px 0px -40px 0px'});
+document.querySelectorAll('.reveal,.reveal-left,.reveal-right').forEach(el=>observer.observe(el));
+
+// NAV scroll effect
+window.addEventListener('scroll',()=>{
+  const nav=document.querySelector('nav');
+  if(window.scrollY>50){nav.style.padding='10px 40px'}
+  else{nav.style.padding='16px 40px'}
+});
+
+// Typed effect for hero eyebrow
+const eyebrow=document.querySelector('.hero-eyebrow');
+if(eyebrow){
+  const text=eyebrow.textContent;
+  eyebrow.textContent='';
+  let i=0;
+  setTimeout(()=>{
+    const t=setInterval(()=>{
+      eyebrow.textContent=text.slice(0,i+1);
+      i++;if(i>=text.length)clearInterval(t);
+    },40);
+  },2200);
+}
+</script>
+</body>
+</html>
