@@ -318,7 +318,13 @@ function MobileNav() {
 
 function AppShell() {
   const { user, loading } = useAuth();
-
+  useEffect(() => {
+    const seen = localStorage.getItem("tp_seen_landing");
+    if (!seen && !user && !loading) {
+      localStorage.setItem("tp_seen_landing", "1");
+      window.location.href = "/landing.html";
+    }
+  }, [user, loading]);
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
