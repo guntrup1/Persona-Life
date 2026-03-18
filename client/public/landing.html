@@ -394,18 +394,91 @@ footer{
 /* ═══ PARTICLE CANVAS ═══ */
 #particles{position:fixed;inset:0;pointer-events:none;z-index:0;opacity:0.4}
 
-/* Responsive */
-@media(max-width:768px){
-  nav{padding:14px 20px}
+/* ═══ RESPONSIVE — MOBILE FIRST ═══ */
+
+/* Small phones */
+@media(max-width:480px){
+  nav{padding:12px 16px}
   .nav-links{display:none}
-  .container{padding:0 20px}
-  #hero{padding:100px 20px 60px}
-  .hero-stats{gap:24px}
-  .features-grid{grid-template-columns:1fr}
-  .modules-header{grid-template-columns:1fr}
-  .xp-layout{grid-template-columns:1fr}
+  .nav-cta{padding:7px 16px;font-size:12px}
+
+  .container{padding:0 16px}
+
+  #hero{padding:88px 16px 52px;text-align:center}
+  .hero-eyebrow{font-size:9px;justify-content:center}
+  .hero-title{font-size:clamp(52px,14vw,80px)}
+  .hero-subtitle{font-size:12px;margin:16px auto 32px}
+  .hero-btns{flex-direction:column;align-items:center;gap:12px}
+  .btn-primary,.btn-secondary{width:100%;max-width:280px;text-align:center;padding:14px 24px}
+  .hero-stats{gap:16px;padding-top:32px;margin-top:40px;flex-wrap:wrap;justify-content:center}
+  .hero-stat-num{font-size:36px}
+  .hero-stat-label{font-size:9px}
+  .corner{width:24px;height:24px}
+
+  #story{padding:72px 0}
+  #features{padding:72px 0}
+  .features-grid{grid-template-columns:1fr;gap:1px}
+  .feature-card{padding:28px 20px}
+  .feature-num{font-size:56px}
+
+  #how{padding:72px 0}
+  .step{grid-template-columns:48px 1fr;gap:14px;padding:28px 0}
+  .step-num{width:48px;height:48px}
+  .step-num span{font-size:20px}
+  .step-title{font-size:18px}
+  .step-desc{font-size:13px}
+
+  #modules{padding:72px 0}
+  .modules-header{grid-template-columns:1fr;gap:24px;margin-bottom:36px}
+  .modules-grid{grid-template-columns:repeat(2,1fr);gap:10px}
+  .module-card{padding:20px 16px}
+  .module-name{font-size:13px}
+
+  #gamification{padding:72px 0}
+  .xp-layout{grid-template-columns:1fr;gap:40px}
+  .xp-card{padding:24px 20px}
+  .xp-card-value{font-size:36px}
+
+  #quote{padding:52px 0}
+  .quote-inner{padding:0 16px}
+  .quote-mark{font-size:80px}
+  .quote-text{font-size:18px}
+
+  #cta{padding:72px 20px}
+  .cta-title{font-size:clamp(42px,12vw,80px)}
+  .btn-primary[style]{padding:16px 32px !important;font-size:15px !important;width:100%;max-width:280px}
+
+  footer{padding:20px 16px;flex-direction:column;align-items:center;text-align:center;gap:12px}
+  .footer-links{gap:16px}
+}
+
+/* Tablets */
+@media(min-width:481px) and (max-width:768px){
+  nav{padding:14px 24px}
+  .nav-links{display:none}
+  .container{padding:0 24px}
+
+  #hero{padding:100px 24px 64px;text-align:center}
+  .hero-eyebrow{justify-content:center}
+  .hero-btns{justify-content:center}
+  .hero-stats{gap:20px;flex-wrap:wrap;justify-content:center}
+
+  .features-grid{grid-template-columns:1fr;gap:1px}
+  .modules-header{grid-template-columns:1fr;gap:32px}
+  .modules-grid{grid-template-columns:repeat(2,1fr)}
+  .xp-layout{grid-template-columns:1fr;gap:48px}
   .step{grid-template-columns:56px 1fr;gap:20px}
-  footer{padding:24px 20px}
+
+  footer{padding:24px;flex-direction:column;align-items:center;gap:14px}
+}
+
+/* All mobile */
+@media(min-width:769px){.hero-bg-text{display:block}}
+@media(max-width:768px){
+  .section-title{font-size:clamp(36px,8vw,60px)}
+  .step-tags{gap:6px}
+  .tag{font-size:9px;padding:3px 10px}
+  .xp-glow-orb{display:none}
 }
 </style>
 </head>
@@ -433,7 +506,7 @@ footer{
     <a href="#modules">Модули</a>
     <a href="#gamification">Прогресс</a>
   </div>
-  <a href="https://persona-life.onrender.com" class="nav-cta">НАЧАТЬ</a>
+  <a href="https://persona-life.onrender.com" class="nav-cta" style="white-space:nowrap;flex-shrink:0">НАЧАТЬ</a>
 </nav>
 
 <!-- HERO -->
@@ -443,7 +516,7 @@ footer{
   <div class="corner corner-tr"></div>
   <div class="corner corner-bl"></div>
   <div class="corner corner-br"></div>
-  <div class="hero-bg-text">TRADE PERSONA</div>
+  <div class="hero-bg-text" style="display:none">TRADE PERSONA</div>
 
   <div class="hero-eyebrow reveal">Версия 1.0 — Доступно сейчас</div>
   <h1 class="hero-title reveal delay-1">
@@ -485,13 +558,13 @@ footer{
       <div class="section-label reveal">История</div>
       <h2 class="section-title reveal delay-1" style="margin-bottom:48px">ТЫ УЖЕ ЗНАЕШЬ<br><span class="red">ЭТУ ИСТОРИЮ</span></h2>
 
-      <div class="reveal delay-1" style="font-size:16px;color:rgba(245,245,245,0.75);line-height:2;margin-bottom:32px;border-left:2px solid rgba(225,29,72,0.3);padding-left:24px">
+      <div class="reveal delay-1" style="font-size:clamp(13px,3.5vw,16px);color:rgba(245,245,245,0.75);line-height:1.9;margin-bottom:32px;border-left:2px solid rgba(225,29,72,0.3);padding-left:20px">
         Ты открываешь терминал. Смотришь на график. Делаешь сделку.<br>
         Потом ещё одну. Без плана. Без журнала. Без системы.<br>
         <span style="color:var(--red)">И снова сливаешь то, что зарабатывал неделями.</span>
       </div>
 
-      <div class="reveal delay-2" style="font-size:16px;color:rgba(245,245,245,0.75);line-height:2;margin-bottom:32px;border-left:2px solid rgba(225,29,72,0.3);padding-left:24px">
+      <div class="reveal delay-2" style="font-size:clamp(13px,3.5vw,16px);color:rgba(245,245,245,0.75);line-height:1.9;margin-bottom:32px;border-left:2px solid rgba(225,29,72,0.3);padding-left:20px">
         Проблема не в стратегии. Не в брокере. Не в рынке.<br>
         Проблема в отсутствии <strong style="color:var(--text)">операционной системы для трейдера</strong> —<br>
         инструмента, который держит тебя в дисциплине каждый день.
@@ -753,7 +826,7 @@ footer{
           <div class="xp-streak" style="margin-top:20px">
             <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;width:100%;margin-bottom:8px">Последние 7 дней</div>
           </div>
-          <div style="display:flex;gap:8px">
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
             <div class="xp-streak-day active">ПН</div>
             <div class="xp-streak-day active">ВТ</div>
             <div class="xp-streak-day active">СР</div>
@@ -788,7 +861,7 @@ footer{
   <div class="reveal">
     <h2 class="cta-title">НАЧНИ<br><span style="color:var(--red)">СЕГОДНЯ</span></h2>
     <p class="cta-sub">Бесплатно. Синхронизация. Всё в одном</p>
-    <a href="https://persona-life.onrender.com" class="btn-primary" style="font-size:18px;padding:18px 56px">
+    <a href="https://persona-life.onrender.com" class="btn-primary" style="font-size:clamp(14px,4vw,18px);padding:16px clamp(24px,6vw,56px)">
       ОТКРЫТЬ TRADE PERSONA
     </a>
     <div class="cta-url">persona-life.onrender.com</div>
