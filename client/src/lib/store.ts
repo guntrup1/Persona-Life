@@ -720,16 +720,38 @@ function countItems(s: AppState): number {
     (s.focusSessions?.length || 0) + (s.dailyBiases?.length || 0);
 }
 
-export function loadFromServerData(data: AppState) {
+export function loadFromServerData(data: AppState, forceServer = false) {
   if (!data || typeof data !== "object") return;
-  globalState = autoLoadRoutine({
-    ...DEFAULT_STATE,
-    ...data,
-    xp: { ...DEFAULT_XP, ...data.xp, categoryXP: { ...DEFAULT_XP.categoryXP, ...(data.xp?.categoryXP || {}) } },
-    streak: { ...DEFAULT_STATE.streak, ...data.streak },
-  });
+
+  if (forceServer) {
+    const prevState = globalState;
+    globalState = autoLoadRoutine({ ...DEFAULT_STATE, ...data });
+    globalState = { ...globalState, xp: recalcXP(globalState) };
+    saveState(globalState);
+    if (JSON.stringify(globalState) !== JSON.stringify(prevState)) {
+      scheduleServerSync(globalState);
+    }
+    notify();
+    return;
+  }
+
+  const backup = getBackupState();
+  let best = globalState;
+  if (backup && countItems(backup) > countItems(best)) {
+    best = { ...backup, _deletedIds: [...new Set([...(backup._deletedIds || []), ...(globalState._deletedIds || [])])] };
+  }
+  const merged = mergeStates(best, data);
+  if (countItems(merged) < countItems(best) * 0.1 && countItems(best) > 20) {
+    console.warn("[store] Merge would lose >90% of data, keeping local state");
+    return;
+  }
+  const prevState = globalState;
+  globalState = autoLoadRoutine(merged);
   globalState = { ...globalState, xp: recalcXP(globalState) };
   saveState(globalState);
+  if (JSON.stringify(globalState) !== JSON.stringify(prevState)) {
+    scheduleServerSync(globalState);
+  }
   notify();
 }
 
