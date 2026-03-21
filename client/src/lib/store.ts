@@ -997,7 +997,7 @@ export function useStore() {
     }, []),
 
     rescheduleTask: useCallback((id: string, newDate: string) => {
-      mutate(s => ({ ...s, todayTasks: s.todayTasks.map(t => t.id === id ? { ...t, date: newDate, completed: false, completedAt: undefined } : t) }));
+      mutate(s => ({ ...s, todayTasks: s.todayTasks.map(t => t.id === id ? { ...t, date: newDate, completed: false, completedAt: undefined, wasRescheduled: true } : t) }));
     }, []),
 
     addDayNote: useCallback((date: string, content: string, noteType: NoteType = "note", title?: string) => {
