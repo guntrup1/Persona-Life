@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useStore, LIFE_AREAS, LIFE_AREA_COLORS, type LifeArea, type GoalType, xpForGoal, getGoalProgress, type Goal, getTodayDate, type TodayTask } from "@/lib/store";
+import { useState } from "react";
+import { useStore, LIFE_AREAS, LIFE_AREA_COLORS, type LifeArea, type GoalType, type PlanItem, xpForGoal, getGoalProgress, type Goal, getTodayDate, type TodayTask } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,9 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { CheckCircle, Circle, Plus, Trash2, Target, ChevronRight, Trophy, Zap, Edit2, Archive, RotateCcw } from "lucide-react";
+import { CheckCircle, Circle, Plus, Trash2, Target, ChevronRight, ChevronDown, Trophy, Edit2, Archive, RotateCcw, ListChecks, AlertTriangle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
+import { useToast } from "@/hooks/use-toast";
 
 function EditGoalDialog({ goal, onUpdate }: { goal: Goal; onUpdate: (id: string, g: any) => void }) {
   const { state } = useStore();
@@ -20,27 +21,18 @@ function EditGoalDialog({ goal, onUpdate }: { goal: Goal; onUpdate: (id: string,
   const [category, setCategory] = useState<LifeArea>(goal.category);
   const [description, setDescription] = useState(goal.description || "");
   const [parentId, setParentId] = useState(goal.parentId || "none");
-
   const typeLabels: Record<GoalType, string> = { year: "Годовая", month: "Месячная", week: "Недельная" };
-
   const possibleParents = state.goals.filter(g => {
     if (goal.type === "month") return g.type === "year";
     if (goal.type === "week") return g.type === "month";
     return false;
   });
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
-    onUpdate(goal.id, {
-      title: title.trim(),
-      category,
-      parentId: parentId === "none" ? undefined : parentId,
-      description: description.trim(),
-    });
+    onUpdate(goal.id, { title: title.trim(), category, parentId: parentId === "none" ? undefined : parentId, description: description.trim() });
     setOpen(false);
   };
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -49,72 +41,43 @@ function EditGoalDialog({ goal, onUpdate }: { goal: Goal; onUpdate: (id: string,
         </Button>
       </DialogTrigger>
       <DialogContent>
-        <DialogHeader>
-          <DialogTitle className="font-display text-lg">Редактировать {typeLabels[goal.type]} цель</DialogTitle>
-        </DialogHeader>
+        <DialogHeader><DialogTitle className="font-display text-lg">Редактировать {typeLabels[goal.type]} цель</DialogTitle></DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 pt-2">
           <div className="space-y-1.5">
             <Label>Название цели</Label>
-            <Input
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              placeholder="Чего хочешь достичь?"
-              data-testid="input-edit-goal-title"
-            />
+            <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Чего хочешь достичь?" data-testid="input-edit-goal-title" />
           </div>
           <div className="space-y-1.5">
             <Label>Описание (опционально)</Label>
-            <Textarea
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              placeholder="Подробности..."
-              className="min-h-[80px]"
-            />
+            <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Подробности..." className="min-h-[80px]" />
           </div>
           <div className="space-y-1.5">
             <Label>Сфера жизни</Label>
             <Select value={category} onValueChange={(v) => setCategory(v as LifeArea)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {LIFE_AREAS.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
-              </SelectContent>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>{LIFE_AREAS.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
             </Select>
           </div>
-
           {(goal.type === "month" || goal.type === "week") && (
             <div className="space-y-1.5">
               <Label>{goal.type === "month" ? "Годовая цель" : "Месячная цель"}</Label>
               <Select value={parentId} onValueChange={setParentId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Выберите родительскую цель" />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Выберите родительскую цель" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Нет</SelectItem>
-                  {possibleParents.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
-                  ))}
+                  {possibleParents.map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
           )}
-
-          <Button type="submit" className="w-full mt-2" data-testid="button-edit-goal-submit">
-            Сохранить изменения
-          </Button>
+          <Button type="submit" className="w-full mt-2" data-testid="button-edit-goal-submit">Сохранить изменения</Button>
         </form>
       </DialogContent>
     </Dialog>
   );
 }
 
-function AddGoalDialog({ parentId, parentType, onAdd, forcedType }: {
-  parentId?: string;
-  parentType?: GoalType;
-  onAdd: (g: any) => void;
-  forcedType?: GoalType;
-}) {
+function AddGoalDialog({ parentId, parentType, onAdd, forcedType }: { parentId?: string; parentType?: GoalType; onAdd: (g: any) => void; forcedType?: GoalType }) {
   const { state } = useStore();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -122,196 +85,212 @@ function AddGoalDialog({ parentId, parentType, onAdd, forcedType }: {
   const [description, setDescription] = useState("");
   const [selectedParentId, setSelectedParentId] = useState(parentId || "");
   const [customXP, setCustomXP] = useState<number | "">("");
-
   const type: GoalType = forcedType || (!parentType ? "year" : parentType === "year" ? "month" : "week");
   const typeLabels: Record<GoalType, string> = { year: "Годовая", month: "Месячная", week: "Недельная" };
   const defaultXP = xpForGoal(type);
-
   const possibleParents = state.goals.filter(g => {
     if (type === "month") return g.type === "year";
     if (type === "week") return g.type === "month";
     return false;
   });
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
     const now = new Date();
-    onAdd({
-      type,
-      title: title.trim(),
-      category,
-      parentId: selectedParentId || undefined,
-      description: description.trim(),
-      year: now.getFullYear(),
-      month: now.getMonth() + 1,
-      week: Math.ceil(now.getDate() / 7),
-      customXP: customXP !== "" ? Number(customXP) : undefined,
-    });
-    setTitle("");
-    setDescription("");
-    setSelectedParentId(parentId || "");
-    setCustomXP("");
-    setOpen(false);
+    onAdd({ type, title: title.trim(), category, parentId: selectedParentId || undefined, description: description.trim(), year: now.getFullYear(), month: now.getMonth() + 1, week: Math.ceil(now.getDate() / 7), customXP: customXP !== "" ? Number(customXP) : undefined });
+    setTitle(""); setDescription(""); setSelectedParentId(parentId || ""); setCustomXP(""); setOpen(false);
   };
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="sm" variant="outline" className="gap-1" data-testid={`button-add-goal-${type}`}>
-          <Plus className="w-3 h-3" />
-          {typeLabels[type]}
+          <Plus className="w-3 h-3" />{typeLabels[type]}
         </Button>
       </DialogTrigger>
       <DialogContent>
-        <DialogHeader>
-          <DialogTitle className="font-display">{typeLabels[type]} цель</DialogTitle>
-        </DialogHeader>
+        <DialogHeader><DialogTitle className="font-display">{typeLabels[type]} цель</DialogTitle></DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label>Название цели</Label>
-            <Input
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              placeholder="Чего хочешь достичь?"
-              autoFocus
-              data-testid="input-goal-title"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Описание (опционально)</Label>
-            <Textarea
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              placeholder="Подробности..."
-              className="min-h-[80px]"
-            />
-          </div>
+          <div className="space-y-1.5"><Label>Название цели</Label><Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Чего хочешь достичь?" autoFocus data-testid="input-goal-title" /></div>
+          <div className="space-y-1.5"><Label>Описание (опционально)</Label><Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Подробности..." className="min-h-[80px]" /></div>
           <div className="space-y-1.5">
             <Label>Сфера жизни</Label>
             <Select value={category} onValueChange={(v) => setCategory(v as LifeArea)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {LIFE_AREAS.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
-              </SelectContent>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>{LIFE_AREAS.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
             </Select>
           </div>
-
           {(type === "month" || type === "week") && possibleParents.length > 0 && (
             <div className="space-y-1.5">
               <Label>{type === "month" ? "Годовая цель" : "Месячная цель"}</Label>
               <Select value={selectedParentId} onValueChange={setSelectedParentId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Выберите родительскую цель" />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Выберите родительскую цель" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Нет</SelectItem>
-                  {possibleParents.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
-                  ))}
+                  {possibleParents.map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
           )}
-
           <div className="space-y-1.5">
             <Label>XP за выполнение</Label>
             <div className="flex items-center gap-2">
-              <Input
-                type="number"
-                min={1}
-                max={9999}
-                placeholder={String(defaultXP)}
-                value={customXP}
-                onChange={e => setCustomXP(e.target.value === "" ? "" : Number(e.target.value))}
-                className="w-32 font-mono"
-                data-testid="input-goal-xp"
-              />
+              <Input type="number" min={1} max={9999} placeholder={String(defaultXP)} value={customXP} onChange={e => setCustomXP(e.target.value === "" ? "" : Number(e.target.value))} className="w-32 font-mono" data-testid="input-goal-xp" />
               <span className="text-sm text-muted-foreground">XP</span>
               <span className="text-xs text-muted-foreground ml-auto">По умолчанию: {defaultXP} XP</span>
             </div>
           </div>
-          <Button type="submit" className="w-full" data-testid="button-goal-submit">
-            Создать цель
-          </Button>
+          <Button type="submit" className="w-full" data-testid="button-goal-submit">Создать цель</Button>
         </form>
       </DialogContent>
     </Dialog>
   );
 }
 
+function PlanSection({ goal, onUpdate }: { goal: Goal; onUpdate: (id: string, g: any) => void }) {
+  const [newItem, setNewItem] = useState("");
+  const [planOpen, setPlanOpen] = useState(false);
+  const plan: PlanItem[] = goal.plan || [];
+  const allDone = plan.length > 0 && plan.every(p => p.done);
+  const doneCount = plan.filter(p => p.done).length;
+
+  const addItem = () => {
+    if (!newItem.trim()) return;
+    const updated: PlanItem[] = [...plan, { id: crypto.randomUUID(), text: newItem.trim(), done: false }];
+    onUpdate(goal.id, { plan: updated });
+    setNewItem("");
+  };
+
+  const toggleItem = (itemId: string) => {
+    const updated = plan.map(p => p.id === itemId ? { ...p, done: !p.done } : p);
+    onUpdate(goal.id, { plan: updated });
+  };
+
+  const deleteItem = (itemId: string) => {
+    const updated = plan.filter(p => p.id !== itemId);
+    onUpdate(goal.id, { plan: updated });
+  };
+
+  return (
+    <div className="mt-3 pt-3 border-t border-border/50">
+      <button
+        className="w-full flex items-center justify-between text-[11px] font-display uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors mb-2"
+        onClick={() => setPlanOpen(o => !o)}
+      >
+        <span className="flex items-center gap-1.5">
+          <ListChecks className="w-3.5 h-3.5" />
+          План достижения
+          {plan.length > 0 && (
+            <span className={`font-mono ml-1 ${allDone ? "text-primary" : "text-muted-foreground"}`}>
+              {doneCount}/{plan.length}
+            </span>
+          )}
+        </span>
+        {planOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+      </button>
+
+      {planOpen && (
+        <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
+          {plan.length === 0 && (
+            <p className="text-[11px] text-muted-foreground italic px-1">Пунктов пока нет — добавь первый шаг</p>
+          )}
+          {plan.map(item => (
+            <div key={item.id} className="flex items-center gap-2 group/item">
+              <button onClick={() => toggleItem(item.id)} className="flex-shrink-0">
+                {item.done
+                  ? <CheckCircle className="w-4 h-4 text-primary" />
+                  : <Circle className="w-4 h-4 text-muted-foreground hover:text-foreground transition-colors" />}
+              </button>
+              <span className={`flex-1 text-[12px] ${item.done ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                {item.text}
+              </span>
+              <button
+                onClick={() => deleteItem(item.id)}
+                className="opacity-0 group-hover/item:opacity-100 transition-opacity"
+              >
+                <Trash2 className="w-3 h-3 text-muted-foreground hover:text-destructive transition-colors" />
+              </button>
+            </div>
+          ))}
+          <div className="flex gap-1.5 mt-2">
+            <Input
+              value={newItem}
+              onChange={e => setNewItem(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addItem(); } }}
+              placeholder="Новый пункт плана..."
+              className="h-7 text-xs"
+            />
+            <Button size="sm" variant="outline" className="h-7 px-2" onClick={addItem} disabled={!newItem.trim()}>
+              <Plus className="w-3 h-3" />
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function GoalCard({ goal, goals, onToggle, onDelete, onAdd, onUpdate, setGoalTaskWeight, state }: {
-  goal: Goal;
-  goals: Goal[];
-  onToggle: (id: string) => void;
-  onDelete: (id: string) => void;
-  onAdd: (g: any) => void;
-  onUpdate: (id: string, g: any) => void;
-  setGoalTaskWeight: (goalId: string, taskId: string, weight: number) => void;
-  state: any;
+  goal: Goal; goals: Goal[]; onToggle: (id: string) => void; onDelete: (id: string) => void;
+  onAdd: (g: any) => void; onUpdate: (id: string, g: any) => void;
+  setGoalTaskWeight: (goalId: string, taskId: string, weight: number) => void; state: any;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const typeColors: Record<GoalType, string> = {
-    year: "text-yellow-400 border-yellow-500/30",
-    month: "text-blue-400 border-blue-500/30",
-    week: "text-green-400 border-green-500/30",
-  };
+  const { toast } = useToast();
+  const typeColors: Record<GoalType, string> = { year: "text-yellow-400 border-yellow-500/30", month: "text-blue-400 border-blue-500/30", week: "text-green-400 border-green-500/30" };
   const typeLabels: Record<GoalType, string> = { year: "Год", month: "Месяц", week: "Неделя" };
-
   const childGoals = goals.filter(g => g.parentId === goal.id);
   const progress = getGoalProgress(goal, state);
   const parentGoal = goal.parentId ? goals.find(g => g.id === goal.parentId) : null;
-
-  // Find linked tasks (including routine tasks for today)
   const linkedTasks = state.todayTasks.filter((t: TodayTask) => t.weekGoalId === goal.id || t.goalId === goal.id);
-  const routineLinked = state.routineTemplates
-    .filter((r: any) => r.goalId === goal.id)
-    .map((r: any) => {
-      const todayTask = state.todayTasks.find((t: TodayTask) => t.routineId === r.id && t.date === getTodayDate());
-      return todayTask || null;
-    })
-    .filter(Boolean) as TodayTask[];
-
+  const routineLinked = state.routineTemplates.filter((r: any) => r.goalId === goal.id).map((r: any) => {
+    const todayTask = state.todayTasks.find((t: TodayTask) => t.routineId === r.id && t.date === getTodayDate());
+    return todayTask || null;
+  }).filter(Boolean) as TodayTask[];
   const allTasks = [...linkedTasks, ...routineLinked.filter(rt => !linkedTasks.find((t: TodayTask) => t.id === rt.id))];
+
+  const plan: PlanItem[] = goal.plan || [];
+  const planIncomplete = plan.length > 0 && !plan.every(p => p.done);
+
+  const handleToggle = () => {
+    if (!goal.completed && planIncomplete) {
+      toast({
+        title: "⚠️ План не завершён",
+        description: `Выполнено ${plan.filter(p => p.done).length} из ${plan.length} пунктов. Всё равно отметить?`,
+        variant: "destructive",
+      });
+      setTimeout(() => onToggle(goal.id), 1500);
+      return;
+    }
+    onToggle(goal.id);
+  };
 
   return (
     <div className="space-y-2">
       <Card className={`p-3 border-card-border hover-elevate transition-all ${goal.completed ? "opacity-60" : ""}`} data-testid={`goal-${goal.id}`}>
         <div className="flex items-start gap-3">
-          <button
-            className="mt-0.5 flex-shrink-0"
-            onClick={() => onToggle(goal.id)}
-            data-testid={`goal-toggle-${goal.id}`}
-          >
-            {goal.completed ? (
-              <CheckCircle className="w-5 h-5 text-primary" />
-            ) : (
-              <Circle className="w-5 h-5 text-muted-foreground" />
-            )}
+          <button className="mt-0.5 flex-shrink-0" onClick={handleToggle} data-testid={`goal-toggle-${goal.id}`}>
+            {goal.completed ? <CheckCircle className="w-5 h-5 text-primary" /> : <Circle className="w-5 h-5 text-muted-foreground" />}
           </button>
-
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1">
-              <Badge variant="outline" className={`text-xs h-4 py-0 ${typeColors[goal.type]}`}>
-                {typeLabels[goal.type]}
-              </Badge>
+              <Badge variant="outline" className={`text-xs h-4 py-0 ${typeColors[goal.type]}`}>{typeLabels[goal.type]}</Badge>
               <span className={`text-xs ${LIFE_AREA_COLORS[goal.category]}`}>{goal.category}</span>
               {parentGoal && (
                 <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                  <ChevronRight className="w-2 h-2" />
-                  {parentGoal.title}
+                  <ChevronRight className="w-2 h-2" />{parentGoal.title}
+                </span>
+              )}
+              {planIncomplete && !goal.completed && (
+                <span className="text-[10px] text-yellow-500 flex items-center gap-0.5">
+                  <AlertTriangle className="w-2.5 h-2.5" />
+                  план не закрыт
                 </span>
               )}
             </div>
             <div className={`font-display text-sm font-medium ${goal.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
               {goal.title}
             </div>
-            {goal.description && (
-              <p className="text-xs text-muted-foreground mt-1">{goal.description}</p>
-            )}
-
+            {goal.description && <p className="text-xs text-muted-foreground mt-1">{goal.description}</p>}
             <div className="mt-3 space-y-1.5">
               <div className="flex justify-between text-[10px] text-muted-foreground">
                 <span>Прогресс</span>
@@ -319,32 +298,23 @@ function GoalCard({ goal, goals, onToggle, onDelete, onAdd, onUpdate, setGoalTas
               </div>
               <Progress value={progress.percent} className="h-1" />
             </div>
-
             {goal.type === "week" && allTasks.length > 0 && (
               <div className="mt-3 pt-3 border-t border-border/50 space-y-1.5">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-                  Связанные задачи
-                </div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Связанные задачи</div>
                 <div className="space-y-1">
                   {allTasks.map(task => (
                     <div key={task.id} className="flex items-center justify-between text-[11px]">
-                      <span className={`truncate mr-2 ${task.completed ? "text-muted-foreground line-through" : "text-foreground"}`}>
-                        {task.name}
-                      </span>
-                      <span className={`font-mono shrink-0 ${task.completed ? "text-primary" : "text-muted-foreground"}`}>
-                        {task.completed ? "✓ " : ""}{task.xp} XP
-                      </span>
+                      <span className={`truncate mr-2 ${task.completed ? "text-muted-foreground line-through" : "text-foreground"}`}>{task.name}</span>
+                      <span className={`font-mono shrink-0 ${task.completed ? "text-primary" : "text-muted-foreground"}`}>{task.completed ? "✓ " : ""}{task.xp} XP</span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
+            <PlanSection goal={goal} onUpdate={onUpdate} />
           </div>
-
           <div className="flex flex-col items-center gap-1 flex-shrink-0">
-            <span className={`font-mono text-xs font-bold ${goal.completed ? "text-muted-foreground" : "text-primary"}`}>
-              +{goal.xp} XP
-            </span>
+            <span className={`font-mono text-xs font-bold ${goal.completed ? "text-muted-foreground" : "text-primary"}`}>+{goal.xp} XP</span>
             <div className="flex flex-col gap-0.5">
               <EditGoalDialog goal={goal} onUpdate={onUpdate} />
               <AlertDialog>
@@ -354,12 +324,7 @@ function GoalCard({ goal, goals, onToggle, onDelete, onAdd, onUpdate, setGoalTas
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Удалить цель?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Цель и все вложенные подцели будут удалены.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
+                  <AlertDialogHeader><AlertDialogTitle>Удалить цель?</AlertDialogTitle><AlertDialogDescription>Цель и все вложенные подцели будут удалены.</AlertDialogDescription></AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Отмена</AlertDialogCancel>
                     <AlertDialogAction onClick={() => onDelete(goal.id)}>Удалить</AlertDialogAction>
@@ -367,11 +332,7 @@ function GoalCard({ goal, goals, onToggle, onDelete, onAdd, onUpdate, setGoalTas
                 </AlertDialogContent>
               </AlertDialog>
               {childGoals.length > 0 && (
-                <button
-                  onClick={() => setExpanded(!expanded)}
-                  className="p-2 text-muted-foreground transition-transform self-center"
-                  style={{ transform: expanded ? "rotate(90deg)" : "rotate(0deg)" }}
-                >
+                <button onClick={() => setExpanded(!expanded)} className="p-2 text-muted-foreground transition-transform self-center" style={{ transform: expanded ? "rotate(90deg)" : "rotate(0deg)" }}>
                   <ChevronRight className="w-4 h-4" />
                 </button>
               )}
@@ -379,29 +340,12 @@ function GoalCard({ goal, goals, onToggle, onDelete, onAdd, onUpdate, setGoalTas
           </div>
         </div>
       </Card>
-
       {expanded && childGoals.length > 0 && (
         <div className="ml-6 space-y-2">
           {childGoals.map(child => (
-            <GoalCard
-              key={child.id}
-              goal={child}
-              goals={goals}
-              onToggle={onToggle}
-              onDelete={onDelete}
-              onAdd={onAdd}
-              onUpdate={onUpdate}
-              setGoalTaskWeight={setGoalTaskWeight}
-              state={state}
-            />
+            <GoalCard key={child.id} goal={child} goals={goals} onToggle={onToggle} onDelete={onDelete} onAdd={onAdd} onUpdate={onUpdate} setGoalTaskWeight={setGoalTaskWeight} state={state} />
           ))}
-          {goal.type !== "week" && (
-            <AddGoalDialog
-              parentId={goal.id}
-              parentType={goal.type}
-              onAdd={onAdd}
-            />
-          )}
+          {goal.type !== "week" && <AddGoalDialog parentId={goal.id} parentType={goal.type} onAdd={onAdd} />}
         </div>
       )}
     </div>
@@ -410,12 +354,10 @@ function GoalCard({ goal, goals, onToggle, onDelete, onAdd, onUpdate, setGoalTas
 
 export default function GoalsPage() {
   const { state, actions } = useStore();
-
   const yearGoals = state.goals.filter(g => g.type === "year" && !g.completed);
   const monthGoals = state.goals.filter(g => g.type === "month" && !g.completed);
   const weekGoals = state.goals.filter(g => g.type === "week" && !g.completed);
   const archivedGoals = state.goals.filter(g => g.completed);
-
   const completedCount = archivedGoals.length;
   const totalCount = state.goals.length;
 
@@ -424,8 +366,7 @@ export default function GoalsPage() {
       <div className="max-w-4xl mx-auto p-4 space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h1 className="font-display text-xl font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
-            <Target className="w-5 h-5 text-primary" />
-            Цели
+            <Target className="w-5 h-5 text-primary" />Цели
           </h1>
           <div className="flex gap-2">
             <AddGoalDialog onAdd={actions.addGoal} forcedType="year" />
@@ -441,9 +382,7 @@ export default function GoalsPage() {
               <div className="font-display text-sm text-foreground">Заработано за цели</div>
               <div className="font-mono text-xs text-primary">{state.xp.goalXP} XP</div>
             </div>
-            <div className="ml-auto font-display text-xs text-muted-foreground">
-              {completedCount}/{totalCount} выполнено
-            </div>
+            <div className="ml-auto font-display text-xs text-muted-foreground">{completedCount}/{totalCount} выполнено</div>
           </Card>
         )}
 
@@ -454,72 +393,28 @@ export default function GoalsPage() {
             <TabsTrigger value="week" className="font-display text-xs">Неделя</TabsTrigger>
             <TabsTrigger value="archive" className="font-display text-xs flex items-center gap-1">
               <Archive className="w-3 h-3" />
-              {archivedGoals.length > 0 && (
-                <span className="bg-primary/20 text-primary rounded-full px-1 text-[10px] font-mono">{archivedGoals.length}</span>
-              )}
+              {archivedGoals.length > 0 && <span className="bg-primary/20 text-primary rounded-full px-1 text-[10px] font-mono">{archivedGoals.length}</span>}
               Архив
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="year" className="space-y-4 outline-none">
-            {yearGoals.length === 0 ? (
-              <EmptyGoals type="year" onAdd={actions.addGoal} />
-            ) : (
-              yearGoals.map(goal => (
-                <GoalCard
-                  key={goal.id}
-                  goal={goal}
-                  goals={state.goals}
-                  onToggle={actions.toggleGoal}
-                  onDelete={actions.deleteGoal}
-                  onAdd={actions.addGoal}
-                  onUpdate={actions.updateGoal}
-                  setGoalTaskWeight={actions.setGoalTaskWeight}
-                  state={state}
-                />
-              ))
-            )}
+            {yearGoals.length === 0 ? <EmptyGoals type="year" onAdd={actions.addGoal} /> : yearGoals.map(goal => (
+              <GoalCard key={goal.id} goal={goal} goals={state.goals} onToggle={actions.toggleGoal} onDelete={actions.deleteGoal} onAdd={actions.addGoal} onUpdate={actions.updateGoal} setGoalTaskWeight={actions.setGoalTaskWeight} state={state} />
+            ))}
           </TabsContent>
 
           <TabsContent value="month" className="space-y-4 outline-none">
-            {monthGoals.length === 0 ? (
-              <EmptyGoals type="month" onAdd={actions.addGoal} />
-            ) : (
-              monthGoals.map(goal => (
-                <GoalCard
-                  key={goal.id}
-                  goal={goal}
-                  goals={state.goals}
-                  onToggle={actions.toggleGoal}
-                  onDelete={actions.deleteGoal}
-                  onAdd={actions.addGoal}
-                  onUpdate={actions.updateGoal}
-                  setGoalTaskWeight={actions.setGoalTaskWeight}
-                  state={state}
-                />
-              ))
-            )}
+            {monthGoals.length === 0 ? <EmptyGoals type="month" onAdd={actions.addGoal} /> : monthGoals.map(goal => (
+              <GoalCard key={goal.id} goal={goal} goals={state.goals} onToggle={actions.toggleGoal} onDelete={actions.deleteGoal} onAdd={actions.addGoal} onUpdate={actions.updateGoal} setGoalTaskWeight={actions.setGoalTaskWeight} state={state} />
+            ))}
           </TabsContent>
 
           <TabsContent value="week" className="space-y-4 outline-none">
-            {weekGoals.length === 0 ? (
-              <EmptyGoals type="week" onAdd={actions.addGoal} />
-            ) : (
-              weekGoals.map(goal => (
-                <GoalCard
-                  key={goal.id}
-                  goal={goal}
-                  goals={state.goals}
-                  onToggle={actions.toggleGoal}
-                  onDelete={actions.deleteGoal}
-                  onAdd={actions.addGoal}
-                  onUpdate={actions.updateGoal}
-                  setGoalTaskWeight={actions.setGoalTaskWeight}
-                  state={state}
-                />
-              ))
-            )}
-</TabsContent>
+            {weekGoals.length === 0 ? <EmptyGoals type="week" onAdd={actions.addGoal} /> : weekGoals.map(goal => (
+              <GoalCard key={goal.id} goal={goal} goals={state.goals} onToggle={actions.toggleGoal} onDelete={actions.deleteGoal} onAdd={actions.addGoal} onUpdate={actions.updateGoal} setGoalTaskWeight={actions.setGoalTaskWeight} state={state} />
+            ))}
+          </TabsContent>
 
           <TabsContent value="archive" className="space-y-4 outline-none">
             {archivedGoals.length === 0 ? (
@@ -531,51 +426,33 @@ export default function GoalsPage() {
             ) : (
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground font-display uppercase tracking-wider">
-                  <Trophy className="w-3.5 h-3.5 text-yellow-400" />
-                  {archivedGoals.length} выполненных целей
+                  <Trophy className="w-3.5 h-3.5 text-yellow-400" />{archivedGoals.length} выполненных целей
                 </div>
                 {archivedGoals.map(goal => (
-                  <Card key={goal.id} className="p-3 border-card-border opacity-70 hover:opacity-100 transition-opacity" data-testid={`archived-goal-${goal.id}`}>
+                  <Card key={goal.id} className="p-3 border-card-border opacity-70 hover:opacity-100 transition-opacity">
                     <div className="flex items-center gap-3">
                       <CheckCircle className="w-5 h-5 text-primary flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                          <Badge variant="outline" className={`text-xs h-4 py-0 ${
-                            goal.type === "year" ? "text-yellow-400 border-yellow-500/30" :
-                            goal.type === "month" ? "text-blue-400 border-blue-500/30" :
-                            "text-green-400 border-green-500/30"
-                          }`}>
+                          <Badge variant="outline" className={`text-xs h-4 py-0 ${goal.type === "year" ? "text-yellow-400 border-yellow-500/30" : goal.type === "month" ? "text-blue-400 border-blue-500/30" : "text-green-400 border-green-500/30"}`}>
                             {goal.type === "year" ? "Год" : goal.type === "month" ? "Месяц" : "Неделя"}
                           </Badge>
                           <span className={`text-xs ${LIFE_AREA_COLORS[goal.category]}`}>{goal.category}</span>
                         </div>
                         <div className="font-display text-sm text-muted-foreground line-through">{goal.title}</div>
-                        {goal.description && (
-                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{goal.description}</p>
-                        )}
+                        {goal.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{goal.description}</p>}
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <span className="font-mono text-xs text-muted-foreground">+{goal.xp} XP</span>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          title="Вернуть в активные"
-                          onClick={() => actions.toggleGoal(goal.id)}
-                          data-testid={`goal-restore-${goal.id}`}
-                        >
+                        <Button size="icon" variant="ghost" title="Вернуть в активные" onClick={() => actions.toggleGoal(goal.id)}>
                           <RotateCcw className="w-3.5 h-3.5 text-muted-foreground" />
                         </Button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <Button size="icon" variant="ghost">
-                              <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
-                            </Button>
+                            <Button size="icon" variant="ghost"><Trash2 className="w-3.5 h-3.5 text-muted-foreground" /></Button>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Удалить цель из архива?</AlertDialogTitle>
-                              <AlertDialogDescription>Цель будет удалена безвозвратно.</AlertDialogDescription>
-                            </AlertDialogHeader>
+                            <AlertDialogHeader><AlertDialogTitle>Удалить из архива?</AlertDialogTitle><AlertDialogDescription>Цель будет удалена безвозвратно.</AlertDialogDescription></AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Отмена</AlertDialogCancel>
                               <AlertDialogAction onClick={() => actions.deleteGoal(goal.id)}>Удалить</AlertDialogAction>
@@ -610,9 +487,7 @@ function EmptyGoals({ type, onAdd }: { type: GoalType, onAdd: (g: any) => void }
       <Target className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-30" />
       <p className="font-display text-sm text-muted-foreground">Нет целей</p>
       <p className="text-xs text-muted-foreground mt-1">Создай первую {labels[type]} цель</p>
-      <div className="mt-4">
-        <AddGoalDialog onAdd={onAdd} forcedType={type} />
-      </div>
+      <div className="mt-4"><AddGoalDialog onAdd={onAdd} forcedType={type} /></div>
     </Card>
   );
 }
