@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { CheckCircle, Circle, Plus, Trash2, Target, ChevronRight, Trophy, Zap, Edit2 } from "lucide-react";
+import { CheckCircle, Circle, Plus, Trash2, Target, ChevronRight, Trophy, Zap, Edit2, Archive, RotateCcw } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 
@@ -411,11 +411,12 @@ function GoalCard({ goal, goals, onToggle, onDelete, onAdd, onUpdate, setGoalTas
 export default function GoalsPage() {
   const { state, actions } = useStore();
 
-  const yearGoals = state.goals.filter(g => g.type === "year");
-  const monthGoals = state.goals.filter(g => g.type === "month");
-  const weekGoals = state.goals.filter(g => g.type === "week");
+  const yearGoals = state.goals.filter(g => g.type === "year" && !g.completed);
+  const monthGoals = state.goals.filter(g => g.type === "month" && !g.completed);
+  const weekGoals = state.goals.filter(g => g.type === "week" && !g.completed);
+  const archivedGoals = state.goals.filter(g => g.completed);
 
-  const completedCount = state.goals.filter(g => g.completed).length;
+  const completedCount = archivedGoals.length;
   const totalCount = state.goals.length;
 
   return (
@@ -447,10 +448,17 @@ export default function GoalsPage() {
         )}
 
         <Tabs defaultValue="week" className="space-y-4">
-          <TabsList className="grid grid-cols-3 w-full max-w-md mx-auto">
+          <TabsList className="grid grid-cols-4 w-full max-w-md mx-auto">
             <TabsTrigger value="year" className="font-display text-xs">Год</TabsTrigger>
             <TabsTrigger value="month" className="font-display text-xs">Месяц</TabsTrigger>
             <TabsTrigger value="week" className="font-display text-xs">Неделя</TabsTrigger>
+            <TabsTrigger value="archive" className="font-display text-xs flex items-center gap-1">
+              <Archive className="w-3 h-3" />
+              {archivedGoals.length > 0 && (
+                <span className="bg-primary/20 text-primary rounded-full px-1 text-[10px] font-mono">{archivedGoals.length}</span>
+              )}
+              Архив
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="year" className="space-y-4 outline-none">
@@ -511,7 +519,77 @@ export default function GoalsPage() {
                 />
               ))
             )}
+</TabsContent>
+
+          <TabsContent value="archive" className="space-y-4 outline-none">
+            {archivedGoals.length === 0 ? (
+              <Card className="p-10 text-center border-dashed border-border">
+                <Archive className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-30" />
+                <p className="font-display text-sm text-muted-foreground">Архив пуст</p>
+                <p className="text-xs text-muted-foreground mt-1">Выполненные цели появятся здесь</p>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground font-display uppercase tracking-wider">
+                  <Trophy className="w-3.5 h-3.5 text-yellow-400" />
+                  {archivedGoals.length} выполненных целей
+                </div>
+                {archivedGoals.map(goal => (
+                  <Card key={goal.id} className="p-3 border-card-border opacity-70 hover:opacity-100 transition-opacity" data-testid={`archived-goal-${goal.id}`}>
+                    <div className="flex items-center gap-3">
+                      <CheckCircle className="w-5 h-5 text-primary flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                          <Badge variant="outline" className={`text-xs h-4 py-0 ${
+                            goal.type === "year" ? "text-yellow-400 border-yellow-500/30" :
+                            goal.type === "month" ? "text-blue-400 border-blue-500/30" :
+                            "text-green-400 border-green-500/30"
+                          }`}>
+                            {goal.type === "year" ? "Год" : goal.type === "month" ? "Месяц" : "Неделя"}
+                          </Badge>
+                          <span className={`text-xs ${LIFE_AREA_COLORS[goal.category]}`}>{goal.category}</span>
+                        </div>
+                        <div className="font-display text-sm text-muted-foreground line-through">{goal.title}</div>
+                        {goal.description && (
+                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{goal.description}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <span className="font-mono text-xs text-muted-foreground">+{goal.xp} XP</span>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          title="Вернуть в активные"
+                          onClick={() => actions.toggleGoal(goal.id)}
+                          data-testid={`goal-restore-${goal.id}`}
+                        >
+                          <RotateCcw className="w-3.5 h-3.5 text-muted-foreground" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="icon" variant="ghost">
+                              <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Удалить цель из архива?</AlertDialogTitle>
+                              <AlertDialogDescription>Цель будет удалена безвозвратно.</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Отмена</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => actions.deleteGoal(goal.id)}>Удалить</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
           </TabsContent>
+        </Tabs>
         </Tabs>
 
         <Card className="p-3 bg-muted/30 border-dashed border-border">
