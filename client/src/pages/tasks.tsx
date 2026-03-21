@@ -674,7 +674,7 @@ export default function TasksPage() {
 }
 
 function TaskRow({ task, onToggle, onDelete, onEdit, onReschedule }: {
-  task: TodayTask;
+  task: TodayTask & { wasRescheduled?: boolean };
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
   onEdit: () => void;
