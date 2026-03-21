@@ -682,6 +682,7 @@ function TaskRow({ task, onToggle, onDelete, onEdit, onReschedule }: {
 }) {
   const { state } = useStore();
   const weekGoal = task.weekGoalId ? state.goals.find(g => g.id === task.weekGoalId) : null;
+  const isHighPriority = (task as any).wasRescheduled === true && !task.completed;
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [customDate, setCustomDate] = useState("");
 
@@ -693,22 +694,27 @@ function TaskRow({ task, onToggle, onDelete, onEdit, onReschedule }: {
 
   return (
     <Card
-      className={`p-3 border-card-border cursor-pointer transition-all hover-elevate group ${
-        task.completed ? "opacity-60" : ""
-      }`}
+          className={`p-3 cursor-pointer transition-all hover-elevate group relative overflow-hidden ${
+            task.completed ? "opacity-60 border-card-border" : ""
+          } ${isHighPriority ? "border-orange-400/80 shadow-[0_0_16px_3px_rgba(251,146,60,0.4)]" : "border-card-border"}`}
+          style={isHighPriority ? { animation: "neon-pulse 2s ease-in-out infinite" } : {}}
       onClick={() => onToggle(task.id)}
       data-testid={`task-row-${task.id}`}
     >
+     {isHighPriority && (
+        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-orange-400 to-transparent" />
+      )}
       <div className="flex items-center gap-3">
         <div className="flex-shrink-0">
           {task.completed ? (
             <CheckCircle className="w-5 h-5 text-primary" />
           ) : (
-            <Circle className="w-5 h-5 text-muted-foreground" />
+            <Circle className={`w-5 h-5 ${isHighPriority ? "text-orange-400" : "text-muted-foreground"}`} />
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <div className={`font-display text-sm ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+          <div className={`font-display text-sm ${task.completed ? "line-through text-muted-foreground" : isHighPriority ? "text-orange-300" : "text-foreground"}`}>
+            {isHighPriority && <span className="text-orange-400 mr-1.5 text-xs">⚡</span>}
             {task.name}
           </div>
           {task.description && (
@@ -716,6 +722,11 @@ function TaskRow({ task, onToggle, onDelete, onEdit, onReschedule }: {
           )}
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             <span className={`text-xs ${LIFE_AREA_COLORS[task.category]}`}>{task.category}</span>
+            {isHighPriority && (
+              <Badge className="text-[10px] py-0 h-4 bg-orange-500/20 text-orange-400 border border-orange-500/40">
+                ⚡ Приоритет
+              </Badge>
+            )}
             {task.type === "routine" && <Badge variant="secondary" className="text-xs py-0 h-4">Рутина</Badge>}
             {task.difficulty && (
               <Badge variant="outline" className={`text-xs py-0 h-4 ${
