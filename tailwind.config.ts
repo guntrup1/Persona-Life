@@ -5,6 +5,19 @@ export default {
   content: ["./client/index.html", "./client/src/**/*.{js,jsx,ts,tsx}"],
   theme: {
     extend: {
+      keyframes: {
+        "neon-pulse": {
+          "0%, 100%": {
+            boxShadow: "0 0 8px 2px rgba(251,146,60,0.3)",
+          },
+          "50%": {
+            boxShadow: "0 0 22px 6px rgba(251,146,60,0.65)",
+          },
+        },
+      },
+      animation: {
+        "neon-pulse": "neon-pulse 2s ease-in-out infinite",
+      },
       borderRadius: {
         lg: ".5625rem",
         md: ".375rem",
