@@ -70,6 +70,12 @@ export interface TodayTask {
   completedAt?: string;
 }
 
+export interface PlanItem {
+  id: string;
+  text: string;
+  done: boolean;
+}
+
 export interface Goal {
   id: string;
   type: GoalType;
@@ -84,6 +90,7 @@ export interface Goal {
   month?: number;
   week?: number;
   description?: string;
+  plan?: PlanItem[];
 }
 
 export interface FocusSession {
