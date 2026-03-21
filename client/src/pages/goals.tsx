@@ -590,7 +590,6 @@ export default function GoalsPage() {
             )}
           </TabsContent>
         </Tabs>
-        </Tabs>
 
         <Card className="p-3 bg-muted/30 border-dashed border-border">
           <div className="grid grid-cols-3 gap-2 text-center text-xs font-mono">
