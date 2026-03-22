@@ -228,7 +228,41 @@ function PlanSection({ goal, onUpdate }: { goal: Goal; onUpdate: (id: string, g:
     </div>
   );
 }
-
+function CollapsibleTasks({ tasks }: { tasks: TodayTask[] }) {
+  const [open, setOpen] = useState(false);
+  const completedCount = tasks.filter(t => t.completed).length;
+  return (
+    <div className="mt-3 pt-3 border-t border-border/50">
+      <button
+        className="w-full flex items-center justify-between text-[11px] font-display uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors mb-2"
+        onClick={() => setOpen(o => !o)}
+      >
+        <span className="flex items-center gap-1.5">
+          <Target className="w-3.5 h-3.5" />
+          Связанные задачи
+          <span className={`font-mono ml-1 ${completedCount === tasks.length ? "text-primary" : "text-muted-foreground"}`}>
+            {completedCount}/{tasks.length}
+          </span>
+        </span>
+        {open ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+      </button>
+      {open && (
+        <div className="space-y-1 animate-in fade-in slide-in-from-top-1 duration-150">
+          {tasks.map(task => (
+            <div key={task.id} className="flex items-center justify-between text-[11px]">
+              <span className={`truncate mr-2 ${task.completed ? "text-muted-foreground line-through" : "text-foreground"}`}>
+                {task.completed ? "✓ " : "○ "}{task.name}
+              </span>
+              <span className={`font-mono shrink-0 ${task.completed ? "text-primary" : "text-muted-foreground"}`}>
+                {task.xp} XP
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 function GoalCard({ goal, goals, onToggle, onDelete, onAdd, onUpdate, setGoalTaskWeight, state }: {
   goal: Goal; goals: Goal[]; onToggle: (id: string) => void; onDelete: (id: string) => void;
   onAdd: (g: any) => void; onUpdate: (id: string, g: any) => void;
@@ -291,27 +325,17 @@ function GoalCard({ goal, goals, onToggle, onDelete, onAdd, onUpdate, setGoalTas
               {goal.title}
             </div>
             {goal.description && <p className="text-xs text-muted-foreground mt-1">{goal.description}</p>}
-            <div className="mt-3 space-y-1.5">
-              <div className="flex justify-between text-[10px] text-muted-foreground">
-                <span>Прогресс</span>
-                <span>{progress.completed}/{progress.total} XP ({progress.percent}%)</span>
-              </div>
-              <Progress value={progress.percent} className="h-1" />
-            </div>
-            {goal.type === "week" && allTasks.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-border/50 space-y-1.5">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Связанные задачи</div>
-                <div className="space-y-1">
-                  {allTasks.map(task => (
-                    <div key={task.id} className="flex items-center justify-between text-[11px]">
-                      <span className={`truncate mr-2 ${task.completed ? "text-muted-foreground line-through" : "text-foreground"}`}>{task.name}</span>
-                      <span className={`font-mono shrink-0 ${task.completed ? "text-primary" : "text-muted-foreground"}`}>{task.completed ? "✓ " : ""}{task.xp} XP</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            <PlanSection goal={goal} onUpdate={onUpdate} />
+          <div className="mt-3 space-y-1.5">
+                        <div className="flex justify-between text-[10px] text-muted-foreground">
+                          <span>Прогресс</span>
+                          <span>{progress.completed}/{progress.total} XP ({progress.percent}%)</span>
+                        </div>
+                        <Progress value={progress.percent} className="h-1" />
+                      </div>
+                      <PlanSection goal={goal} onUpdate={onUpdate} />
+                      {goal.type === "week" && allTasks.length > 0 && (
+                        <CollapsibleTasks tasks={allTasks} />
+                      )}
           </div>
           <div className="flex flex-col items-center gap-1 flex-shrink-0">
             <span className={`font-mono text-xs font-bold ${goal.completed ? "text-muted-foreground" : "text-primary"}`}>+{goal.xp} XP</span>
@@ -349,6 +373,96 @@ function GoalCard({ goal, goals, onToggle, onDelete, onAdd, onUpdate, setGoalTas
         </div>
       )}
     </div>
+  );
+}
+
+function ArchivedGoalCard({ goal, state, onRestore, onDelete }: { goal: Goal; state: any; onRestore: () => void; onDelete: () => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const plan: PlanItem[] = goal.plan || [];
+  const linkedTasks = state.todayTasks.filter((t: TodayTask) => t.weekGoalId === goal.id || t.goalId === goal.id);
+
+  return (
+    <Card className="p-3 border-card-border opacity-70 hover:opacity-100 transition-opacity">
+      <div className="flex items-start gap-3">
+        <CheckCircle className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+            <Badge variant="outline" className={`text-xs h-4 py-0 ${goal.type === "year" ? "text-yellow-400 border-yellow-500/30" : goal.type === "month" ? "text-blue-400 border-blue-500/30" : "text-green-400 border-green-500/30"}`}>
+              {goal.type === "year" ? "Год" : goal.type === "month" ? "Месяц" : "Неделя"}
+            </Badge>
+            <span className={`text-xs ${LIFE_AREA_COLORS[goal.category]}`}>{goal.category}</span>
+            <span className="text-[10px] text-muted-foreground font-mono ml-auto">+{goal.xp} XP</span>
+          </div>
+          <div className="font-display text-sm text-muted-foreground line-through">{goal.title}</div>
+          {goal.description && <p className="text-xs text-muted-foreground mt-0.5">{goal.description}</p>}
+
+          <button
+            className="mt-2 text-[11px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+            onClick={() => setExpanded(o => !o)}
+          >
+            {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+            Подробности
+          </button>
+
+          {expanded && (
+            <div className="mt-2 space-y-3 animate-in fade-in slide-in-from-top-1 duration-150">
+              {plan.length > 0 && (
+                <div className="space-y-1">
+                  <div className="text-[10px] font-display uppercase tracking-wider text-muted-foreground flex items-center gap-1 mb-1">
+                    <ListChecks className="w-3 h-3" /> План достижения
+                  </div>
+                  {plan.map(item => (
+                    <div key={item.id} className="flex items-center gap-2 text-[11px]">
+                      {item.done
+                        ? <CheckCircle className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                        : <Circle className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />}
+                      <span className={item.done ? "line-through text-muted-foreground" : "text-foreground"}>{item.text}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {linkedTasks.length > 0 && (
+                <div className="space-y-1">
+                  <div className="text-[10px] font-display uppercase tracking-wider text-muted-foreground flex items-center gap-1 mb-1">
+                    <Target className="w-3 h-3" /> Связанные задачи
+                  </div>
+                  {linkedTasks.map((task: TodayTask) => (
+                    <div key={task.id} className="flex items-center justify-between text-[11px] gap-2">
+                      <span className="flex items-center gap-1.5 min-w-0">
+                        {task.completed
+                          ? <CheckCircle className="w-3 h-3 text-primary flex-shrink-0" />
+                          : <Circle className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
+                        <span className={`truncate ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>{task.name}</span>
+                      </span>
+                      <span className="font-mono text-[10px] text-muted-foreground shrink-0">
+                        {task.date}{task.startTime ? ` · ${task.startTime}` : ""}{task.endTime ? `–${task.endTime}` : ""}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="flex flex-col gap-0.5 flex-shrink-0">
+          <Button size="icon" variant="ghost" title="Вернуть в активные" onClick={onRestore}>
+            <RotateCcw className="w-3.5 h-3.5 text-muted-foreground" />
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button size="icon" variant="ghost"><Trash2 className="w-3.5 h-3.5 text-muted-foreground" /></Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader><AlertDialogTitle>Удалить из архива?</AlertDialogTitle><AlertDialogDescription>Цель будет удалена безвозвратно.</AlertDialogDescription></AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Отмена</AlertDialogCancel>
+                <AlertDialogAction onClick={onDelete}>Удалить</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </div>
+    </Card>
   );
 }
 
@@ -429,39 +543,7 @@ export default function GoalsPage() {
                   <Trophy className="w-3.5 h-3.5 text-yellow-400" />{archivedGoals.length} выполненных целей
                 </div>
                 {archivedGoals.map(goal => (
-                  <Card key={goal.id} className="p-3 border-card-border opacity-70 hover:opacity-100 transition-opacity">
-                    <div className="flex items-center gap-3">
-                      <CheckCircle className="w-5 h-5 text-primary flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                          <Badge variant="outline" className={`text-xs h-4 py-0 ${goal.type === "year" ? "text-yellow-400 border-yellow-500/30" : goal.type === "month" ? "text-blue-400 border-blue-500/30" : "text-green-400 border-green-500/30"}`}>
-                            {goal.type === "year" ? "Год" : goal.type === "month" ? "Месяц" : "Неделя"}
-                          </Badge>
-                          <span className={`text-xs ${LIFE_AREA_COLORS[goal.category]}`}>{goal.category}</span>
-                        </div>
-                        <div className="font-display text-sm text-muted-foreground line-through">{goal.title}</div>
-                        {goal.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{goal.description}</p>}
-                      </div>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        <span className="font-mono text-xs text-muted-foreground">+{goal.xp} XP</span>
-                        <Button size="icon" variant="ghost" title="Вернуть в активные" onClick={() => actions.toggleGoal(goal.id)}>
-                          <RotateCcw className="w-3.5 h-3.5 text-muted-foreground" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button size="icon" variant="ghost"><Trash2 className="w-3.5 h-3.5 text-muted-foreground" /></Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader><AlertDialogTitle>Удалить из архива?</AlertDialogTitle><AlertDialogDescription>Цель будет удалена безвозвратно.</AlertDialogDescription></AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Отмена</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => actions.deleteGoal(goal.id)}>Удалить</AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </div>
-                  </Card>
+                  <ArchivedGoalCard key={goal.id} goal={goal} state={state} onRestore={() => actions.toggleGoal(goal.id)} onDelete={() => actions.deleteGoal(goal.id)} />
                 ))}
               </div>
             )}
