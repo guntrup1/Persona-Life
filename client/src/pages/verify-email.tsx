@@ -1,8 +1,60 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 
+function ResendForm() {
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  const handleResend = async () => {
+    if (!email) { setError("Введите email"); return; }
+    setLoading(true); setError(""); setMessage("");
+    try {
+      const res = await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (res.ok) setMessage("Письмо отправлено! Проверьте почту.");
+      else setError(data.message || "Ошибка отправки");
+    } catch {
+      setError("Ошибка сети");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-2 w-full">
+      <p className="text-xs text-muted-foreground font-mono uppercase tracking-widest">
+        Получить новую ссылку:
+      </p>
+      <input
+        type="email"
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        placeholder="Ваш email"
+        className="w-full px-4 py-2 bg-background border border-border text-sm font-mono focus:outline-none focus:border-primary"
+      />
+      {error && <p className="text-xs text-red-400 font-mono">{error}</p>}
+      {message && <p className="text-xs text-primary font-mono">{message}</p>}
+      <button
+        onClick={handleResend}
+        disabled={loading}
+        className="w-full px-6 py-2 bg-primary text-black font-display text-xs uppercase tracking-widest disabled:opacity-50"
+        style={{ clipPath: "polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)" }}
+      >
+        {loading ? "Отправка..." : "Отправить новую ссылку"}
+      </button>
+    </div>
+  );
+}
+
 export default function VerifyEmailPage() {
-  const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
+  const [status, setStatus] = useState<"loading" | "success" | "error" | "expired">("loading");
   const [, navigate] = useLocation();
 
   useEffect(() => {
@@ -10,10 +62,13 @@ export default function VerifyEmailPage() {
     if (!token) { setStatus("error"); return; }
 
     fetch(`/api/auth/verify-email?token=${token}`, { credentials: "include" })
-      .then(res => {
-        if (res.ok || res.redirected) {
+      .then(async res => {
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
           setStatus("success");
           setTimeout(() => navigate("/"), 3000);
+        } else if (data.expired) {
+          setStatus("expired");
         } else {
           setStatus("error");
         }
@@ -27,7 +82,7 @@ export default function VerifyEmailPage() {
       <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-primary p5-glow" />
       <div className="absolute top-0 left-0 right-0 h-0.5 bg-primary" />
 
-      <div className="relative z-10 text-center space-y-6 animate-slide-in-up">
+      <div className="relative z-10 text-center space-y-6 animate-slide-in-up w-full max-w-sm">
         <div className="font-p5 text-4xl tracking-widest" style={{ letterSpacing: "0.25em" }}>
           TRADE <span className="text-primary">PERSONA</span>
         </div>
@@ -54,6 +109,28 @@ export default function VerifyEmailPage() {
           </div>
         )}
 
+        {/* Ссылка истекла — показываем форму переотправки */}
+        {status === "expired" && (
+          <div
+            className="bg-card border border-yellow-500/40 p-8 space-y-4"
+            style={{ clipPath: "polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px))" }}
+          >
+            <div className="text-5xl">⏰</div>
+            <div className="font-p5 text-2xl text-yellow-400 tracking-widest">ССЫЛКА ИСТЕКЛА</div>
+            <p className="text-sm text-muted-foreground font-mono">
+              Ссылка больше недействительна. Запросите новую.
+            </p>
+            <ResendForm />
+            <button
+              onClick={() => navigate("/")}
+              className="w-full px-6 py-2 border border-border text-xs uppercase tracking-widest font-display"
+            >
+              На главную
+            </button>
+          </div>
+        )}
+
+        {/* Токен неверный или уже использован */}
         {status === "error" && (
           <div
             className="bg-card border border-red-500/40 p-8 space-y-4"
@@ -62,12 +139,12 @@ export default function VerifyEmailPage() {
             <div className="text-5xl">❌</div>
             <div className="font-p5 text-2xl text-red-400 tracking-widest">ССЫЛКА НЕДЕЙСТВИТЕЛЬНА</div>
             <p className="text-sm text-muted-foreground font-mono">
-              Ссылка истекла или уже использована.
+              Ссылка уже использована или неверна.
             </p>
+            <ResendForm />
             <button
               onClick={() => navigate("/")}
-              className="mt-2 px-6 py-2 bg-primary text-white font-display text-xs uppercase tracking-widest"
-              style={{ clipPath: "polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)" }}
+              className="w-full px-6 py-2 border border-border text-xs uppercase tracking-widest font-display"
             >
               На главную
             </button>
