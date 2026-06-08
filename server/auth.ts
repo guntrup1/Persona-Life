@@ -410,26 +410,35 @@ export function registerAuthRoutes(app: Express) {
   });
 
   // Верификация email
-  app.get("/api/auth/verify-email", async (req, res) => {
+app.get("/api/auth/verify-email", async (req, res) => {
     const { token } = req.query;
     if (!token || typeof token !== "string") {
       return res.status(400).json({ message: "Неверный токен" });
     }
     try {
-      const user = await User.findOne({
-        verifyToken: token,
-        verifyTokenExpires: { $gt: new Date() },
-        isVerified: false,
-      });
+      // Сначала ищем пользователя по токену без проверки срока
+      const user = await User.findOne({ verifyToken: token });
+
       if (!user) {
-        return res.status(400).json({ message: "Ссылка недействительна или истекла" });
+        return res.status(400).json({ message: "Ссылка недействительна или уже использована" });
       }
+
+      if (user.isVerified) {
+        return res.status(400).json({ message: "Email уже подтверждён" });
+      }
+
+      // Отдельно проверяем срок — чтобы фронт знал что именно произошло
+      if (user.verifyTokenExpires && new Date() > user.verifyTokenExpires) {
+        return res.status(400).json({ message: "Ссылка истекла", expired: true });
+      }
+
       await User.findByIdAndUpdate(user._id, {
         isVerified: true,
         verifyToken: null,
         verifyTokenExpires: null,
       });
-      return res.redirect("/?verified=1");
+
+      return res.json({ ok: true, message: "Email подтверждён" });
     } catch (err) {
       console.error("Verify email error:", err);
       return res.status(500).json({ message: "Ошибка сервера" });
@@ -447,7 +456,7 @@ export function registerAuthRoutes(app: Express) {
 
       const crypto = require("crypto");
       const verifyToken = crypto.randomBytes(32).toString("hex");
-      const verifyTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      const verifyTokenExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       await User.findByIdAndUpdate(user._id, { verifyToken, verifyTokenExpires });
 
       const verifyUrl = `${process.env.APP_URL || "https://persona-life.onrender.com"}/verify-email?token=${verifyToken}`;
