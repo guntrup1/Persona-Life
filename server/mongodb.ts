@@ -20,11 +20,9 @@ export async function connectMongoDB() {
 const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, lowercase: true },
   password_hash: { type: String, required: true },
-  isEmailVerified: { type: Boolean, default: false },
-  verificationToken: { type: String, default: null },
-  verificationTokenExpiry: { type: Date, default: null },
-  resetPasswordToken: { type: String, default: null },
-  resetPasswordTokenExpiry: { type: Date, default: null },
+  isVerified: { type: Boolean, default: false },
+  verifyToken: { type: String, default: null },
+  verifyTokenExpires: { type: Date, default: null },
 }, { timestamps: true });
 
 const userDataSchema = new mongoose.Schema({
