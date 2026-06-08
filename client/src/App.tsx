@@ -52,6 +52,7 @@ function Router() {
       <Route path="/reset-password" component={ResetPasswordPage} />
       <Route path="/settings" component={SettingsPage} />
       <Route path="/verify-email" component={VerifyEmailPage} />
+      
       <Route component={NotFound} />
     </Switch>
   );
@@ -449,12 +450,13 @@ function AppShell() {
     );
   }
 
-  if (!user) {
-    if (location === "/forgot-password") return <ForgotPasswordPage />;
-    if (location.startsWith("/reset-password")) return <ResetPasswordPage />;
-    if (location.startsWith("/verify-email")) return <VerifyEmailPage />;
-    return <LoginPage />;
-  }
+if (!user) {
+  const path = window.location.pathname;
+  if (path === "/forgot-password") return <ForgotPasswordPage />;
+  if (path === "/reset-password") return <ResetPasswordPage />;
+  if (path === "/verify-email") return <VerifyEmailPage />;
+  return <LoginPage />;
+}
 
   const sidebarStyle = {
     "--sidebar-width": "13rem",
