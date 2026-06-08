@@ -456,7 +456,7 @@ app.get("/api/auth/verify-email", async (req, res) => {
 
       const crypto = require("crypto");
       const verifyToken = crypto.randomBytes(32).toString("hex");
-      const verifyTokenExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      const verifyTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // было 7 дней
       await User.findByIdAndUpdate(user._id, { verifyToken, verifyTokenExpires });
 
       const verifyUrl = `${process.env.APP_URL || "https://persona-life.onrender.com"}/verify-email?token=${verifyToken}`;
