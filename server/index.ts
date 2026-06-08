@@ -51,7 +51,6 @@ app.use(mongoSanitize({
 }));
 
 // ── Ограничение размера тела запроса ──
-app.use(express.json({ limit: "2mb" }));
 app.use("/api/auth/login", authLimiter);
 app.use("/api/auth/register", authLimiter);
 app.use("/api/auth/forgot-password", forgotPasswordLimiter);
@@ -64,6 +63,7 @@ declare module "http" {
 
 app.use(
   express.json({
+    limit: "2mb",
     verify: (req, _res, buf) => {
       req.rawBody = buf;
     },
