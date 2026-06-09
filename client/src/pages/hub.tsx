@@ -10,7 +10,6 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
 import { CheckCircle, Circle, Trash2, RefreshCw, Flame, Zap, Target, Clock, FileText, TrendingUp, ChevronDown, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/lib/i18n";
