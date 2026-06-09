@@ -40,7 +40,7 @@ function getPeriodDates(period: Period): string[] {
 
 export default function StatsPage() {
   const { state } = useStore();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [period, setPeriod] = useState<Period>("week");
 
   const dates = getPeriodDates(period);
@@ -65,7 +65,7 @@ export default function StatsPage() {
         const focusXP = state.focusSessions.filter(s => s.date === date).reduce((sum, s) => sum + s.xp, 0);
         const d = new Date(date);
         const label = period === "week"
-          ? d.toLocaleDateString("ru-RU", { weekday: "short" })
+          ? d.toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', { weekday: "short" })
           : String(d.getDate());
         return { date, label, xp: xp + focusXP, tasks: tasks.length };
       })

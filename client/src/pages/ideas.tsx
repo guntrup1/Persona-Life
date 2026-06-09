@@ -24,9 +24,9 @@ function IdeaCard({ idea, onEdit, onDelete }: {
   onEdit: (idea: DayNote) => void;
   onDelete: (id: string) => void;
 }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const cat = IDEA_CATEGORIES.find(c => c.value === idea.ideaCategory);
-  const dateLabel = new Date(idea.createdAt).toLocaleDateString("ru-RU", {
+  const dateLabel = new Date(idea.createdAt).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', {
     day: "numeric", month: "short", year: "numeric",
   });
 
@@ -221,7 +221,7 @@ export default function IdeasPage() {
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h1 className="font-display text-xl font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
             <Lightbulb className="w-5 h-5 text-yellow-400" />
-            Мои идеи
+            {t.nav.ideas}
           </h1>
           <div className="text-xs text-muted-foreground font-mono">
             {ideas.length} {showDone ? `из ${totalIdeas}` : t.ideas.active}

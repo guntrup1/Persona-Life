@@ -29,6 +29,7 @@ async function sendEmail(to: string, subject: string, html: string) {
 
 // ── Zod схемы валидации ──
 const registerSchema = z.object({
+  lang: z.string().optional(),
   email: z.string()
     .email("Некорректный email")
     .min(5, "Email слишком короткий")

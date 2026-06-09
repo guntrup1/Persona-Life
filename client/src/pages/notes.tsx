@@ -29,7 +29,7 @@ function AddBiasDialog({ onAdd, editBias }: { onAdd: (b: any) => void; editBias?
   const [cons, setCons] = useState(editBias?.cons || "");
   const [screenshotUrl, setScreenshotUrl] = useState<string | undefined>(editBias?.screenshotUrl);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
 
   useEffect(() => {
     if (editBias) {
@@ -200,7 +200,7 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
   const [screenshotUrl, setScreenshotUrl] = useState<string | undefined>(editNote?.screenshotUrl);
   const [isTradingIdea, setIsTradingIdea] = useState(editNote?.isTradingIdea || false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
 
   useEffect(() => {
     if (editNote) {
@@ -259,7 +259,7 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
         ) : (
           <Button size="sm" className="gap-1" data-testid={testId}>
             <Plus className="w-3.5 h-3.5" />
-            Добавить заметку
+            {t.notes.addNote}
           </Button>
         )}
       </DialogTrigger>
@@ -405,7 +405,7 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
 
 export default function NotesPage() {
   const { state, actions, todayBiases } = useStore();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [filterAsset, setFilterAsset] = useState<TradeAsset | "all">("all");
   const [filterTag, setFilterTag] = useState<NoteTag | "all">("all");
   const [filterPeriod, setFilterPeriod] = useState<"today" | "week" | "month" | "all">("all");
@@ -617,7 +617,7 @@ export default function NotesPage() {
                           <span className="font-mono">{note.time}</span>
                           <span className="font-mono">·</span>
                           <span className="font-mono">
-                            {new Date(note.date).toLocaleDateString("ru-RU", { day: "2-digit", month: "short" })}
+                            {new Date(note.date).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', { day: "2-digit", month: "short" })}
                           </span>
                         </div>
                       </div>
@@ -682,7 +682,7 @@ export default function NotesPage() {
 
 function TradingIdeasSection() {
   const { state, actions } = useStore();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [showDone, setShowDone] = useState(false);
 
   const tradingIdeas = state.tradingNotes
@@ -700,7 +700,7 @@ function TradingIdeasSection() {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="font-display text-lg font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
           <Lightbulb className="w-5 h-5 text-yellow-400" />
-          Торговые идеи
+          {t.notes.tradingIdeas || 'Торговые идеи'}
         </h2>
         <div className="flex items-center gap-3">
           <span className="text-xs text-muted-foreground font-mono">
@@ -750,7 +750,7 @@ function TradingIdeasSection() {
                   </Badge>
                   <span className="text-[10px] text-muted-foreground font-mono ml-auto flex items-center gap-1">
                     <Clock className="w-3 h-3" />
-                    {idea.time} · {new Date(idea.date).toLocaleDateString("ru-RU", { day: "2-digit", month: "short" })}
+                    {idea.time} · {new Date(idea.date).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', { day: "2-digit", month: "short" })}
                   </span>
                 </div>
                 {idea.title && (

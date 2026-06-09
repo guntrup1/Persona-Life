@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useI18n } from "@/lib/i18n";
 
 function ResendForm() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -16,7 +16,7 @@ function ResendForm() {
       const res = await fetch("/api/auth/resend-verification", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, lang }),
         credentials: "include",
       });
       const data = await res.json();

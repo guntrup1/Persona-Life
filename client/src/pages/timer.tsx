@@ -50,7 +50,7 @@ function TimerRing({ progress, radius, stroke }: { progress: number; radius: num
 export default function TimerPage() {
   const { state, actions } = useStore();
   const { toast } = useToast();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
 
   const [selectedMode, setSelectedMode] = useState<TimerMode>("pomodoro");
   const [customMinutes, setCustomMinutes] = useState(60);
@@ -253,7 +253,7 @@ export default function TimerPage() {
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-xs text-primary">+{session.xp} XP</span>
                     <span className="font-mono text-xs text-muted-foreground">
-                      {new Date(session.completedAt).toLocaleDateString("ru-RU", { day: "2-digit", month: "short" })}
+                      {new Date(session.completedAt).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', { day: "2-digit", month: "short" })}
                     </span>
                   </div>
                 </div>

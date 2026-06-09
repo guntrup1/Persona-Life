@@ -44,13 +44,13 @@ function msTillMidnightBerlin(): number {
   return berlinMidnight.getTime() - berlinNow.getTime();
 }
 
-function formatFullDate(dateStr: string): { weekday: string; full: string } {
+function formatFullDate(dateStr: string, lang: string): { weekday: string; full: string } {
   if (!dateStr) return { weekday: "", full: "" };
   try {
     const d = new Date(dateStr + "T12:00:00Z");
     return {
-      weekday: d.toLocaleDateString("ru-RU", { weekday: "long" }),
-      full: d.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" }),
+      weekday: d.toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", { weekday: "long" }),
+      full: d.toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", { day: "numeric", month: "long", year: "numeric" }),
     };
   } catch {
     return { weekday: "", full: dateStr };
@@ -124,7 +124,7 @@ export default function NewsPage() {
   const utcOffset = loadUserSettings().utcOffset;
   const [refreshing, setRefreshing] = useState(false);
   const { toast } = useToast();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
 
 
   const { data, isLoading, isFetching } = useQuery<NewsResponse>({
@@ -146,13 +146,13 @@ export default function NewsPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const timeStr = berlinTime.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  const timeStr = berlinTime.toLocaleTimeString(lang === "ru" ? "ru-RU" : "en-US", { hour: "2-digit", minute: "2-digit" });
 
   const items = data?.items || [];
   const nextStr = data?.nextStr || "";
   const todayItems = items.filter(n => n.day === "today");
   const nextItems = items.filter(n => n.day === "next");
-  const nextDate = formatFullDate(nextStr);
+  const nextDate = formatFullDate(nextStr, lang);
 
   const isSpinning = isLoading || isFetching || refreshing;
 

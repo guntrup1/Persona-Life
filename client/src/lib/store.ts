@@ -309,10 +309,10 @@ export function getMarketSession(): { name: string; active: boolean; color: stri
   const totalMin = now.getHours() * 60 + now.getMinutes();
 
   const sessions = settings.tradingSessions || [
-    { name: "Азия",      start: 3,  end: 8,  enabled: true },
-    { name: "Франкфурт", start: 8,  end: 9,  enabled: true },
-    { name: "Лондон",    start: 9,  end: 14, enabled: true },
-    { name: "Нью-Йорк",  start: 14, end: 17, enabled: true },
+    { name: "Asia",      start: 3,  end: 8,  enabled: true },
+    { name: "Frankfurt", start: 8,  end: 9,  enabled: true },
+    { name: "London",    start: 9,  end: 14, enabled: true },
+    { name: "New York",  start: 14, end: 17, enabled: true },
   ];
 
   for (let i = 0; i < sessions.length; i++) {
@@ -328,7 +328,7 @@ export function getMarketSession(): { name: string; active: boolean; color: stri
     }
   }
 
-  return { name: "Закрыто", active: false, color: "text-muted-foreground" };
+  return { name: "Closed", active: false, color: "text-muted-foreground" };
 }
 
 export interface UserSettings {
@@ -389,16 +389,16 @@ export function getCharacterState(): { state: string; label: string; emoji: stri
   };
 
   let state = "evening";
-  let label = "Вечер";
+  let label = "Evening";
 
   if (inRange(hour, settings.sleepStart, settings.sleepEnd)) {
-    state = "sleeping"; label = "Сон";
+    state = "sleeping"; label = "Sleep";
   } else if (inRange(hour, settings.sleepEnd, settings.workStart)) {
-    state = "morning"; label = "Утро";
+    state = "morning"; label = "Morning";
   } else if (inRange(hour, settings.workStart, settings.workEnd)) {
-    state = "working"; label = "Работа";
+    state = "working"; label = "Work";
   } else if (inRange(hour, settings.restStart, settings.restEnd)) {
-    state = "resting"; label = "Отдых";
+    state = "resting"; label = "Rest";
   }
 
   const emojis = STATE_EMOJIS[state] || ["😎"];

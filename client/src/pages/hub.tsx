@@ -58,6 +58,7 @@ function XPNotification({ xp, visible, onHide }: { xp: number; visible: boolean;
 // ─── Self-contained clock ─────────────────────────────────────────────────────
 
 function ClockWidget() {
+  const { lang } = useI18n();
   const [now, setNow] = useState(getUserTime());
   const [session, setSession] = useState(getMarketSession());
 
@@ -81,8 +82,8 @@ function ClockWidget() {
 
   const utcOffset = loadUserSettings().utcOffset;
   const utcLabel = utcOffset >= 0 ? `UTC+${utcOffset}` : `UTC${utcOffset}`;
-  const timeStr = now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  const dateStr = now.toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
+  const timeStr = now.toLocaleTimeString(lang === 'ru' ? 'ru-RU' : 'en-US', { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const dateStr = now.toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', { weekday: "long", day: "numeric", month: "long" });
 
   return (
     <>
@@ -151,7 +152,7 @@ const CollapsibleBlock = memo(function CollapsibleBlock({
 
 export default function HubPage() {
   const { state, actions, todayTasks, completedToday, totalToday, todayNotes } = useStore();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [xpNotif, setXpNotif] = useState<{ xp: number; visible: boolean }>({ xp: 0, visible: false });
   const [newNoteText, setNewNoteText] = useState("");
   const [newNoteTitle, setNewNoteTitle] = useState("");
@@ -345,7 +346,7 @@ export default function HubPage() {
               </div>
             </div>
 
-            {/* Задачи на сегодня */}
+            {/* {t.hub.todayTasks} */}
             <CollapsibleBlock
               title={t.hub.todayTasks}
               icon={<Clock className="w-4 h-4 text-primary" />}
@@ -445,7 +446,7 @@ export default function HubPage() {
                 const noteDate = new Date(note.createdAt);
                 const utcOffset = loadUserSettings().utcOffset;
                 const adjustedNote = new Date(noteDate.getTime() + (utcOffset * 3600000) + noteDate.getTimezoneOffset() * 60000);
-                const timeLabel = adjustedNote.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+                const timeLabel = adjustedNote.toLocaleTimeString(lang === 'ru' ? 'ru-RU' : 'en-US', { hour: "2-digit", minute: "2-digit" });
                 const isEditing = editingNoteId === note.id;
                 return (
                   <div key={note.id} className="rounded-xl border border-card-border bg-muted/20 p-3 space-y-2">

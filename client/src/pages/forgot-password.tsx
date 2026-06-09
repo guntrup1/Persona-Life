@@ -6,7 +6,7 @@ import { Link } from "wouter";
 import { useI18n } from "@/lib/i18n";
 
 export default function ForgotPasswordPage() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -20,7 +20,7 @@ export default function ForgotPasswordPage() {
       await fetch("/api/auth/forgot-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, lang }),
       });
       setSent(true);
     } catch {

@@ -33,7 +33,7 @@ function formatDate(year: number, month: number, day: number): string {
 
 export default function CalendarPage() {
   const { state, actions } = useStore();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const today = new Date();
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
@@ -196,7 +196,7 @@ export default function CalendarPage() {
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h1 className="font-display text-xl font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
             <CalendarDays className="w-5 h-5 text-primary" />
-            Календарь
+            {t.nav.calendar}
           </h1>
           <div className="flex gap-1">
             {(["day", "week", "month"] as const).map(v => (
@@ -307,7 +307,7 @@ export default function CalendarPage() {
                       <ChevronLeft className="w-4 h-4" />
                     </Button>
                     <div className="font-display font-bold text-foreground">
-                      {new Date(selectedDate + "T12:00:00").toLocaleDateString("ru-RU", {
+                      {new Date(selectedDate + "T12:00:00").toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', {
                         weekday: "long", day: "numeric", month: "long"
                       })}
                     </div>
@@ -371,7 +371,7 @@ export default function CalendarPage() {
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <div className="font-display text-xs text-muted-foreground uppercase tracking-widest">
-                    {new Date(selectedDate + "T12:00:00").toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}
+                    {new Date(selectedDate + "T12:00:00").toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', { day: "numeric", month: "short" })}
                   </div>
                   <div className="font-display font-bold text-foreground">
                     {t.calendar.tasksCount.replace("{done}", selectedTasks.filter(t => t.completed).length.toString()).replace("{total}", selectedTasks.length.toString())}
@@ -552,7 +552,7 @@ function DayDetails({ selectedDate }: { selectedDate: string }) {
               <div key={note.id} className="border-b border-border pb-2 last:border-0 last:pb-0">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-[10px] text-muted-foreground font-mono">
-                    {new Date(note.createdAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
+                    {new Date(note.createdAt).toLocaleTimeString(lang === 'ru' ? 'ru-RU' : 'en-US', { hour: "2-digit", minute: "2-digit" })}
                   </span>
                   {note.updatedAt !== note.createdAt && (
                     <span className="text-[10px] text-muted-foreground/60">{lang === 'en' ? '(ed.)' : '(ред.)'}</span>
@@ -623,7 +623,7 @@ function DayDetails({ selectedDate }: { selectedDate: string }) {
                   <span>•</span>
                   <span className="text-primary">#{note.tag}</span>
                   <span>•</span>
-                  <span>{new Date(note.createdAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}</span>
+                  <span>{new Date(note.createdAt).toLocaleTimeString(lang === 'ru' ? 'ru-RU' : 'en-US', { hour: "2-digit", minute: "2-digit" })}</span>
                 </div>
                 <p className="text-[11px] text-muted-foreground line-clamp-3 italic">
                   "{note.text}"
