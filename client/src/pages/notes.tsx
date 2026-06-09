@@ -15,7 +15,7 @@ import { FileText, Plus, Trash2, Clock, TrendingUp, ArrowUpRight, ArrowDownRight
 
 const ASSETS: TradeAsset[] = ["GER40", "EUR", "XAU", "GBP"];
 const TIMEFRAMES = ["M1", "M5", "M15", "M30", "H1", "H4", "D1"];
-const TAGS: { value: NoteTag; label: string; color: string }[] = [
+const getTags = (t: any): { value: NoteTag; label: string; color: string }[] => [
   { value: "мысль", label: t.hub.thought, color: "text-blue-400 border-blue-500/30" },
   { value: "идея", label: "Идея", color: "text-green-400 border-green-500/30" },
   { value: "ошибка", label: "Ошибка", color: "text-red-400 border-red-500/30" },
@@ -124,7 +124,7 @@ function AddBiasDialog({ onAdd, editBias }: { onAdd: (b: any) => void; editBias?
             <Textarea
               value={pros}
               onChange={e => setPros(e.target.value)}
-              placeholder=t.notes.prosPlaceholder
+              placeholder={t.notes.prosPlaceholder}
               className="min-h-[80px] text-sm"
               data-testid="input-bias-pros"
             />
@@ -135,7 +135,7 @@ function AddBiasDialog({ onAdd, editBias }: { onAdd: (b: any) => void; editBias?
             <Textarea
               value={cons}
               onChange={e => setCons(e.target.value)}
-              placeholder=t.notes.consPlaceholder
+              placeholder={t.notes.consPlaceholder}
               className="min-h-[80px] text-sm"
               data-testid="input-bias-cons"
             />
@@ -273,7 +273,7 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
             <Input
               value={title}
               onChange={e => setTitle(e.target.value)}
-              placeholder=t.notes.titlePlaceholder
+              placeholder={t.notes.titlePlaceholder}
               data-testid="input-note-title"
             />
           </div>
@@ -319,7 +319,7 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {TAGS.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                  {getTags(t).map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -330,7 +330,7 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
             <Textarea
               value={text}
               onChange={e => setText(e.target.value)}
-              placeholder=t.notes.noteTextPlaceholder
+              placeholder={t.notes.noteTextPlaceholder}
               className="min-h-[120px]"
               data-testid="input-note-text"
               autoFocus
@@ -452,7 +452,7 @@ export default function NotesPage() {
       return true;
     });
 
-  const tagInfo = (tag: NoteTag) => TAGS.find(t => t.value === tag)!;
+  const tagInfo = (tag: NoteTag) => getTags(t).find(t => t.value === tag)!;
 
   const directionBadge = (dir: BiasDirection) => {
     switch (dir) {
@@ -578,7 +578,7 @@ export default function NotesPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t.notes.allTags}</SelectItem>
-              {TAGS.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+              {getTags(t).map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
             </SelectContent>
           </Select>
 

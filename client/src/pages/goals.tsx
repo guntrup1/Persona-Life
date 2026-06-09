@@ -47,11 +47,11 @@ function EditGoalDialog({ goal, onUpdate }: { goal: Goal; onUpdate: (id: string,
         <form onSubmit={handleSubmit} className="space-y-4 pt-2">
           <div className="space-y-1.5">
             <Label>{t.goals.goalName}</Label>
-            <Input value={title} onChange={e => setTitle(e.target.value)} placeholder=t.goals.goalNamePlaceholder data-testid="input-edit-goal-title" />
+            <Input value={title} onChange={e => setTitle(e.target.value)} placeholder={t.goals.goalNamePlaceholder} data-testid="input-edit-goal-title" />
           </div>
           <div className="space-y-1.5">
             <Label>{t.goals.goalDesc}</Label>
-            <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder=t.goals.goalDescPlaceholder className="min-h-[80px]" />
+            <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder={t.goals.goalDescPlaceholder} className="min-h-[80px]" />
           </div>
           <div className="space-y-1.5">
             <Label>{t.goals.category}</Label>
@@ -64,7 +64,7 @@ function EditGoalDialog({ goal, onUpdate }: { goal: Goal; onUpdate: (id: string,
             <div className="space-y-1.5">
               <Label>{goal.type === "month" ? "{t.goals.parentYear}" : "{t.goals.parentMonth}"}</Label>
               <Select value={parentId} onValueChange={setParentId}>
-                <SelectTrigger><SelectValue placeholder=t.goals.selectParent /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={t.goals.selectParent} /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">{t.goals.noParent}</SelectItem>
                   {possibleParents.map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
@@ -113,8 +113,8 @@ function AddGoalDialog({ parentId, parentType, onAdd, forcedType }: { parentId?:
       <DialogContent>
         <DialogHeader><DialogTitle className="font-display">{t.goals.addGoal.replace("{type}", typeLabels[type])}</DialogTitle></DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5"><Label>{t.goals.goalName}</Label><Input value={title} onChange={e => setTitle(e.target.value)} placeholder=t.goals.goalNamePlaceholder autoFocus data-testid="input-goal-title" /></div>
-          <div className="space-y-1.5"><Label>{t.goals.goalDesc}</Label><Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder=t.goals.goalDescPlaceholder className="min-h-[80px]" /></div>
+          <div className="space-y-1.5"><Label>{t.goals.goalName}</Label><Input value={title} onChange={e => setTitle(e.target.value)} placeholder={t.goals.goalNamePlaceholder} autoFocus data-testid="input-goal-title" /></div>
+          <div className="space-y-1.5"><Label>{t.goals.goalDesc}</Label><Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder={t.goals.goalDescPlaceholder} className="min-h-[80px]" /></div>
           <div className="space-y-1.5">
             <Label>{t.goals.category}</Label>
             <Select value={category} onValueChange={(v) => setCategory(v as LifeArea)}>
@@ -126,7 +126,7 @@ function AddGoalDialog({ parentId, parentType, onAdd, forcedType }: { parentId?:
             <div className="space-y-1.5">
               <Label>{type === "month" ? "{t.goals.parentYear}" : "{t.goals.parentMonth}"}</Label>
               <Select value={selectedParentId} onValueChange={setSelectedParentId}>
-                <SelectTrigger><SelectValue placeholder=t.goals.selectParent /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={t.goals.selectParent} /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">{t.goals.noParent}</SelectItem>
                   {possibleParents.map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
@@ -220,7 +220,7 @@ function PlanSection({ goal, onUpdate }: { goal: Goal; onUpdate: (id: string, g:
               value={newItem}
               onChange={e => setNewItem(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addItem(); } }}
-              placeholder=t.goals.newPlanItem
+              placeholder={t.goals.newPlanItem}
               className="h-7 text-xs"
             />
             <Button size="sm" variant="outline" className="h-7 px-2" onClick={addItem} disabled={!newItem.trim()}>
@@ -233,8 +233,8 @@ function PlanSection({ goal, onUpdate }: { goal: Goal; onUpdate: (id: string, g:
   );
 }
 function CollapsibleTasks({ tasks }: { tasks: TodayTask[] }) {
-  const [open, setOpen] = useState(false);
   const { t } = useI18n();
+  const [open, setOpen] = useState(false);
   const completedCount = tasks.filter(t => t.completed).length;
   return (
     <div className="mt-3 pt-3 border-t border-border/50">
@@ -383,6 +383,7 @@ function GoalCard({ goal, goals, onToggle, onDelete, onAdd, onUpdate, setGoalTas
 }
 
 function ArchivedGoalCard({ goal, state, onRestore, onDelete }: { goal: Goal; state: any; onRestore: () => void; onDelete: () => void }) {
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
   const plan: PlanItem[] = goal.plan || [];
   const linkedTasks = state.todayTasks.filter((t: TodayTask) => t.weekGoalId === goal.id || t.goalId === goal.id);
@@ -473,6 +474,7 @@ function ArchivedGoalCard({ goal, state, onRestore, onDelete }: { goal: Goal; st
 }
 
 export default function GoalsPage() {
+  const { t } = useI18n();
   const { state, actions } = useStore();
   const yearGoals = state.goals.filter(g => g.type === "year" && !g.completed);
   const monthGoals = state.goals.filter(g => g.type === "month" && !g.completed);
@@ -569,6 +571,7 @@ export default function GoalsPage() {
 }
 
 function EmptyGoals({ type, onAdd }: { type: GoalType, onAdd: (g: any) => void }) {
+  const { t } = useI18n();
   const labels: Record<GoalType, string> = { year: t.goals.typeYear, month: t.goals.typeMonth, week: t.goals.typeWeek };
   return (
     <Card className="p-10 text-center border-dashed border-border">

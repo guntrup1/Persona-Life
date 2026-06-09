@@ -135,14 +135,14 @@ function EditIdeaDialog({ idea, open, onOpenChange, onSave }: {
           <Input
             value={title}
             onChange={e => setTitle(e.target.value)}
-            placeholder=t.ideas.ideaTitle
+            placeholder={t.ideas.ideaTitle}
             className="rounded-xl"
             data-testid="input-edit-idea-title"
           />
           <Textarea
             value={content}
             onChange={e => setContent(e.target.value)}
-            placeholder=t.ideas.ideaDesc
+            placeholder={t.ideas.ideaDesc}
             className="min-h-[100px] resize-none rounded-xl"
             autoFocus
             data-testid="input-edit-idea-content"
@@ -151,7 +151,7 @@ function EditIdeaDialog({ idea, open, onOpenChange, onSave }: {
             <label className="text-xs font-display uppercase tracking-wider text-muted-foreground">{t.ideas.category}</label>
             <Select value={category} onValueChange={(v) => setCategory(v as IdeaCategory | "none")}>
               <SelectTrigger className="rounded-lg" data-testid="select-idea-category">
-                <SelectValue placeholder=t.ideas.selectCategory />
+                <SelectValue placeholder={t.ideas.selectCategory} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">{t.ideas.noCategory}</SelectItem>
@@ -234,7 +234,7 @@ export default function IdeasPage() {
             <Filter className="w-3.5 h-3.5 text-muted-foreground" />
             <Select value={filterCategory} onValueChange={(v) => setFilterCategory(v as IdeaCategory | "all")}>
               <SelectTrigger className="h-8 rounded-lg text-xs w-[150px]" data-testid="filter-idea-category">
-                <SelectValue placeholder=t.ideas.allCategories />
+                <SelectValue placeholder={t.ideas.allCategories} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t.ideas.allCategories}</SelectItem>

@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/lib/i18n";
 import { getTodayDate } from "@/lib/store";
 
-const MODES: { key: TimerMode; label: string; duration: number; xp: number; color: string }[] = [
+const getModes = (t: any): { key: TimerMode; label: string; duration: number; xp: number; color: string }[] => [
   { key: "pomodoro", label: "Pomodoro", duration: 25, xp: 5, color: "text-red-400" },
   { key: "deep-work", label: "Deep Work", duration: 90, xp: 25, color: "text-blue-400" },
   { key: "custom", label: t.timer.customTimer, duration: 60, xp: 15, color: "text-purple-400" },
@@ -61,7 +61,7 @@ export default function TimerPage() {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const getModeConfig = useCallback(() => {
-    const mode = MODES.find(m => m.key === selectedMode)!;
+    const mode = getModes(t).find(m => m.key === selectedMode)!;
     const duration = selectedMode === "custom" ? customMinutes : mode.duration;
     return { ...mode, duration, xp: xpForFocus(duration) };
   }, [selectedMode, customMinutes]);
@@ -126,7 +126,7 @@ export default function TimerPage() {
         </h1>
 
         <div className="flex gap-2 flex-wrap">
-          {MODES.map(mode => (
+          {getModes(t).map(mode => (
             <button
               key={mode.key}
               onClick={() => { setSelectedMode(mode.key); setRunning(false); }}

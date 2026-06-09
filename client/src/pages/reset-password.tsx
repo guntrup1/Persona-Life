@@ -53,7 +53,7 @@ export default function ResetPasswordPage() {
           <form onSubmit={handleSubmit} className="space-y-3">
             <Input
               type="password"
-              placeholder=t.authPages.newPassPlaceholder
+              placeholder={t.authPages.newPassPlaceholder}
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
@@ -61,7 +61,7 @@ export default function ResetPasswordPage() {
             />
             <Input
               type="password"
-              placeholder=t.authPages.confirmPassPlaceholder
+              placeholder={t.authPages.confirmPassPlaceholder}
               value={confirm}
               onChange={e => setConfirm(e.target.value)}
               required

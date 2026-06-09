@@ -397,7 +397,7 @@ export default function CalendarPage() {
                           <Input
                             value={taskName}
                             onChange={e => setTaskName(e.target.value)}
-                            placeholder=t.calendar.taskNamePlaceholder
+                            placeholder={t.calendar.taskNamePlaceholder}
                             autoFocus
                             data-testid="input-calendar-task"
                           />
@@ -407,7 +407,7 @@ export default function CalendarPage() {
                           <Textarea
                             value={taskDescription}
                             onChange={e => setTaskDescription(e.target.value)}
-                            placeholder=t.calendar.taskDescPlaceholder
+                            placeholder={t.calendar.taskDescPlaceholder}
                             className="h-20"
                           />
                         </div>
@@ -438,7 +438,7 @@ export default function CalendarPage() {
                           <Label>{t.calendar.linkGoal}</Label>
                           <Select value={taskGoalId} onValueChange={setTaskGoalId}>
                             <SelectTrigger>
-                              <SelectValue placeholder=t.calendar.selectGoal />
+                              <SelectValue placeholder={t.calendar.selectGoal} />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="none">{t.calendar.noGoal}</SelectItem>

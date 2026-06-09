@@ -49,7 +49,7 @@ export default function ForgotPasswordPage() {
           <form onSubmit={handleSubmit} className="space-y-3">
             <Input
               type="email"
-              placeholder=t.authPages.emailPlaceholder
+              placeholder={t.authPages.emailPlaceholder}
               value={email}
               onChange={e => setEmail(e.target.value)}
               required

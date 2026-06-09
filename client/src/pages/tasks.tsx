@@ -126,7 +126,7 @@ function AddTaskDialog({ onAdd, taskToEdit, open: externalOpen, onOpenChange }: 
               id="task-name"
               value={name}
               onChange={e => setName(e.target.value)}
-              placeholder=t.tasks.taskNamePlaceholder
+              placeholder={t.tasks.taskNamePlaceholder}
               data-testid="input-task-name"
               autoFocus
             />
@@ -138,7 +138,7 @@ function AddTaskDialog({ onAdd, taskToEdit, open: externalOpen, onOpenChange }: 
               id="task-desc"
               value={description}
               onChange={e => setDescription(e.target.value)}
-              placeholder=t.tasks.taskDescPlaceholder
+              placeholder={t.tasks.taskDescPlaceholder}
               className="min-h-[80px]"
               data-testid="textarea-task-description"
             />
@@ -329,7 +329,7 @@ function AddRoutineDialog({ onAdd, routineToEdit, open: externalOpen, onOpenChan
             <Input
               value={name}
               onChange={e => setName(e.target.value)}
-              placeholder=t.tasks.routineNamePlaceholder
+              placeholder={t.tasks.routineNamePlaceholder}
               data-testid="input-routine-name"
               autoFocus
             />
@@ -339,7 +339,7 @@ function AddRoutineDialog({ onAdd, routineToEdit, open: externalOpen, onOpenChan
             <Textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
-              placeholder=t.tasks.routineDescPlaceholder
+              placeholder={t.tasks.routineDescPlaceholder}
               data-testid="textarea-routine-description"
             />
           </div>

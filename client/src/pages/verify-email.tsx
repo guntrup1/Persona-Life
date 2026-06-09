@@ -38,7 +38,7 @@ function ResendForm() {
         type="email"
         value={email}
         onChange={e => setEmail(e.target.value)}
-        placeholder=t.authPages.yourEmail
+        placeholder={t.authPages.yourEmail}
         className="w-full px-4 py-2 bg-background border border-border text-sm font-mono focus:outline-none focus:border-primary"
       />
       {error && <p className="text-xs text-red-400 font-mono">{error}</p>}
