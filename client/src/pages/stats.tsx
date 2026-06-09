@@ -92,7 +92,7 @@ export default function StatsPage() {
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h1 className="font-display text-xl font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
             <BarChart3 className="w-5 h-5 text-primary" />
-            Статистика
+            {t.nav.stats.toUpperCase()}
           </h1>
           <div className="flex gap-1">
             {(["day", "week", "month", "all"] as Period[]).map(p => (

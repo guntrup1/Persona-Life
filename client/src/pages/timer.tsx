@@ -122,7 +122,7 @@ export default function TimerPage() {
       <div className="max-w-2xl mx-auto p-4 space-y-4">
         <h1 className="font-display text-xl font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
           <Timer className="w-5 h-5 text-primary" />
-          Фокус таймер
+          {t.nav.timer.toUpperCase()}
         </h1>
 
         <div className="flex gap-2 flex-wrap">

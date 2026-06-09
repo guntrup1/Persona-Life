@@ -34,12 +34,12 @@ export default function ForgotPasswordPage() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-sm p-6 space-y-4">
         <h1 className="font-display text-xl font-bold uppercase tracking-wider text-center">
-          Забыл пароль
+          {t.authPages?.forgotTitle?.toUpperCase() || "ЗАБЫЛ ПАРОЛЬ"}
         </h1>
         {sent ? (
           <div className="text-center space-y-3">
             <p className="text-sm text-muted-foreground">
-              Если аккаунт с таким email существует — письмо отправлено. Проверь почту.
+              {t.authPages?.forgotSent || "Если аккаунт с таким email существует — письмо отправлено."}
             </p>
             <Link href="/">
               <Button variant="outline" className="w-full">{t.authPages.back}</Button>

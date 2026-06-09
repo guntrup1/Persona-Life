@@ -432,7 +432,7 @@ export default function TasksPage() {
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h1 className="font-display text-xl font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
             <CheckSquare className="w-5 h-5 text-primary" />
-            Задачи
+            {t.nav.tasks.toUpperCase()}
           </h1>
         </div>
 
@@ -487,7 +487,7 @@ export default function TasksPage() {
               <div>
                 <div className="text-xs font-display uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-1">
                   <Zap className="w-3 h-3" />
-                  Задачи
+                  {t.nav.tasks.toUpperCase()}
                 </div>
                 <div className="space-y-2">
                   {unlinkedTasks.map(task => (

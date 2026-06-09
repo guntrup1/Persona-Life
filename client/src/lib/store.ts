@@ -359,7 +359,20 @@ function getDailyEmojiIndex(state: string): number {
 export function loadUserSettings(): UserSettings {
   try {
     const raw = localStorage.getItem("userSettings");
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed.tradingSessions && parsed.tradingSessions.some((s: any) => ["Азия", "Лондон", "Франкфурт", "Нью-Йорк"].includes(s.name))) {
+        parsed.tradingSessions = parsed.tradingSessions.map((s: any) => {
+          if (s.name === "Азия") return { ...s, name: "Asia" };
+          if (s.name === "Франкфурт") return { ...s, name: "Frankfurt" };
+          if (s.name === "Лондон") return { ...s, name: "London" };
+          if (s.name === "Нью-Йорк") return { ...s, name: "New York" };
+          return s;
+        });
+        localStorage.setItem("userSettings", JSON.stringify(parsed));
+      }
+      return parsed;
+    }
   } catch {}
   return {
     utcOffset: 1,

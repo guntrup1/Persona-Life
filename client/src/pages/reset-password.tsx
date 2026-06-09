@@ -40,7 +40,7 @@ export default function ResetPasswordPage() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-sm p-6 space-y-4">
         <h1 className="font-display text-xl font-bold uppercase tracking-wider text-center">
-          Новый пароль
+          {t.authPages?.resetTitle?.toUpperCase() || "НОВЫЙ ПАРОЛЬ"}
         </h1>
         {done ? (
           <div className="text-center space-y-3">

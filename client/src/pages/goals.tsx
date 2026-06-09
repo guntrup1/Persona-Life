@@ -323,7 +323,7 @@ function GoalCard({ goal, goals, onToggle, onDelete, onAdd, onUpdate, setGoalTas
               {planIncomplete && !goal.completed && (
                 <span className="text-[10px] text-yellow-500 flex items-center gap-0.5">
                   <AlertTriangle className="w-2.5 h-2.5" />
-                  план не закрыт
+                  {t.goals.planNotFinished}
                 </span>
               )}
             </div>
@@ -488,7 +488,7 @@ export default function GoalsPage() {
       <div className="max-w-4xl mx-auto p-4 space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h1 className="font-display text-xl font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
-            <Target className="w-5 h-5 text-primary" />Цели
+            <Target className="w-5 h-5 text-primary" />{t.nav.goals.toUpperCase()}
           </h1>
           <div className="flex gap-2">
             <AddGoalDialog onAdd={actions.addGoal} forcedType="year" />

@@ -470,7 +470,7 @@ export default function NotesPage() {
           <div className="flex items-center justify-between">
             <h2 className="font-display text-lg font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-primary" />
-              Дневной BIAS
+              {t.notes.dailyBias.toUpperCase()}
             </h2>
             <AddBiasDialog onAdd={actions.addDailyBias} />
           </div>
@@ -544,7 +544,7 @@ export default function NotesPage() {
         <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t">
           <h2 className="font-display text-lg font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
             <FileText className="w-5 h-5 text-primary" />
-            Торговые заметки
+            {t.notes.tradingNotes.toUpperCase()}
           </h2>
           <AddNoteDialog onAdd={actions.addTradingNote} />
         </div>
