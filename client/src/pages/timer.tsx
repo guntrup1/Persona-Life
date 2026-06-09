@@ -7,12 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Play, Pause, RotateCcw, Timer, Check, Flame, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useI18n } from "@/lib/i18n";
 import { getTodayDate } from "@/lib/store";
 
 const MODES: { key: TimerMode; label: string; duration: number; xp: number; color: string }[] = [
   { key: "pomodoro", label: "Pomodoro", duration: 25, xp: 5, color: "text-red-400" },
   { key: "deep-work", label: "Deep Work", duration: 90, xp: 25, color: "text-blue-400" },
-  { key: "custom", label: "Свой таймер", duration: 60, xp: 15, color: "text-purple-400" },
+  { key: "custom", label: t.timer.customTimer, duration: 60, xp: 15, color: "text-purple-400" },
 ];
 
 function TimerRing({ progress, radius, stroke }: { progress: number; radius: number; stroke: number }) {
@@ -49,6 +50,7 @@ function TimerRing({ progress, radius, stroke }: { progress: number; radius: num
 export default function TimerPage() {
   const { state, actions } = useStore();
   const { toast } = useToast();
+  const { t } = useI18n();
 
   const [selectedMode, setSelectedMode] = useState<TimerMode>("pomodoro");
   const [customMinutes, setCustomMinutes] = useState(60);
@@ -92,7 +94,7 @@ export default function TimerPage() {
               date: getTodayDate(),
               completedAt: new Date().toISOString(),
             });
-            toast({ title: "Сессия завершена!", description: `Получено +${config.xp} XP` });
+            toast({ title: t.timer.sessionCompleted, description: t.timer.xpReceived.replace("{xp}", config.xp.toString()) });
             return 0;
           }
           return prev - 1;
@@ -143,7 +145,7 @@ export default function TimerPage() {
         {selectedMode === "custom" && (
           <Card className="p-3 border-card-border animate-slide-in-up">
             <div className="flex items-center gap-3">
-              <Label className="text-sm font-display flex-shrink-0">Минут:</Label>
+              <Label className="text-sm font-display flex-shrink-0">{t.timer.minutes}</Label>
               <Input
                 type="number"
                 min="1"
@@ -153,7 +155,7 @@ export default function TimerPage() {
                 className="w-24 font-mono"
                 data-testid="input-custom-minutes"
               />
-              <span className="text-xs text-muted-foreground">XP за сессию: <span className="text-primary font-bold">{xpForFocus(customMinutes)}</span></span>
+              <span className="text-xs text-muted-foreground">{t.timer.xpForSession} <span className="text-primary font-bold">{xpForFocus(customMinutes)}</span></span>
             </div>
           </Card>
         )}
@@ -193,7 +195,7 @@ export default function TimerPage() {
                   data-testid="button-timer-restart"
                 >
                   <Check className="w-4 h-4" />
-                  Новая сессия
+                  {t.timer.newSession}
                 </Button>
               ) : (
                 <Button
@@ -203,7 +205,7 @@ export default function TimerPage() {
                   data-testid={running ? "button-timer-pause" : "button-timer-start"}
                 >
                   {running ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                  {running ? "Пауза" : "Старт"}
+                  {running ? t.timer.pause : t.timer.start}
                 </Button>
               )}
             </div>
@@ -219,14 +221,14 @@ export default function TimerPage() {
           <Card className="p-3 border-card-border text-center">
             <div className="flex items-center justify-center gap-1 mb-1">
               <Flame className="w-4 h-4 text-orange-400" />
-              <span className="font-display text-xs text-muted-foreground uppercase tracking-wider">Сессии сегодня</span>
+              <span className="font-display text-xs text-muted-foreground uppercase tracking-wider">{t.timer.todaySessions}</span>
             </div>
             <div className="font-display text-2xl font-bold text-foreground">{todayCount}</div>
           </Card>
           <Card className="p-3 border-card-border text-center">
             <div className="flex items-center justify-center gap-1 mb-1">
               <Zap className="w-4 h-4 text-primary" />
-              <span className="font-display text-xs text-muted-foreground uppercase tracking-wider">XP за фокус</span>
+              <span className="font-display text-xs text-muted-foreground uppercase tracking-wider">{t.timer.focusXp}</span>
             </div>
             <div className="font-display text-2xl font-bold text-primary">{todayXP}</div>
           </Card>
@@ -234,7 +236,7 @@ export default function TimerPage() {
 
         {state.focusSessions.length > 0 && (
           <Card className="p-4 border-card-border">
-            <div className="font-display text-xs uppercase tracking-widest text-muted-foreground mb-3">История сессий</div>
+            <div className="font-display text-xs uppercase tracking-widest text-muted-foreground mb-3">{t.timer.history}</div>
             <div className="space-y-2 max-h-48 overflow-auto">
               {[...state.focusSessions].reverse().slice(0, 10).map(session => (
                 <div key={session.id} className="flex items-center justify-between text-sm">

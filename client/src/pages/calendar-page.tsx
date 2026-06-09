@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useI18n } from "@/lib/i18n";
 import { useStore, LIFE_AREAS, LIFE_AREA_COLORS, type LifeArea, type TaskDifficulty, xpForDifficulty, type TodayTask } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ function formatDate(year: number, month: number, day: number): string {
 
 export default function CalendarPage() {
   const { state, actions } = useStore();
+  const { t } = useI18n();
   const today = new Date();
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
@@ -208,7 +210,7 @@ export default function CalendarPage() {
                 }`}
                 data-testid={`view-${v}`}
               >
-                {v === "day" ? "День" : v === "week" ? "Неделя" : "Месяц"}
+                {v === "day" ? t.calendar.day : v === "week" ? t.calendar.week : t.calendar.month}
               </button>
             ))}
           </div>
@@ -251,7 +253,7 @@ export default function CalendarPage() {
                   }}>
                     <ChevronLeft className="w-4 h-4" />
                   </Button>
-                  <div className="font-display font-bold text-foreground">Неделя</div>
+                  <div className="font-display font-bold text-foreground">{t.calendar.weekTitle}</div>
                   <Button size="icon" variant="ghost" onClick={() => {
                     const d = new Date(selectedDate);
                     d.setDate(d.getDate() + 7);
@@ -320,7 +322,7 @@ export default function CalendarPage() {
 
                   {selectedTasks.length === 0 ? (
                     <div className="text-center py-8">
-                      <p className="text-muted-foreground text-sm font-display">Нет задач на этот день</p>
+                      <p className="text-muted-foreground text-sm font-display">{t.calendar.noTasks}</p>
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -372,7 +374,7 @@ export default function CalendarPage() {
                     {new Date(selectedDate + "T12:00:00").toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}
                   </div>
                   <div className="font-display font-bold text-foreground">
-                    {selectedTasks.filter(t => t.completed).length}/{selectedTasks.length} задач
+                    {t.calendar.tasksCount.replace("{done}", selectedTasks.filter(t => t.completed).length.toString()).replace("{total}", selectedTasks.length.toString())}
                   </div>
                 </div>
                 {selectedDate >= todayStr && (
@@ -387,31 +389,31 @@ export default function CalendarPage() {
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
-                        <DialogTitle className="font-display">{editingTask ? "Редактировать задачу" : "Новая задача"}</DialogTitle>
+                        <DialogTitle className="font-display">{editingTask ? t.calendar.editTask : t.calendar.newTask}</DialogTitle>
                       </DialogHeader>
                       <form onSubmit={handleAddTask} className="space-y-4">
                         <div className="space-y-1.5">
-                          <Label>Название</Label>
+                          <Label>{t.calendar.taskName}</Label>
                           <Input
                             value={taskName}
                             onChange={e => setTaskName(e.target.value)}
-                            placeholder="Что нужно сделать?"
+                            placeholder=t.calendar.taskNamePlaceholder
                             autoFocus
                             data-testid="input-calendar-task"
                           />
                         </div>
                         <div className="space-y-1.5">
-                          <Label>Описание (опционально)</Label>
+                          <Label>{t.calendar.taskDesc}</Label>
                           <Textarea
                             value={taskDescription}
                             onChange={e => setTaskDescription(e.target.value)}
-                            placeholder="Подробности..."
+                            placeholder=t.calendar.taskDescPlaceholder
                             className="h-20"
                           />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-1.5">
-                            <Label>Сфера</Label>
+                            <Label>{t.calendar.category}</Label>
                             <Select value={taskCategory} onValueChange={(v) => setTaskCategory(v as LifeArea)}>
                               <SelectTrigger><SelectValue /></SelectTrigger>
                               <SelectContent>
@@ -420,26 +422,26 @@ export default function CalendarPage() {
                             </Select>
                           </div>
                           <div className="space-y-1.5">
-                            <Label>Сложность</Label>
+                            <Label>{t.calendar.difficulty}</Label>
                             <Select value={taskDifficulty} onValueChange={(v) => setTaskDifficulty(v as TaskDifficulty)}>
                               <SelectTrigger><SelectValue /></SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="low">Лёгкая — 10 XP</SelectItem>
-                                <SelectItem value="medium">Средняя — 25 XP</SelectItem>
-                                <SelectItem value="high">Сложная — 50 XP</SelectItem>
+                                <SelectItem value="low">{t.calendar.diffLow}</SelectItem>
+                                <SelectItem value="medium">{t.calendar.diffMedium}</SelectItem>
+                                <SelectItem value="high">{t.calendar.diffHigh}</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
                         </div>
 
                         <div className="space-y-1.5">
-                          <Label>Привязать к цели</Label>
+                          <Label>{t.calendar.linkGoal}</Label>
                           <Select value={taskGoalId} onValueChange={setTaskGoalId}>
                             <SelectTrigger>
-                              <SelectValue placeholder="Выберите цель" />
+                              <SelectValue placeholder=t.calendar.selectGoal />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="none">Без цели</SelectItem>
+                              <SelectItem value="none">{t.calendar.noGoal}</SelectItem>
                               {state.goals.filter(g => g.type === "week").map(g => (
                                 <SelectItem key={g.id} value={g.id}>{g.title}</SelectItem>
                               ))}
@@ -449,18 +451,18 @@ export default function CalendarPage() {
 
                         <div className="space-y-3">
                           <div className="flex items-center justify-between">
-                            <Label>Указать время</Label>
+                            <Label>{t.calendar.specifyTime}</Label>
                             <Switch checked={!noDeadline} onCheckedChange={(checked: boolean) => setNoDeadline(!checked)} />
                           </div>
 
                           {!noDeadline && (
                             <div className="grid grid-cols-2 gap-4">
                               <div className="space-y-1.5">
-                                <Label>Начало</Label>
+                                <Label>{t.calendar.startTime}</Label>
                                 <Input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} />
                               </div>
                               <div className="space-y-1.5">
-                                <Label>Конец</Label>
+                                <Label>{t.calendar.endTime}</Label>
                                 <Input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} />
                               </div>
                             </div>
@@ -468,7 +470,7 @@ export default function CalendarPage() {
                         </div>
 
                         <Button type="submit" className="w-full">
-                          {editingTask ? "Сохранить изменения" : "Добавить"}
+                          {editingTask ? t.calendar.saveChanges : t.calendar.addBtn}
                         </Button>
                       </form>
                     </DialogContent>
@@ -477,7 +479,7 @@ export default function CalendarPage() {
               </div>
 
               {selectedTasks.length === 0 ? (
-                <p className="text-xs text-muted-foreground font-display text-center py-4">Нет задач</p>
+                <p className="text-xs text-muted-foreground font-display text-center py-4">{t.calendar.noTasksShort}</p>
               ) : (
                 <div className="space-y-2">
                   {selectedTasks.map(task => (
@@ -501,23 +503,23 @@ export default function CalendarPage() {
             <DayDetails selectedDate={selectedDate} />
 
             <Card className="p-3 border-card-border">
-              <div className="font-display text-xs text-muted-foreground uppercase tracking-widest mb-2">Легенда</div>
+              <div className="font-display text-xs text-muted-foreground uppercase tracking-widest mb-2">{t.calendar.legend}</div>
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-primary" />
-                  <span className="text-xs text-muted-foreground">Выполнено</span>
+                  <span className="text-xs text-muted-foreground">{t.calendar.legendCompleted}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">Не выполнено</span>
+                  <span className="text-xs text-muted-foreground">{t.calendar.legendNotCompleted}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-red-400" />
-                  <span className="text-xs text-muted-foreground">Высокая сложность</span>
+                  <span className="text-xs text-muted-foreground">{t.calendar.legendHighImpact}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-blue-400" />
-                  <span className="text-xs text-muted-foreground">Заметки / Bias</span>
+                  <span className="text-xs text-muted-foreground">{t.calendar.legendNotes}</span>
                 </div>
               </div>
             </Card>
@@ -529,6 +531,7 @@ export default function CalendarPage() {
 }
 
 function DayDetails({ selectedDate }: { selectedDate: string }) {
+  const { t } = useI18n();
   const { state } = useStore();
   const tradingNotes = state.tradingNotes.filter(n => n.date === selectedDate);
   const dailyBiases = state.dailyBiases.filter(b => b.date === selectedDate);
@@ -539,10 +542,10 @@ function DayDetails({ selectedDate }: { selectedDate: string }) {
       <Card className="p-4 border-card-border">
         <div className="flex items-center gap-2 mb-3">
           <FileText className="w-4 h-4 text-primary" />
-          <h3 className="font-display font-bold text-sm uppercase tracking-wider">Заметки дня</h3>
+          <h3 className="font-display font-bold text-sm uppercase tracking-wider">{t.calendar.dayNotes}</h3>
         </div>
         {dayNotes.length === 0 ? (
-          <p className="text-xs text-muted-foreground italic text-center py-2">Заметок нет</p>
+          <p className="text-xs text-muted-foreground italic text-center py-2">{t.calendar.noDayNotes}</p>
         ) : (
           <div className="space-y-2">
             {dayNotes.map(note => (
@@ -566,7 +569,7 @@ function DayDetails({ selectedDate }: { selectedDate: string }) {
         <Card className="p-4 border-card-border">
           <div className="flex items-center gap-2 mb-3">
             <TrendingUp className="w-4 h-4 text-primary" />
-            <h3 className="font-display font-bold text-sm uppercase tracking-wider">Дневной BIAS</h3>
+            <h3 className="font-display font-bold text-sm uppercase tracking-wider">{t.calendar.dailyBias}</h3>
           </div>
           <div className="space-y-3">
             {dailyBiases.map(bias => (
@@ -604,14 +607,14 @@ function DayDetails({ selectedDate }: { selectedDate: string }) {
         <Card className="p-4 border-card-border">
           <div className="flex items-center gap-2 mb-3">
             <TrendingUp className="w-4 h-4 text-primary" />
-            <h3 className="font-display font-bold text-sm uppercase tracking-wider">Торговые заметки</h3>
+            <h3 className="font-display font-bold text-sm uppercase tracking-wider">{t.calendar.tradingNotes}</h3>
           </div>
           <div className="space-y-3">
             {tradingNotes.map(note => (
               <div key={note.id} className="space-y-1.5 border-b border-border pb-2 last:border-0 last:pb-0">
                 <div className="flex items-center justify-between flex-wrap gap-1">
                   <span className="font-display font-bold text-xs text-foreground truncate max-w-[150px]">
-                    {note.title || "Без названия"}
+                    {note.title || t.calendar.untitled}
                   </span>
                   <Badge variant="outline" className="text-[10px] px-1 h-4">{note.asset}</Badge>
                 </div>

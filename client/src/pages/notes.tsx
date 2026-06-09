@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useI18n } from "@/lib/i18n";
 import { useStore, type TradeAsset, type NoteTag, type BiasDirection, getTodayDate, compressImage } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,7 @@ import { FileText, Plus, Trash2, Clock, TrendingUp, ArrowUpRight, ArrowDownRight
 const ASSETS: TradeAsset[] = ["GER40", "EUR", "XAU", "GBP"];
 const TIMEFRAMES = ["M1", "M5", "M15", "M30", "H1", "H4", "D1"];
 const TAGS: { value: NoteTag; label: string; color: string }[] = [
-  { value: "мысль", label: "Мысль", color: "text-blue-400 border-blue-500/30" },
+  { value: "мысль", label: t.hub.thought, color: "text-blue-400 border-blue-500/30" },
   { value: "идея", label: "Идея", color: "text-green-400 border-green-500/30" },
   { value: "ошибка", label: "Ошибка", color: "text-red-400 border-red-500/30" },
 ];
@@ -28,6 +29,7 @@ function AddBiasDialog({ onAdd, editBias }: { onAdd: (b: any) => void; editBias?
   const [cons, setCons] = useState(editBias?.cons || "");
   const [screenshotUrl, setScreenshotUrl] = useState<string | undefined>(editBias?.screenshotUrl);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { t } = useI18n();
 
   useEffect(() => {
     if (editBias) {
@@ -87,12 +89,12 @@ function AddBiasDialog({ onAdd, editBias }: { onAdd: (b: any) => void; editBias?
       </DialogTrigger>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-display">{editBias ? "Редактировать BIAS" : "Дневной BIAS"}</DialogTitle>
+          <DialogTitle className="font-display">{editBias ? t.notes.editBias : t.notes.dailyBias}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Актив</Label>
+              <Label>{t.notes.asset}</Label>
               <Select value={asset} onValueChange={(v) => setAsset(v as TradeAsset)}>
                 <SelectTrigger data-testid="select-bias-asset">
                   <SelectValue />
@@ -103,7 +105,7 @@ function AddBiasDialog({ onAdd, editBias }: { onAdd: (b: any) => void; editBias?
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Направление</Label>
+              <Label>{t.notes.direction}</Label>
               <Select value={direction} onValueChange={(v) => setDirection(v as BiasDirection)}>
                 <SelectTrigger data-testid="select-bias-direction">
                   <SelectValue />
@@ -118,29 +120,29 @@ function AddBiasDialog({ onAdd, editBias }: { onAdd: (b: any) => void; editBias?
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-green-500">Аргументы ЗА (Pros)</Label>
+            <Label className="text-green-500">{t.notes.pros}</Label>
             <Textarea
               value={pros}
               onChange={e => setPros(e.target.value)}
-              placeholder="Почему лонг? Факторы, уровни..."
+              placeholder=t.notes.prosPlaceholder
               className="min-h-[80px] text-sm"
               data-testid="input-bias-pros"
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-red-500">Аргументы ПРОТИВ (Cons)</Label>
+            <Label className="text-red-500">{t.notes.cons}</Label>
             <Textarea
               value={cons}
               onChange={e => setCons(e.target.value)}
-              placeholder="Риски, контр-аргументы..."
+              placeholder=t.notes.consPlaceholder
               className="min-h-[80px] text-sm"
               data-testid="input-bias-cons"
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label>Скриншот (опционально)</Label>
+            <Label>{t.notes.screenshot}</Label>
             <div className="flex items-center gap-2">
               <Button
                 type="button"
@@ -151,7 +153,7 @@ function AddBiasDialog({ onAdd, editBias }: { onAdd: (b: any) => void; editBias?
                 data-testid="button-upload-screenshot"
               >
                 <Camera className="w-4 h-4" />
-                {screenshotUrl ? "Изменить скриншот" : "Загрузить скриншот"}
+                {screenshotUrl ? t.notes.changeScreenshot : t.notes.uploadScreenshot}
               </Button>
               <input
                 type="file"
@@ -198,6 +200,7 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
   const [screenshotUrl, setScreenshotUrl] = useState<string | undefined>(editNote?.screenshotUrl);
   const [isTradingIdea, setIsTradingIdea] = useState(editNote?.isTradingIdea || false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { t } = useI18n();
 
   useEffect(() => {
     if (editNote) {
@@ -262,21 +265,21 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
       </DialogTrigger>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle className="font-display">{editNote ? "Редактировать заметку" : "Торговая заметка"}</DialogTitle>
+          <DialogTitle className="font-display">{editNote ? t.notes.editNote : t.notes.tradingNotes}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <Label>Заголовок</Label>
+            <Label>{t.notes.title}</Label>
             <Input
               value={title}
               onChange={e => setTitle(e.target.value)}
-              placeholder="Напр: Ложный пробой уровня..."
+              placeholder=t.notes.titlePlaceholder
               data-testid="input-note-title"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Актив</Label>
+              <Label>{t.notes.asset}</Label>
               <Select value={asset} onValueChange={(v) => setAsset(v as TradeAsset)}>
                 <SelectTrigger data-testid="select-note-asset">
                   <SelectValue />
@@ -287,7 +290,7 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Таймфрейм</Label>
+              <Label>{t.notes.timeframe}</Label>
               <Select value={timeframe} onValueChange={setTimeframe}>
                 <SelectTrigger>
                   <SelectValue />
@@ -301,7 +304,7 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Время</Label>
+              <Label>{t.notes.time}</Label>
               <Input
                 type="time"
                 value={time}
@@ -310,7 +313,7 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Тег</Label>
+              <Label>{t.notes.tag}</Label>
               <Select value={tag} onValueChange={(v) => setTag(v as NoteTag)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -323,11 +326,11 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
           </div>
 
           <div className="space-y-1.5">
-            <Label>Текст заметки</Label>
+            <Label>{t.notes.noteText}</Label>
             <Textarea
               value={text}
               onChange={e => setText(e.target.value)}
-              placeholder="Мысли по рынку, наблюдения, анализ..."
+              placeholder=t.notes.noteTextPlaceholder
               className="min-h-[120px]"
               data-testid="input-note-text"
               autoFocus
@@ -335,7 +338,7 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
           </div>
 
           <div className="space-y-1.5">
-            <Label>Скриншот (опционально)</Label>
+            <Label>{t.notes.screenshot}</Label>
             <div className="flex items-center gap-2">
               <Button
                 type="button"
@@ -346,7 +349,7 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
                 data-testid="button-note-upload-screenshot"
               >
                 <Camera className="w-4 h-4" />
-                {screenshotUrl ? "Изменить скриншот" : "Загрузить скриншот"}
+                {screenshotUrl ? t.notes.changeScreenshot : t.notes.uploadScreenshot}
               </Button>
               <input
                 type="file"
@@ -380,7 +383,7 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
                   <Lightbulb className="w-3.5 h-3.5" />
                   Торговая идея
                 </Label>
-                <div className="text-[10px] text-muted-foreground">Сохранить в список торговых идей</div>
+                <div className="text-[10px] text-muted-foreground">{t.notes.tradingIdeaDesc}</div>
               </div>
               <Switch
                 id="trading-idea-toggle"
@@ -402,6 +405,7 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
 
 export default function NotesPage() {
   const { state, actions, todayBiases } = useStore();
+  const { t } = useI18n();
   const [filterAsset, setFilterAsset] = useState<TradeAsset | "all">("all");
   const [filterTag, setFilterTag] = useState<NoteTag | "all">("all");
   const [filterPeriod, setFilterPeriod] = useState<"today" | "week" | "month" | "all">("all");
@@ -473,7 +477,7 @@ export default function NotesPage() {
 
           {todayBiases.length === 0 ? (
             <Card className="p-6 text-center border-dashed border-border bg-muted/30">
-              <p className="text-sm text-muted-foreground">На сегодня BIAS не определен</p>
+              <p className="text-sm text-muted-foreground">{t.notes.noBiasToday}</p>
             </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -551,10 +555,10 @@ export default function NotesPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Все</SelectItem>
-              <SelectItem value="today">Сегодня</SelectItem>
-              <SelectItem value="week">Неделя</SelectItem>
-              <SelectItem value="month">Месяц</SelectItem>
+              <SelectItem value="all">{t.notes.all}</SelectItem>
+              <SelectItem value="today">{t.notes.today}</SelectItem>
+              <SelectItem value="week">{t.notes.week}</SelectItem>
+              <SelectItem value="month">{t.notes.month}</SelectItem>
             </SelectContent>
           </Select>
 
@@ -563,7 +567,7 @@ export default function NotesPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Все активы</SelectItem>
+              <SelectItem value="all">{t.notes.allAssets}</SelectItem>
               {ASSETS.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -573,19 +577,19 @@ export default function NotesPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Все теги</SelectItem>
+              <SelectItem value="all">{t.notes.allTags}</SelectItem>
               {TAGS.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
             </SelectContent>
           </Select>
 
-          <span className="text-xs text-muted-foreground font-mono ml-auto">{filteredNotes.length} заметок</span>
+          <span className="text-xs text-muted-foreground font-mono ml-auto">{filteredNotes.length}  {t.notes.notesCount}</span>
         </div>
 
         {filteredNotes.length === 0 ? (
           <Card className="p-10 text-center border-dashed border-border">
             <FileText className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-30" />
-            <p className="font-display text-sm text-muted-foreground">Нет торговых заметок</p>
-            <p className="text-xs text-muted-foreground mt-1">Добавь наблюдения и мысли по рынку</p>
+            <p className="font-display text-sm text-muted-foreground">Нет торговых  {t.notes.notesCount}</p>
+            <p className="text-xs text-muted-foreground mt-1">{t.notes.noNotesDesc}</p>
             <div className="mt-4">
               <AddNoteDialog onAdd={actions.addTradingNote} testId="button-add-note-empty" />
             </div>
@@ -652,12 +656,12 @@ export default function NotesPage() {
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>Удалить заметку?</AlertDialogTitle>
-                            <AlertDialogDescription>Эта заметка будет удалена навсегда.</AlertDialogDescription>
+                            <AlertDialogTitle>{t.notes.deleteNoteQ}</AlertDialogTitle>
+                            <AlertDialogDescription>{t.notes.deleteNoteDesc}</AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
-                            <AlertDialogCancel>Отмена</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => actions.deleteTradingNote(note.id)}>Удалить</AlertDialogAction>
+                            <AlertDialogCancel>{t.notes.cancel}</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => actions.deleteTradingNote(note.id)}>{t.notes.delete}</AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
                       </AlertDialog>
@@ -678,6 +682,7 @@ export default function NotesPage() {
 
 function TradingIdeasSection() {
   const { state, actions } = useStore();
+  const { t } = useI18n();
   const [showDone, setShowDone] = useState(false);
 
   const tradingIdeas = state.tradingNotes
@@ -699,7 +704,7 @@ function TradingIdeasSection() {
         </h2>
         <div className="flex items-center gap-3">
           <span className="text-xs text-muted-foreground font-mono">
-            {activeIdeas.length} активных{doneIdeas.length > 0 && ` · ${doneIdeas.length} выполнено`}
+            {activeIdeas.length} {t.notes.active}{doneIdeas.length > 0 && ` · ${doneIdeas.length} {t.notes.completedCount}`}
           </span>
           {doneIdeas.length > 0 && (
             <label className="flex items-center gap-1.5 cursor-pointer">
@@ -710,7 +715,7 @@ function TradingIdeasSection() {
                 className="accent-green-500"
                 data-testid="checkbox-show-done-ideas"
               />
-              <span className="text-xs text-muted-foreground">Выполненные</span>
+              <span className="text-xs text-muted-foreground">{t.notes.completed}</span>
             </label>
           )}
         </div>

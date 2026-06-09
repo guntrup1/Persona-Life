@@ -5,8 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
+import { useI18n, LangToggle } from "@/lib/i18n";
 
 export default function LoginPage() {
+  const { t } = useI18n();
   const { login, register } = useAuth();
   const { toast } = useToast();
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -21,7 +23,7 @@ export default function LoginPage() {
 
   const handleResend = async () => {
     if (!email.trim()) {
-      toast({ title: "Введите email в поле выше", variant: "destructive" });
+      toast({ title: t.auth.enterEmail, variant: "destructive" });
       return;
     }
     setResendLoading(true);
@@ -33,7 +35,7 @@ export default function LoginPage() {
       });
       setResendDone(true);
     } catch {
-      toast({ title: "Ошибка отправки", variant: "destructive" });
+      toast({ title: t.auth.errSend, variant: "destructive" });
     } finally {
       setResendLoading(false);
     }
@@ -50,19 +52,19 @@ export default function LoginPage() {
       const result = await login(email, password);
       if (result.error) {
         // Если ошибка именно про верификацию — показываем блок переотправки
-        if (result.error.toLowerCase().includes("подтверди") || result.error.toLowerCase().includes("верификац")) {
+        if (result.error.toLowerCase().includes("подтверди") || result.error.toLowerCase().includes("верификац") || result.error.toLowerCase().includes("verif")) {
           setShowResend(true);
         }
-        toast({ title: "Ошибка входа", description: result.error, variant: "destructive" });
+        toast({ title: t.auth.errLogin, description: result.error, variant: "destructive" });
       } else {
-        toast({ title: "Добро пожаловать!" });
+        toast({ title: t.auth.welcomeBack });
       }
     } else {
       const result = await register(email, password);
       if (result.error) {
-        toast({ title: "Ошибка регистрации", description: result.error, variant: "destructive" });
+        toast({ title: t.auth.errReg, description: result.error, variant: "destructive" });
       } else {
-        toast({ title: "Аккаунт создан!", description: "Проверь почту и подтверди email." });
+        toast({ title: t.auth.created, description: t.auth.createdDesc });
       }
     }
 
@@ -84,6 +86,10 @@ export default function LoginPage() {
         .glow-card { animation: glow-pulse 3s ease-in-out infinite; }
       `}</style>
 
+      <div className="absolute top-4 right-4">
+        <LangToggle />
+      </div>
+
       <div className="w-full max-w-sm slide-up">
         <div className="text-center mb-8">
           <div className="text-6xl mb-4 animate-bounce">🎭</div>
@@ -104,7 +110,7 @@ export default function LoginPage() {
               onClick={() => { setMode("login"); setShowResend(false); setResendDone(false); }}
               data-testid="tab-login"
             >
-              Войти
+              {t.auth.loginTab}
             </button>
             <button
               className={`flex-1 py-2 text-xs font-display font-bold uppercase tracking-wider transition-colors ${
@@ -113,7 +119,7 @@ export default function LoginPage() {
               onClick={() => { setMode("register"); setShowResend(false); setResendDone(false); }}
               data-testid="tab-register"
             >
-              Создать
+              {t.auth.registerTab}
             </button>
           </div>
 
@@ -136,13 +142,13 @@ export default function LoginPage() {
 
             <div className="space-y-1.5">
               <Label className="font-display text-xs uppercase tracking-wider text-muted-foreground">
-                Пароль
+                {t.auth.password}
               </Label>
               <Input
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                placeholder={mode === "register" ? "Мин. 6 символов" : "••••••••"}
+                placeholder={mode === "register" ? t.auth.min6 : "••••••••"}
                 required
                 autoComplete={mode === "login" ? "current-password" : "new-password"}
                 className="bg-background border-card-border font-mono"
@@ -152,7 +158,7 @@ export default function LoginPage() {
                 <div className="text-right">
                   <Link href="/forgot-password">
                     <span className="text-xs text-muted-foreground hover:text-primary cursor-pointer transition-colors uppercase tracking-wider font-display">
-                      Забыл пароль?
+                      {t.auth.forgotPassword}
                     </span>
                   </Link>
                 </div>
@@ -165,7 +171,7 @@ export default function LoginPage() {
               className="w-full font-display uppercase tracking-[0.2em] text-xs h-11 rounded-xl mt-2"
               data-testid="button-auth-submit"
             >
-              {loading ? "..." : mode === "login" ? "Войти" : "Создать аккаунт"}
+              {loading ? "..." : mode === "login" ? t.auth.loginBtn : t.auth.registerBtn}
             </Button>
           </form>
 
@@ -174,12 +180,12 @@ export default function LoginPage() {
             <div className="mt-4 p-4 border border-yellow-500/30 rounded-xl bg-yellow-500/5 space-y-3">
               {resendDone ? (
                 <p className="text-xs text-primary font-mono text-center">
-                  ✅ Письмо отправлено! Проверь почту.
+                  {t.auth.sent}
                 </p>
               ) : (
                 <>
                   <p className="text-xs text-yellow-400 font-mono text-center">
-                    Email не подтверждён. Отправить новое письмо?
+                    {t.auth.notVerified}
                   </p>
                   <Button
                     onClick={handleResend}
@@ -187,7 +193,7 @@ export default function LoginPage() {
                     variant="outline"
                     className="w-full text-xs font-display uppercase tracking-wider border-yellow-500/40 text-yellow-400 hover:bg-yellow-500/10"
                   >
-                    {resendLoading ? "Отправляем..." : "Отправить письмо повторно"}
+                    {resendLoading ? t.auth.sending : t.auth.resend}
                   </Button>
                 </>
               )}
@@ -195,19 +201,19 @@ export default function LoginPage() {
           )}
 
           <p className="text-center text-xs text-muted-foreground mt-4">
-            {mode === "login" ? "Нет аккаунта?" : "Уже есть аккаунт?"}{" "}
+            {mode === "login" ? t.auth.noAccount : t.auth.hasAccount}{" "}
             <button
               onClick={() => { setMode(mode === "login" ? "register" : "login"); setShowResend(false); setResendDone(false); }}
               className="text-primary font-bold"
               data-testid="button-switch-mode"
             >
-              {mode === "login" ? "Создать" : "Войти"}
+              {mode === "login" ? t.auth.registerTab : t.auth.loginTab}
             </button>
           </p>
         </div>
 
         <p className="text-center text-[10px] text-muted-foreground mt-6 tracking-wider">
-          Данные синхронизируются между устройствами
+          {t.auth.syncing}
         </p>
       </div>
     </div>

@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
+import { useI18n } from "@/lib/i18n";
 
 function ResendForm() {
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   const handleResend = async () => {
-    if (!email) { setError("Введите email"); return; }
+    if (!email) { setError(t.authPages.enterEmail); return; }
     setLoading(true); setError(""); setMessage("");
     try {
       const res = await fetch("/api/auth/resend-verification", {
@@ -18,10 +20,10 @@ function ResendForm() {
         credentials: "include",
       });
       const data = await res.json();
-      if (res.ok) setMessage("Письмо отправлено! Проверьте почту.");
-      else setError(data.message || "Ошибка отправки");
+      if (res.ok) setMessage(t.authPages.sendEmailSuccess);
+      else setError(data.message || t.authPages.sendError);
     } catch {
-      setError("Ошибка сети");
+      setError(t.authPages.netError);
     } finally {
       setLoading(false);
     }
@@ -36,7 +38,7 @@ function ResendForm() {
         type="email"
         value={email}
         onChange={e => setEmail(e.target.value)}
-        placeholder="Ваш email"
+        placeholder=t.authPages.yourEmail
         className="w-full px-4 py-2 bg-background border border-border text-sm font-mono focus:outline-none focus:border-primary"
       />
       {error && <p className="text-xs text-red-400 font-mono">{error}</p>}
@@ -47,13 +49,14 @@ function ResendForm() {
         className="w-full px-6 py-2 bg-primary text-black font-display text-xs uppercase tracking-widest disabled:opacity-50"
         style={{ clipPath: "polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)" }}
       >
-        {loading ? "Отправка..." : "Отправить новую ссылку"}
+        {loading ? t.authPages.sendingLink : t.authPages.sendNewLink}
       </button>
     </div>
   );
 }
 
 export default function VerifyEmailPage() {
+  const { t } = useI18n();
   const [status, setStatus] = useState<"loading" | "success" | "error" | "expired">("loading");
   const [, navigate] = useLocation();
 
@@ -102,7 +105,7 @@ export default function VerifyEmailPage() {
             style={{ clipPath: "polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px))" }}
           >
             <div className="text-5xl">✅</div>
-            <div className="font-p5 text-2xl text-primary tracking-widest">EMAIL ПОДТВЕРЖДЁН</div>
+            <div className="font-p5 text-2xl text-primary tracking-widest">{t.authPages.emailVerified}</div>
             <p className="text-sm text-muted-foreground font-mono">
               Перенаправляем на страницу входа...
             </p>
@@ -116,7 +119,7 @@ export default function VerifyEmailPage() {
             style={{ clipPath: "polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px))" }}
           >
             <div className="text-5xl">⏰</div>
-            <div className="font-p5 text-2xl text-yellow-400 tracking-widest">ССЫЛКА ИСТЕКЛА</div>
+            <div className="font-p5 text-2xl text-yellow-400 tracking-widest">{t.authPages.linkExpired}</div>
             <p className="text-sm text-muted-foreground font-mono">
               Ссылка больше недействительна. Запросите новую.
             </p>
@@ -137,7 +140,7 @@ export default function VerifyEmailPage() {
             style={{ clipPath: "polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px))" }}
           >
             <div className="text-5xl">❌</div>
-            <div className="font-p5 text-2xl text-red-400 tracking-widest">ССЫЛКА НЕДЕЙСТВИТЕЛЬНА</div>
+            <div className="font-p5 text-2xl text-red-400 tracking-widest">{t.authPages.linkInvalid}</div>
             <p className="text-sm text-muted-foreground font-mono">
               Ссылка уже использована или неверна.
             </p>

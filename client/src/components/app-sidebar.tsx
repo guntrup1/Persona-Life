@@ -11,6 +11,7 @@ import {
 import { useStore, getUserTime, loadUserSettings, getMarketSession, getLevelFromXP } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { useState, useEffect, memo } from "react";
+import { useI18n } from "@/lib/i18n";
 
 const SidebarClock = memo(function SidebarClock() {
   const [now, setNow] = useState(getUserTime());
@@ -42,22 +43,23 @@ const SidebarClock = memo(function SidebarClock() {
 });
 
 const navItems = [
-  { title: "Главная",    url: "/",         icon: LayoutDashboard, testId: "nav-hub" },
-  { title: "Задачи",     url: "/tasks",    icon: CheckSquare,     testId: "nav-tasks" },
-  { title: "Цели",       url: "/goals",    icon: Target,          testId: "nav-goals" },
-  { title: "Фокус",      url: "/timer",    icon: Timer,           testId: "nav-timer" },
-  { title: "Статистика", url: "/stats",    icon: BarChart3,       testId: "nav-stats" },
-  { title: "Трейдинг",   url: "/notes",    icon: TrendingUp,      testId: "nav-notes" },
-  { title: "Идеи",       url: "/ideas",    icon: Lightbulb,       testId: "nav-ideas" },
-  { title: "Новости",    url: "/news",     icon: Newspaper,       testId: "nav-news" },
-  { title: "Календарь",  url: "/calendar", icon: CalendarDays,    testId: "nav-calendar" },
-  { title: "Настройки",  url: "/settings", icon: Settings,        testId: "nav-settings" },
-];
+  { id: "home",    url: "/",         icon: LayoutDashboard, testId: "nav-hub" },
+  { id: "tasks",     url: "/tasks",    icon: CheckSquare,     testId: "nav-tasks" },
+  { id: "goals",       url: "/goals",    icon: Target,          testId: "nav-goals" },
+  { id: "timer",      url: "/timer",    icon: Timer,           testId: "nav-timer" },
+  { id: "stats", url: "/stats",    icon: BarChart3,       testId: "nav-stats" },
+  { id: "trading",   url: "/notes",    icon: TrendingUp,      testId: "nav-notes" },
+  { id: "ideas",       url: "/ideas",    icon: Lightbulb,       testId: "nav-ideas" },
+  { id: "news",    url: "/news",     icon: Newspaper,       testId: "nav-news" },
+  { id: "calendar",  url: "/calendar", icon: CalendarDays,    testId: "nav-calendar" },
+  { id: "settings",  url: "/settings", icon: Settings,        testId: "nav-settings" },
+] as const;
 
 export function AppSidebar() {
   const [location] = useLocation();
   const { state } = useStore();
   const { user, logout } = useAuth();
+  const { t } = useI18n();
   const { level, xpInLevel, xpForNext } = getLevelFromXP(state.xp.totalXP);
 
   return (
@@ -96,7 +98,7 @@ export function AppSidebar() {
               {navItems.map((item) => {
                 const isActive = location === item.url;
                 return (
-                  <SidebarMenuItem key={item.title}>
+                  <SidebarMenuItem key={item.id}>
                     <SidebarMenuButton asChild isActive={isActive} data-testid={item.testId}>
                       <Link href={item.url}>
                         <div className={`flex items-center gap-3 w-full px-3 py-2 transition-all duration-150 relative ${
@@ -113,7 +115,7 @@ export function AppSidebar() {
                           )}
                           <item.icon className="w-4 h-4 flex-shrink-0" />
                           <span className="font-display text-xs tracking-widest uppercase truncate font-bold">
-                            {item.title}
+                            {t.nav[item.id as keyof typeof t.nav]}
                           </span>
                           {isActive && (
                             <div className="ml-auto w-1 h-3 bg-white/60 flex-shrink-0" />
@@ -134,7 +136,7 @@ export function AppSidebar() {
         {/* XP бар */}
         <div className="space-y-1 overflow-hidden">
           <div className="flex items-center justify-between gap-1">
-            <span className="font-display text-[10px] text-muted-foreground uppercase tracking-wider">Ур. {level}</span>
+            <span className="font-display text-[10px] text-muted-foreground uppercase tracking-wider">{t.sidebar.level} {level}</span>
             <span className="font-mono text-[10px] text-primary">{xpInLevel}/{xpForNext}</span>
           </div>
           <div className="w-full h-1.5 bg-muted overflow-hidden relative">
@@ -152,7 +154,7 @@ export function AppSidebar() {
         <div className="grid grid-cols-2 gap-1 text-[10px] overflow-hidden">
           <SidebarClock />
           <div className="text-right min-w-0">
-            <div className="text-muted-foreground font-mono truncate text-[10px]">Стрик</div>
+            <div className="text-muted-foreground font-mono truncate text-[10px]">{t.sidebar.streak}</div>
             <div className="font-mono font-bold text-primary truncate">{state.streak.currentStreak}д</div>
           </div>
         </div>
@@ -164,11 +166,11 @@ export function AppSidebar() {
               {user.email}
             </span>
             
-              <a href="/api/user/export" className="flex-shrink-0 p-1 text-muted-foreground hover:text-primary transition-colors" title="Экспорт данных" data-testid="button-export"><Download className="w-3.5 h-3.5" /></a>
+              <a href="/api/user/export" className="flex-shrink-0 p-1 text-muted-foreground hover:text-primary transition-colors" title={t.sidebar.export} data-testid="button-export"><Download className="w-3.5 h-3.5" /></a>
             <button
               onClick={logout}
               className="flex-shrink-0 p-1 text-muted-foreground hover:text-red-400 transition-colors"
-              title="Выйти"
+              title={t.logout}
               data-testid="button-logout"
             >
               <LogOut className="w-3.5 h-3.5" />

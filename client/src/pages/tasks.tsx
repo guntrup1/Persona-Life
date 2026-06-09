@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/popover";
 import { CheckCircle, Circle, Plus, Trash2, RefreshCw, CheckSquare, Repeat, Zap, Pencil, Clock, ChevronDown, ChevronRight, CalendarDays, Target } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useI18n } from "@/lib/i18n";
 
 function AddTaskDialog({ onAdd, taskToEdit, open: externalOpen, onOpenChange }: { 
   onAdd: (task: any) => void;
@@ -44,6 +45,7 @@ function AddTaskDialog({ onAdd, taskToEdit, open: externalOpen, onOpenChange }: 
   const [date, setDate] = useState(getTodayDate());
 
   const { state } = useStore();
+  const { t } = useI18n();
   const weekGoals = state.goals.filter(g => g.type === "week" && !g.completed);
 
   useEffect(() => {
@@ -107,36 +109,36 @@ function AddTaskDialog({ onAdd, taskToEdit, open: externalOpen, onOpenChange }: 
         <DialogTrigger asChild>
           <Button size="sm" className="gap-1" data-testid="button-add-task">
             <Plus className="w-3 h-3" />
-            Добавить задачу
+            {t.tasks.addTask}
           </Button>
         </DialogTrigger>
       )}
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="font-display">
-            {taskToEdit ? "Редактировать задачу" : "Новая задача на сегодня"}
+            {taskToEdit ? "{t.tasks.editTask}" : "{t.tasks.newTask}"}
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="task-name">Название</Label>
+            <Label htmlFor="task-name">{t.tasks.taskName}</Label>
             <Input
               id="task-name"
               value={name}
               onChange={e => setName(e.target.value)}
-              placeholder="Что нужно сделать?"
+              placeholder=t.tasks.taskNamePlaceholder
               data-testid="input-task-name"
               autoFocus
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="task-desc">Описание (опционально)</Label>
+            <Label htmlFor="task-desc">{t.tasks.taskDesc}</Label>
             <Textarea
               id="task-desc"
               value={description}
               onChange={e => setDescription(e.target.value)}
-              placeholder="Детали задачи..."
+              placeholder=t.tasks.taskDescPlaceholder
               className="min-h-[80px]"
               data-testid="textarea-task-description"
             />
@@ -144,7 +146,7 @@ function AddTaskDialog({ onAdd, taskToEdit, open: externalOpen, onOpenChange }: 
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label>Сфера жизни</Label>
+              <Label>{t.tasks.category}</Label>
               <Select value={category} onValueChange={(v) => setCategory(v as LifeArea)}>
                 <SelectTrigger data-testid="select-task-category">
                   <SelectValue />
@@ -155,17 +157,17 @@ function AddTaskDialog({ onAdd, taskToEdit, open: externalOpen, onOpenChange }: 
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Сложность / XP</Label>
+              <Label>{t.tasks.difficulty}</Label>
               <div className="flex gap-2">
                 <Select value={difficulty} onValueChange={(v) => handleDifficultyChange(v as TaskDifficulty)}>
                   <SelectTrigger className="flex-1" data-testid="select-task-difficulty">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="low">Лёгкая (10)</SelectItem>
-                    <SelectItem value="medium">Средняя (25)</SelectItem>
-                    <SelectItem value="high">Сложная (50)</SelectItem>
-                    <SelectItem value="custom">Свой XP</SelectItem>
+                    <SelectItem value="low">{t.tasks.difficultyLow}</SelectItem>
+                    <SelectItem value="medium">{t.tasks.difficultyMedium}</SelectItem>
+                    <SelectItem value="high">{t.tasks.difficultyHigh}</SelectItem>
+                    <SelectItem value="custom">{t.tasks.difficultyCustom}</SelectItem>
                   </SelectContent>
                 </Select>
                 {difficulty === "custom" && (
@@ -182,7 +184,7 @@ function AddTaskDialog({ onAdd, taskToEdit, open: externalOpen, onOpenChange }: 
           </div>
 
           <div className="space-y-1.5">
-            <Label>Дата выполнения</Label>
+            <Label>{t.tasks.date}</Label>
             <Input
               type="date"
               value={date}
@@ -192,13 +194,13 @@ function AddTaskDialog({ onAdd, taskToEdit, open: externalOpen, onOpenChange }: 
           </div>
 
           <div className="space-y-1.5">
-            <Label>Привязать к цели недели</Label>
+            <Label>{t.tasks.linkGoal}</Label>
             <Select value={weekGoalId} onValueChange={setWeekGoalId}>
               <SelectTrigger data-testid="select-task-goal">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">Без цели</SelectItem>
+                <SelectItem value="none">{t.tasks.noGoal}</SelectItem>
                 {weekGoals.map(g => (
                   <SelectItem key={g.id} value={g.id}>{g.title}</SelectItem>
                 ))}
@@ -208,8 +210,8 @@ function AddTaskDialog({ onAdd, taskToEdit, open: externalOpen, onOpenChange }: 
 
           <div className="flex items-center justify-between py-1">
             <div className="space-y-0.5">
-              <Label htmlFor="no-deadline-toggle">Без срока</Label>
-              <div className="text-[10px] text-muted-foreground">Не указывать время начала и конца</div>
+              <Label htmlFor="no-deadline-toggle">{t.tasks.noDeadline}</Label>
+              <div className="text-[10px] text-muted-foreground">{t.tasks.noDeadlineDesc}</div>
             </div>
             <Switch
               id="no-deadline-toggle"
@@ -222,7 +224,7 @@ function AddTaskDialog({ onAdd, taskToEdit, open: externalOpen, onOpenChange }: 
           {!noDeadline && (
             <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-1 duration-200">
               <div className="space-y-1.5">
-                <Label htmlFor="start-time">Начало</Label>
+                <Label htmlFor="start-time">{t.tasks.startTime}</Label>
                 <Input
                   id="start-time"
                   type="time"
@@ -232,7 +234,7 @@ function AddTaskDialog({ onAdd, taskToEdit, open: externalOpen, onOpenChange }: 
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="end-time">Конец</Label>
+                <Label htmlFor="end-time">{t.tasks.endTime}</Label>
                 <Input
                   id="end-time"
                   type="time"
@@ -246,7 +248,7 @@ function AddTaskDialog({ onAdd, taskToEdit, open: externalOpen, onOpenChange }: 
 
           <div className="flex gap-2 pt-2">
             <Button type="submit" className="flex-1" data-testid="button-task-submit">
-              {taskToEdit ? "Сохранить изменения" : `Добавить (+${xp} XP)`}
+              {taskToEdit ? t.tasks.saveChanges : `{t.tasks.addBtn} (+${xp} XP)`}
             </Button>
           </div>
         </form>
@@ -272,6 +274,7 @@ function AddRoutineDialog({ onAdd, routineToEdit, open: externalOpen, onOpenChan
   const [goalId, setGoalId] = useState<string>("none");
 
   const { state } = useStore();
+  const { t } = useI18n();
   const goals = state.goals.filter(g => !g.completed);
 
   useEffect(() => {
@@ -310,38 +313,38 @@ function AddRoutineDialog({ onAdd, routineToEdit, open: externalOpen, onOpenChan
         <DialogTrigger asChild>
           <Button size="sm" variant="outline" className="gap-1" data-testid="button-add-routine">
             <Plus className="w-3 h-3" />
-            Добавить рутину
+            {t.tasks.addRoutineBtn}
           </Button>
         </DialogTrigger>
       )}
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="font-display">
-            {routineToEdit ? "Редактировать рутину" : "Новая ежедневная рутина"}
+            {routineToEdit ? "{t.tasks.editRoutine}" : "{t.tasks.newRoutine}"}
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <Label>Название</Label>
+            <Label>{t.tasks.taskName}</Label>
             <Input
               value={name}
               onChange={e => setName(e.target.value)}
-              placeholder="Например: Медитация"
+              placeholder=t.tasks.routineNamePlaceholder
               data-testid="input-routine-name"
               autoFocus
             />
           </div>
           <div className="space-y-1.5">
-            <Label>Описание (опционально)</Label>
+            <Label>{t.tasks.taskDesc}</Label>
             <Textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
-              placeholder="Детали рутины..."
+              placeholder=t.tasks.routineDescPlaceholder
               data-testid="textarea-routine-description"
             />
           </div>
           <div className="space-y-1.5">
-            <Label>Сфера жизни</Label>
+            <Label>{t.tasks.category}</Label>
             <Select value={category} onValueChange={(v) => setCategory(v as LifeArea)}>
               <SelectTrigger>
                 <SelectValue />
@@ -352,7 +355,7 @@ function AddRoutineDialog({ onAdd, routineToEdit, open: externalOpen, onOpenChan
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>XP за выполнение</Label>
+            <Label>{t.tasks.routineXp}</Label>
             <Select value={String(xp)} onValueChange={(v) => setXp(Number(v))}>
               <SelectTrigger>
                 <SelectValue />
@@ -367,13 +370,13 @@ function AddRoutineDialog({ onAdd, routineToEdit, open: externalOpen, onOpenChan
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>Привязать к цели</Label>
+            <Label>{t.tasks.linkGoal}</Label>
             <Select value={goalId} onValueChange={setGoalId}>
               <SelectTrigger data-testid="select-routine-goal">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">Без цели</SelectItem>
+                <SelectItem value="none">{t.tasks.noGoal}</SelectItem>
                 {goals.map(g => (
                   <SelectItem key={g.id} value={g.id}>{g.title}</SelectItem>
                 ))}
@@ -381,7 +384,7 @@ function AddRoutineDialog({ onAdd, routineToEdit, open: externalOpen, onOpenChan
             </Select>
           </div>
           <Button type="submit" className="w-full" data-testid="button-routine-submit">
-            {routineToEdit ? "Сохранить" : "Добавить рутину"}
+            {routineToEdit ? t.tasks.save : "{t.tasks.addRoutineBtn}"}
           </Button>
         </form>
       </DialogContent>
@@ -392,6 +395,7 @@ function AddRoutineDialog({ onAdd, routineToEdit, open: externalOpen, onOpenChan
 export default function TasksPage() {
   const { state, actions, todayTasks, isRoutineLoaded } = useStore();
   const { toast } = useToast();
+  const { t } = useI18n();
   const [editingTask, setEditingTask] = useState<TodayTask | null>(null);
   const [editingRoutine, setEditingRoutine] = useState<RoutineTemplate | null>(null);
 
@@ -399,7 +403,7 @@ export default function TasksPage() {
 
   const handleLoadRoutine = () => {
     actions.loadRoutineForToday();
-    toast({ title: "Рутина загружена", description: "Шаблоны добавлены в список сегодня." });
+    toast({ title: t.tasks.routineLoaded, description: t.tasks.routineLoadedDesc });
   };
 
   const routineTasks = todayTasks.filter(t => t.type === "routine");
@@ -419,7 +423,7 @@ export default function TasksPage() {
 
   const handleReschedule = (taskId: string, newDate: string) => {
     actions.rescheduleTask(taskId, newDate);
-    toast({ title: "Задача перенесена", description: `Новая дата: ${newDate}` });
+    toast({ title: t.tasks.rescheduled, description: `Новая дата: ${newDate}` });
   };
 
   return (
@@ -435,23 +439,23 @@ export default function TasksPage() {
         <Tabs defaultValue="today" className="w-full">
           <TabsList className="w-full" data-testid="tabs-tasks">
             <TabsTrigger value="today" className="flex-1 font-display" data-testid="tab-today">
-              Задачи на сегодня
+              {t.tasks.todayTab}
             </TabsTrigger>
             <TabsTrigger value="routine" className="flex-1 font-display" data-testid="tab-routine">
-              Шаблон рутины
+              {t.tasks.routineTab}
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="today" className="mt-4 space-y-3 animate-slide-in-up">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="text-sm text-muted-foreground font-mono">
-                {todayTasks.filter(t => t.completed).length}/{todayTasks.length} выполнено
+                {todayTasks.filter(t => t.completed).length}/{todayTasks.length} {t.tasks.completed}
               </div>
               <div className="flex gap-2 flex-wrap">
                 {!isRoutineLoaded && (
                   <Button size="sm" variant="outline" onClick={handleLoadRoutine} className="gap-1" data-testid="button-load-routine-tasks">
                     <RefreshCw className="w-3 h-3" />
-                    Загрузить рутину
+                    {t.tasks.loadRoutine}
                   </Button>
                 )}
                 <AddTaskDialog onAdd={actions.addTodayTask} />
@@ -462,7 +466,7 @@ export default function TasksPage() {
               <div>
                 <div className="text-xs font-display uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-1">
                   <Repeat className="w-3 h-3" />
-                  Рутина
+                  {t.hub.routine}
                 </div>
                 <div className="space-y-2">
                   {routineTasks.map(task => (
@@ -513,7 +517,7 @@ export default function TasksPage() {
                   >
                     {isCollapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                     <Target className="w-3 h-3 text-primary" />
-                    {goal?.title || "Цель"}
+                    {goal?.title || t.goals.title}
                     <span className="font-mono text-[10px] ml-1 text-primary">{completedCount}/{tasks.length}</span>
                   </button>
                   {!isCollapsed && (
@@ -537,8 +541,8 @@ export default function TasksPage() {
             {todayTasks.length === 0 && (
               <Card className="p-8 text-center border-dashed border-border">
                 <CheckSquare className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-30" />
-                <p className="font-display text-sm text-muted-foreground">Нет задач на сегодня</p>
-                <p className="text-xs text-muted-foreground mt-1">Загрузи рутину или создай новую задачу</p>
+                <p className="font-display text-sm text-muted-foreground">{t.tasks.noTasksToday}</p>
+                <p className="text-xs text-muted-foreground mt-1">{t.tasks.noTasksDesc}</p>
               </Card>
             )}
           </TabsContent>
@@ -546,7 +550,7 @@ export default function TasksPage() {
           <TabsContent value="routine" className="mt-4 space-y-3 animate-slide-in-up">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="text-sm text-muted-foreground">
-                {state.routineTemplates.filter(r => r.enabled).length} активных шаблонов
+                {state.routineTemplates.filter(r => r.enabled).length} {t.tasks.activeTemplates}
               </div>
               <div className="flex items-center gap-2">
                 <Button
@@ -556,11 +560,11 @@ export default function TasksPage() {
                   data-testid="button-sync-routine"
                   onClick={() => {
                     actions.loadRoutineForToday();
-                    toast({ title: "Рутина обновлена", description: "Недостающие задачи добавлены без дублей" });
+                    toast({ title: "{t.hub.routine} обновлена", description: t.tasks.routineUpdatedDesc });
                   }}
                 >
                   <RefreshCw className="w-3 h-3" />
-                  Обновить рутину
+                  {t.tasks.loadRoutine}
                 </Button>
                 <AddRoutineDialog onAdd={actions.addRoutineTemplate} />
               </div>
@@ -569,8 +573,8 @@ export default function TasksPage() {
             {state.routineTemplates.length === 0 ? (
               <Card className="p-8 text-center border-dashed border-border">
                 <Repeat className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-30" />
-                <p className="font-display text-sm text-muted-foreground">Нет шаблонов рутины</p>
-                <p className="text-xs text-muted-foreground mt-1">Создай повторяющиеся задачи</p>
+                <p className="font-display text-sm text-muted-foreground">{t.tasks.noTemplates}</p>
+                <p className="text-xs text-muted-foreground mt-1">{t.tasks.noTemplatesDesc}</p>
               </Card>
             ) : (
               <div className="space-y-2">
@@ -616,13 +620,13 @@ export default function TasksPage() {
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>Удалить рутину?</AlertDialogTitle>
+                                <AlertDialogTitle>{t.tasks.deleteRoutineQ}</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Шаблон "{routine.name}" будет удалён из рутины.
+                                  {t.tasks.deleteRoutineDesc.replace("{name}", routine.name)}
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
-                                <AlertDialogCancel>Отмена</AlertDialogCancel>
+                                <AlertDialogCancel>{t.tasks.cancel}</AlertDialogCancel>
                                 <AlertDialogAction onClick={() => actions.deleteRoutineTemplate(routine.id)}>
                                   Удалить
                                 </AlertDialogAction>
@@ -639,7 +643,7 @@ export default function TasksPage() {
 
             <Card className="p-3 bg-muted/50 border-dashed border-border">
               <p className="text-xs text-muted-foreground font-display">
-                Максимальный XP за рутину в день: <span className="text-primary font-bold">50 XP</span>
+                {t.tasks.maxRoutineXp} <span className="text-primary font-bold">50 XP</span>
               </p>
             </Card>
           </TabsContent>
@@ -681,6 +685,7 @@ function TaskRow({ task, onToggle, onDelete, onEdit, onReschedule }: {
   onReschedule?: (id: string, newDate: string) => void;
 }) {
   const { state } = useStore();
+  const { t } = useI18n();
   const weekGoal = task.weekGoalId ? state.goals.find(g => g.id === task.weekGoalId) : null;
   const isHighPriority = (task as any).wasRescheduled === true && !task.completed;
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
@@ -724,10 +729,10 @@ function TaskRow({ task, onToggle, onDelete, onEdit, onReschedule }: {
             <span className={`text-xs ${LIFE_AREA_COLORS[task.category]}`}>{task.category}</span>
             {isHighPriority && (
               <Badge className="text-[10px] py-0 h-4 bg-orange-500/20 text-orange-400 border border-orange-500/40">
-                ⚡ Приоритет
+                ⚡ {t.tasks.priority}
               </Badge>
             )}
-            {task.type === "routine" && <Badge variant="secondary" className="text-xs py-0 h-4">Рутина</Badge>}
+            {task.type === "routine" && <Badge variant="secondary" className="text-xs py-0 h-4">{t.hub.routine}</Badge>}
             {task.difficulty && (
               <Badge variant="outline" className={`text-xs py-0 h-4 ${
                 task.difficulty === "high" ? "border-red-500/50 text-red-400" :
@@ -735,7 +740,7 @@ function TaskRow({ task, onToggle, onDelete, onEdit, onReschedule }: {
                 task.difficulty === "low" ? "border-green-500/50 text-green-400" :
                 "border-primary/50 text-primary"
               }`}>
-                {task.difficulty === "low" ? "Лёгкая" : task.difficulty === "medium" ? "Средняя" : task.difficulty === "high" ? "Сложная" : "Свой XP"}
+                {task.difficulty === "low" ? t.tasks.low : task.difficulty === "medium" ? t.tasks.medium : task.difficulty === "high" ? t.tasks.high : "{t.tasks.difficultyCustom}"}
               </Badge>
             )}
             {weekGoal && (
@@ -769,7 +774,7 @@ function TaskRow({ task, onToggle, onDelete, onEdit, onReschedule }: {
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-56 p-2 space-y-2" onClick={(e) => e.stopPropagation()}>
-                <p className="text-xs font-display text-muted-foreground uppercase tracking-wider px-1">Перенести задачу</p>
+                <p className="text-xs font-display text-muted-foreground uppercase tracking-wider px-1">{t.tasks.reschedule}</p>
                 <Button
                   size="sm"
                   variant="outline"
@@ -778,7 +783,7 @@ function TaskRow({ task, onToggle, onDelete, onEdit, onReschedule }: {
                   data-testid={`task-reschedule-tomorrow-${task.id}`}
                 >
                   <CalendarDays className="w-3 h-3" />
-                  Завтра
+                  {t.tasks.tomorrow}
                 </Button>
                 <div className="flex gap-1">
                   <Input

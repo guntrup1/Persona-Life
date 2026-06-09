@@ -11,10 +11,9 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  CheckCircle, Circle, Trash2, RefreshCw, Flame, Zap, Target, Clock,
-  FileText, TrendingUp, ChevronDown, Star,
-} from "lucide-react";
+import { CheckCircle, Circle, Trash2, RefreshCw, Flame, Zap, Target, Clock, FileText, TrendingUp, ChevronDown, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useI18n } from "@/lib/i18n";
 
 // ─── Character emoji ─────────────────────────────────────────────────────────
 
@@ -153,6 +152,7 @@ const CollapsibleBlock = memo(function CollapsibleBlock({
 
 export default function HubPage() {
   const { state, actions, todayTasks, completedToday, totalToday, todayNotes } = useStore();
+  const { t } = useI18n();
   const [xpNotif, setXpNotif] = useState<{ xp: number; visible: boolean }>({ xp: 0, visible: false });
   const [newNoteText, setNewNoteText] = useState("");
   const [newNoteTitle, setNewNoteTitle] = useState("");
@@ -187,7 +187,7 @@ export default function HubPage() {
   const handleToggle = (id: string) => actions.toggleTask(id);
   const handleClearTasks = () => {
     actions.clearTodayTasks();
-    toast({ title: "Список очищен" });
+    toast({ title: t.hub.cleared });
   };
 
   const handleAddNote = () => {
@@ -234,7 +234,7 @@ export default function HubPage() {
               <div className="w-full space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-display text-muted-foreground flex items-center gap-1">
-                    <Star className="w-3 h-3 text-primary" /> Уровень {level}
+                    <Star className="w-3 h-3 text-primary" /> {t.hub.level} {level}
                   </span>
                   <span className="font-mono text-primary font-bold">{xpInLevel}/{xpForNext} XP</span>
                 </div>
@@ -247,9 +247,9 @@ export default function HubPage() {
               <div className="w-full flex items-center justify-between text-xs font-mono">
                 <span className="flex items-center gap-1 text-muted-foreground">
                   <Flame className="w-3 h-3 text-orange-400" />
-                  <span className="text-orange-400 font-bold">{state.streak.currentStreak} дн.</span>
+                  <span className="text-orange-400 font-bold">{state.streak.currentStreak} {t.hub.days}</span>
                 </span>
-                <span className="text-muted-foreground">Рекорд: <span className="text-yellow-400 font-bold">{state.streak.longestStreak} дн.</span></span>
+                <span className="text-muted-foreground">{t.hub.record} <span className="text-yellow-400 font-bold">{state.streak.longestStreak} {t.hub.days}</span></span>
               </div>
 
             </div>
@@ -257,12 +257,12 @@ export default function HubPage() {
             {/* ── Задачи недели + Прогресс недели (hidden on mobile) ── */}
             <div className="hidden md:flex md:flex-col gap-3">
               <CollapsibleBlock
-              title="Задачи недели"
+              title={t.hub.weekTasks}
               icon={<Target className="w-4 h-4 text-primary" />}
               badge={weekGoals.length > 0 && <Badge variant="secondary" className="font-mono text-[10px] h-4 px-1.5 rounded-full">{weekGoals.length}</Badge>}
             >
               {weekGoals.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-4">Нет активных целей. Создай в разделе Цели.</p>
+                <p className="text-xs text-muted-foreground text-center py-4">{t.hub.noWeekGoals}</p>
               ) : (
                 <div className="space-y-2">
                   {weekGoals.map(goal => {
@@ -282,13 +282,13 @@ export default function HubPage() {
               </CollapsibleBlock>
 
               <CollapsibleBlock
-              title="Прогресс недели"
+              title={t.hub.weekProgress}
               icon={<TrendingUp className="w-4 h-4 text-primary" />}
             >
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="font-display text-sm text-muted-foreground">
-                    {weekGoals.filter(g => getGoalProgress(g, state).percent >= 100).length}/{weekGoals.length} целей выполнено
+                    {weekGoals.filter(g => getGoalProgress(g, state).percent >= 100).length}/{weekGoals.length} {t.hub.goalsCompleted}
                   </span>
                   <span className="font-mono text-sm font-bold text-primary">{Math.round(weekProgress)}%</span>
                 </div>
@@ -296,7 +296,7 @@ export default function HubPage() {
 
                 {monthGoals.length > 0 && (
                   <div className="pt-2 space-y-2 border-t border-card-border">
-                    <div className="text-xs font-display text-muted-foreground uppercase tracking-wider">Цели месяца</div>
+                    <div className="text-xs font-display text-muted-foreground uppercase tracking-wider">{t.hub.monthGoals}</div>
                     {monthGoals.slice(0, 3).map(g => {
                       const p = getGoalProgress(g, state);
                       return (
@@ -326,7 +326,7 @@ export default function HubPage() {
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Zap className="w-4 h-4 text-primary" />
-                  <span className="font-display text-xs font-bold uppercase tracking-widest text-foreground">Прогресс дня</span>
+                  <span className="font-display text-xs font-bold uppercase tracking-widest text-foreground">{t.hub.dayProgress}</span>
                   <span className="font-mono text-xs text-primary font-bold">{completedToday}/{totalToday}</span>
                 </div>
                 <span className="font-mono text-sm font-bold text-primary">+{dayXP} XP</span>
@@ -340,15 +340,15 @@ export default function HubPage() {
               <div className="flex gap-4 text-xs text-muted-foreground font-mono">
                 <span className="flex items-center gap-1">
                   <Flame className="w-3 h-3 text-orange-400" />
-                  Стрик: <span className="text-orange-400 font-bold ml-1">{state.streak.currentStreak} дн.</span>
+                  {t.sidebar.streak}: <span className="text-orange-400 font-bold ml-1">{state.streak.currentStreak} {t.hub.days}</span>
                 </span>
-                <span>Рекорд: <span className="text-yellow-400 font-bold">{state.streak.longestStreak} дн.</span></span>
+                <span>{t.hub.record} <span className="text-yellow-400 font-bold">{state.streak.longestStreak} {t.hub.days}</span></span>
               </div>
             </div>
 
             {/* Задачи на сегодня */}
             <CollapsibleBlock
-              title="Задачи на сегодня"
+              title={t.hub.todayTasks}
               icon={<Clock className="w-4 h-4 text-primary" />}
               badge={totalToday > 0 && <Badge variant="secondary" className="font-mono text-[10px] h-4 px-1.5 rounded-full">{completedToday}/{totalToday}</Badge>}
             >
@@ -357,29 +357,29 @@ export default function HubPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => { actions.loadRoutineForToday(); toast({ title: "Рутина синхронизирована" }); }}
+                    onClick={() => { actions.loadRoutineForToday(); toast({ title: t.hub.routineLoaded }); }}
                     data-testid="button-load-routine"
                     className="gap-1 h-7 rounded-full text-xs"
                   >
                     <RefreshCw className="w-3 h-3" />
-                    Загрузить рутину
+                    {t.hub.loadRoutine}
                   </Button>
                   {todayTasks.length > 0 && (
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button size="sm" variant="outline" className="gap-1 text-destructive h-7 rounded-full text-xs">
                           <Trash2 className="w-3 h-3" />
-                          Очистить
+                          {t.hub.clear}
                         </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent className="rounded-2xl">
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Очистить задачи?</AlertDialogTitle>
-                          <AlertDialogDescription>Все задачи на сегодня будут удалены.</AlertDialogDescription>
+                          <AlertDialogTitle>{t.hub.clearTasksQ}</AlertDialogTitle>
+                          <AlertDialogDescription>{t.hub.clearTasksDesc}</AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                          <AlertDialogCancel className="rounded-full">Отмена</AlertDialogCancel>
-                          <AlertDialogAction onClick={handleClearTasks} className="bg-destructive text-destructive-foreground rounded-full">Очистить</AlertDialogAction>
+                          <AlertDialogCancel className="rounded-full">{t.hub.cancel}</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleClearTasks} className="bg-destructive text-destructive-foreground rounded-full">{t.hub.clear}</AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
@@ -390,8 +390,8 @@ export default function HubPage() {
               {todayTasks.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <Target className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                  <p className="font-display text-sm">Список задач пуст</p>
-                  <p className="text-xs mt-1 opacity-70">Нажми «Загрузить рутину» или добавь задачи</p>
+                  <p className="font-display text-sm">{t.hub.emptyTasks}</p>
+                  <p className="text-xs mt-1 opacity-70">{t.hub.emptyTasksDesc}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -415,7 +415,7 @@ export default function HubPage() {
                         </div>
                         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                           <span className={`text-xs ${LIFE_AREA_COLORS[task.category]}`}>{task.category}</span>
-                          {task.type === "routine" && <Badge variant="secondary" className="text-xs py-0 h-4 rounded-full">Рутина</Badge>}
+                          {task.type === "routine" && <Badge variant="secondary" className="text-xs py-0 h-4 rounded-full">{t.hub.routine}</Badge>}
                         </div>
                       </div>
                       <span className={`font-mono text-xs font-bold flex-shrink-0 ${task.completed ? "text-muted-foreground" : "text-primary"}`}>
@@ -434,7 +434,7 @@ export default function HubPage() {
           <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-primary via-primary/50 to-transparent" />
           <div className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-primary" />
-            <div className="font-display text-base font-bold uppercase tracking-wider text-foreground">Заметки дня</div>
+            <div className="font-display text-base font-bold uppercase tracking-wider text-foreground">{t.hub.dayNotes}</div>
             {todayNotes.length > 0 && (
               <Badge variant="secondary" className="ml-auto font-mono text-xs rounded-full">{todayNotes.length}</Badge>
             )}
@@ -454,7 +454,7 @@ export default function HubPage() {
                       <div className="flex items-center gap-2">
                         <span className="font-mono text-xs text-muted-foreground">{timeLabel}</span>
                         {note.noteType === "idea" && (
-                          <span className="text-[9px] font-display uppercase tracking-wider bg-yellow-500/20 text-yellow-400 px-1.5 py-0.5 rounded-full">Идея</span>
+                          <span className="text-[9px] font-display uppercase tracking-wider bg-yellow-500/20 text-yellow-400 px-1.5 py-0.5 rounded-full">{t.ideaType}</span>
                         )}
                       </div>
                       {!isEditing && (
@@ -472,8 +472,8 @@ export default function HubPage() {
                       <div className="space-y-2">
                         <Textarea value={editingText} onChange={e => setEditingText(e.target.value)} className="min-h-[70px] resize-none text-sm rounded-lg" autoFocus data-testid="input-edit-note" />
                         <div className="flex gap-2">
-                          <Button size="sm" onClick={handleSaveEdit} className="flex-1 h-7 text-xs rounded-full font-display">Сохранить</Button>
-                          <Button size="sm" variant="outline" onClick={() => { setEditingNoteId(null); setEditingText(""); }} className="h-7 text-xs rounded-full">Отмена</Button>
+                          <Button size="sm" onClick={handleSaveEdit} className="flex-1 h-7 text-xs rounded-full font-display">{t.hub.save}</Button>
+                          <Button size="sm" variant="outline" onClick={() => { setEditingNoteId(null); setEditingText(""); }} className="h-7 text-xs rounded-full">{t.hub.cancel}</Button>
                         </div>
                       </div>
                     ) : (
@@ -492,19 +492,19 @@ export default function HubPage() {
                 className={`flex-1 py-1.5 rounded-lg text-[10px] font-display uppercase tracking-wider transition-colors ${newNoteType === "note" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
                 data-testid="hub-type-note"
               >
-                Заметка
+                {t.noteType}
               </button>
               <button
                 onClick={() => setNewNoteType("idea")}
                 className={`flex-1 py-1.5 rounded-lg text-[10px] font-display uppercase tracking-wider transition-colors ${newNoteType === "idea" ? "bg-yellow-500 text-black" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
                 data-testid="hub-type-idea"
               >
-                Идея
+                {t.ideaType}
               </button>
             </div>
             {newNoteType === "idea" && (
               <Input
-                placeholder="Заголовок идеи (опционально)"
+                placeholder={t.ideaTitle}
                 className="border-card-border focus-visible:ring-primary bg-muted/30 rounded-xl text-sm"
                 value={newNoteTitle}
                 onChange={e => setNewNoteTitle(e.target.value)}
@@ -512,7 +512,7 @@ export default function HubPage() {
               />
             )}
             <Textarea
-              placeholder={newNoteType === "idea" ? "Опиши свою идею..." : "Новая заметка дня..."}
+              placeholder={newNoteType === "idea" ? t.ideaPlaceholder : t.hub.newNotePlaceholder}
               className="min-h-[70px] resize-none border-card-border focus-visible:ring-primary bg-muted/30 rounded-xl text-sm"
               value={newNoteText}
               onChange={e => setNewNoteText(e.target.value)}
@@ -520,7 +520,7 @@ export default function HubPage() {
               data-testid="input-new-note"
             />
             <Button onClick={handleAddNote} disabled={!newNoteText.trim()} className="w-full font-display uppercase tracking-widest text-xs h-9 rounded-full" data-testid="button-add-note">
-              + {newNoteType === "idea" ? "Добавить идею" : "Добавить заметку"}
+              + {newNoteType === "idea" ? t.addIdea : t.addNote}
             </Button>
           </div>
         </div>

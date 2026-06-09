@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useI18n } from "@/lib/i18n";
 import { useStore, IDEA_CATEGORIES, type IdeaCategory, type DayNote } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ function IdeaCard({ idea, onEdit, onDelete }: {
   onEdit: (idea: DayNote) => void;
   onDelete: (id: string) => void;
 }) {
+  const { t } = useI18n();
   const cat = IDEA_CATEGORIES.find(c => c.value === idea.ideaCategory);
   const dateLabel = new Date(idea.createdAt).toLocaleDateString("ru-RU", {
     day: "numeric", month: "short", year: "numeric",
@@ -43,7 +45,7 @@ function IdeaCard({ idea, onEdit, onDelete }: {
               {dateLabel}
             </span>
             {idea.ideaDone && (
-              <Badge variant="secondary" className="text-[9px] bg-green-500/20 text-green-400 border-0">Реализовано</Badge>
+              <Badge variant="secondary" className="text-[9px] bg-green-500/20 text-green-400 border-0">{t.ideas.completedLabel}</Badge>
             )}
           </div>
           {idea.title && (
@@ -95,6 +97,7 @@ function EditIdeaDialog({ idea, open, onOpenChange, onSave }: {
   const [category, setCategory] = useState<IdeaCategory | "none">("none");
   const [link, setLink] = useState("");
   const [done, setDone] = useState(false);
+  const { t } = useI18n();
 
   useEffect(() => {
     if (open && idea) {
@@ -126,32 +129,32 @@ function EditIdeaDialog({ idea, open, onOpenChange, onSave }: {
     <Dialog open={open} onOpenChange={handleOpen}>
       <DialogContent className="rounded-2xl max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-display">Редактировать идею</DialogTitle>
+          <DialogTitle className="font-display">{t.ideas.editIdea}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 pt-2">
           <Input
             value={title}
             onChange={e => setTitle(e.target.value)}
-            placeholder="Заголовок идеи (опционально)"
+            placeholder=t.ideas.ideaTitle
             className="rounded-xl"
             data-testid="input-edit-idea-title"
           />
           <Textarea
             value={content}
             onChange={e => setContent(e.target.value)}
-            placeholder="Описание идеи..."
+            placeholder=t.ideas.ideaDesc
             className="min-h-[100px] resize-none rounded-xl"
             autoFocus
             data-testid="input-edit-idea-content"
           />
           <div className="space-y-1.5">
-            <label className="text-xs font-display uppercase tracking-wider text-muted-foreground">Категория</label>
+            <label className="text-xs font-display uppercase tracking-wider text-muted-foreground">{t.ideas.category}</label>
             <Select value={category} onValueChange={(v) => setCategory(v as IdeaCategory | "none")}>
               <SelectTrigger className="rounded-lg" data-testid="select-idea-category">
-                <SelectValue placeholder="Выбрать категорию" />
+                <SelectValue placeholder=t.ideas.selectCategory />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">Без категории</SelectItem>
+                <SelectItem value="none">{t.ideas.noCategory}</SelectItem>
                 {IDEA_CATEGORIES.map(c => (
                   <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
                 ))}
@@ -159,7 +162,7 @@ function EditIdeaDialog({ idea, open, onOpenChange, onSave }: {
             </Select>
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-display uppercase tracking-wider text-muted-foreground">Ссылка</label>
+            <label className="text-xs font-display uppercase tracking-wider text-muted-foreground">{t.ideas.link}</label>
             <Input
               value={link}
               onChange={e => setLink(e.target.value)}
@@ -176,7 +179,7 @@ function EditIdeaDialog({ idea, open, onOpenChange, onSave }: {
               className="accent-green-500"
               data-testid="checkbox-idea-done"
             />
-            <span className="text-sm text-foreground">Реализовано</span>
+            <span className="text-sm text-foreground">{t.ideas.completedLabel}</span>
           </label>
           <Button onClick={handleSave} disabled={!content.trim()} className="w-full rounded-full font-display" data-testid="button-save-idea">
             Сохранить
@@ -189,6 +192,7 @@ function EditIdeaDialog({ idea, open, onOpenChange, onSave }: {
 
 export default function IdeasPage() {
   const { state, actions } = useStore();
+  const { t } = useI18n();
   const [filterCategory, setFilterCategory] = useState<IdeaCategory | "all">("all");
   const [sortMode, setSortMode] = useState<SortMode>("newest");
   const [editingIdea, setEditingIdea] = useState<DayNote | null>(null);
@@ -220,8 +224,8 @@ export default function IdeasPage() {
             Мои идеи
           </h1>
           <div className="text-xs text-muted-foreground font-mono">
-            {ideas.length} {showDone ? `из ${totalIdeas}` : `активных`}
-            {doneCount > 0 && ` · ${doneCount} реализовано`}
+            {ideas.length} {showDone ? `из ${totalIdeas}` : t.ideas.active}
+            {doneCount > 0 && ` · ${doneCount} {t.ideas.completedCount}`}
           </div>
         </div>
 
@@ -230,10 +234,10 @@ export default function IdeasPage() {
             <Filter className="w-3.5 h-3.5 text-muted-foreground" />
             <Select value={filterCategory} onValueChange={(v) => setFilterCategory(v as IdeaCategory | "all")}>
               <SelectTrigger className="h-8 rounded-lg text-xs w-[150px]" data-testid="filter-idea-category">
-                <SelectValue placeholder="Все категории" />
+                <SelectValue placeholder=t.ideas.allCategories />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Все категории</SelectItem>
+                <SelectItem value="all">{t.ideas.allCategories}</SelectItem>
                 {IDEA_CATEGORIES.map(c => (
                   <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
                 ))}
@@ -245,9 +249,9 @@ export default function IdeasPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="newest">Новые первые</SelectItem>
-              <SelectItem value="oldest">Старые первые</SelectItem>
-              <SelectItem value="category">По категории</SelectItem>
+              <SelectItem value="newest">{t.ideas.newestFirst}</SelectItem>
+              <SelectItem value="oldest">{t.ideas.oldestFirst}</SelectItem>
+              <SelectItem value="category">{t.ideas.byCategory}</SelectItem>
             </SelectContent>
           </Select>
           <label className="flex items-center gap-1.5 cursor-pointer ml-auto">
@@ -258,15 +262,15 @@ export default function IdeasPage() {
               className="accent-green-500"
               data-testid="checkbox-show-done"
             />
-            <span className="text-xs text-muted-foreground">Реализованные</span>
+            <span className="text-xs text-muted-foreground">{t.ideas.completed}</span>
           </label>
         </div>
 
         {ideas.length === 0 ? (
           <Card className="p-8 text-center border-dashed border-border rounded-xl">
             <Lightbulb className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-30" />
-            <p className="font-display text-sm text-muted-foreground">Нет идей</p>
-            <p className="text-xs text-muted-foreground mt-1">Создай идею через заметку на главной странице или кнопку быстрой заметки</p>
+            <p className="font-display text-sm text-muted-foreground">{t.ideas.noIdeas}</p>
+            <p className="text-xs text-muted-foreground mt-1">{t.ideas.noIdeasDesc}</p>
           </Card>
         ) : (
           <div className="space-y-2">

@@ -8,6 +8,7 @@ import { Newspaper, AlertTriangle, Clock, RefreshCw, Loader2, CalendarDays } fro
 import { getUserTime, loadUserSettings } from "@/lib/store";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useI18n } from "@/lib/i18n";
 
 type NewsItem = {
   title: string;
@@ -123,6 +124,7 @@ export default function NewsPage() {
   const utcOffset = loadUserSettings().utcOffset;
   const [refreshing, setRefreshing] = useState(false);
   const { toast } = useToast();
+  const { t } = useI18n();
 
 
   const { data, isLoading, isFetching } = useQuery<NewsResponse>({
@@ -160,9 +162,9 @@ export default function NewsPage() {
       await apiRequest("POST", "/api/news/refresh");
       await queryClient.invalidateQueries({ queryKey: ["/api/news"] });
       await queryClient.refetchQueries({ queryKey: ["/api/news"] });
-      toast({ title: "Обновлено", description: "Данные загружены с Forex Factory" });
+      toast({ title: t.news.refreshed, description: t.news.refreshedDesc });
     } catch {
-      toast({ variant: "destructive", title: "Ошибка", description: "Не удалось загрузить данные" });
+      toast({ variant: "destructive", title: t.news.error, description: t.news.errorDesc });
     } finally {
       setRefreshing(false);
     }
@@ -201,9 +203,9 @@ export default function NewsPage() {
             <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 animate-pulse" />
             <div>
               <div className="font-display text-sm font-bold text-foreground uppercase tracking-tight">
-                {todayItems.length} важных событий сегодня
+                {t.news.importantEvents.replace("{count}", todayItems.length.toString())}
               </div>
-              <div className="text-xs text-muted-foreground">Высокая волатильность по EUR/USD</div>
+              <div className="text-xs text-muted-foreground">{t.news.volatility}</div>
             </div>
           </Card>
         )}
@@ -219,7 +221,7 @@ export default function NewsPage() {
             </TabsTrigger>
             <TabsTrigger value="next" className="flex-1 font-display text-xs gap-1.5 min-w-0" data-testid="tab-next">
               {isLoading || !nextStr ? (
-                <span>Ближайший день</span>
+                <span>{t.news.nextDay}</span>
               ) : (
                 <span className="capitalize truncate">{nextDate.weekday}</span>
               )}
@@ -237,7 +239,7 @@ export default function NewsPage() {
               ) : todayItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 gap-2 text-center">
                   <Newspaper className="w-7 h-7 opacity-15" />
-                  <p className="text-sm text-muted-foreground font-display">Важных новостей по EUR/USD сегодня нет</p>
+                  <p className="text-sm text-muted-foreground font-display">{t.news.noNewsToday}</p>
                 </div>
               ) : (
                 todayItems.map((n, i) => <NewsRow key={`today-${i}`} item={n} utcOffset={utcOffset} />)
@@ -264,7 +266,7 @@ export default function NewsPage() {
               ) : nextItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 gap-2 text-center">
                   <Newspaper className="w-7 h-7 opacity-15" />
-                  <p className="text-sm text-muted-foreground font-display">Нет предстоящих важных новостей по EUR/USD</p>
+                  <p className="text-sm text-muted-foreground font-display">{t.news.noNewsNext}</p>
                 </div>
               ) : (
                 nextItems.map((n, i) => <NewsRow key={`next-${i}`} item={n} utcOffset={utcOffset} />)

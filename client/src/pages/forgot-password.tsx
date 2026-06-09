@@ -3,8 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Link } from "wouter";
+import { useI18n } from "@/lib/i18n";
 
 export default function ForgotPasswordPage() {
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -22,7 +24,7 @@ export default function ForgotPasswordPage() {
       });
       setSent(true);
     } catch {
-      setError("Ошибка соединения");
+      setError(t.authPages.connError);
     } finally {
       setLoading(false);
     }
@@ -40,24 +42,24 @@ export default function ForgotPasswordPage() {
               Если аккаунт с таким email существует — письмо отправлено. Проверь почту.
             </p>
             <Link href="/">
-              <Button variant="outline" className="w-full">Вернуться</Button>
+              <Button variant="outline" className="w-full">{t.authPages.back}</Button>
             </Link>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-3">
             <Input
               type="email"
-              placeholder="Твой email"
+              placeholder=t.authPages.emailPlaceholder
               value={email}
               onChange={e => setEmail(e.target.value)}
               required
             />
             {error && <p className="text-xs text-red-400">{error}</p>}
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Отправляем..." : "Отправить ссылку"}
+              {loading ? t.authPages.sending : t.authPages.sendLink}
             </Button>
             <Link href="/">
-              <Button variant="ghost" className="w-full text-muted-foreground">Назад</Button>
+              <Button variant="ghost" className="w-full text-muted-foreground">{t.authPages.backBtn}</Button>
             </Link>
           </form>
         )}

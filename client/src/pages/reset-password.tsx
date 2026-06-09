@@ -3,8 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Link } from "wouter";
+import { useI18n } from "@/lib/i18n";
 
 export default function ResetPasswordPage() {
+  const { t } = useI18n();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [done, setDone] = useState(false);
@@ -15,7 +17,7 @@ export default function ResetPasswordPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password !== confirm) return setError("Пароли не совпадают");
+    if (password !== confirm) return setError(t.authPages.passMismatch);
     setLoading(true);
     setError("");
     try {
@@ -25,10 +27,10 @@ export default function ResetPasswordPage() {
         body: JSON.stringify({ token, password }),
       });
       const data = await res.json();
-      if (!res.ok) return setError(data.message || "Ошибка");
+      if (!res.ok) return setError(data.message || t.news.error);
       setDone(true);
     } catch {
-      setError("Ошибка соединения");
+      setError(t.authPages.connError);
     } finally {
       setLoading(false);
     }
@@ -42,16 +44,16 @@ export default function ResetPasswordPage() {
         </h1>
         {done ? (
           <div className="text-center space-y-3">
-            <p className="text-sm text-muted-foreground">Пароль успешно изменён!</p>
+            <p className="text-sm text-muted-foreground">{t.authPages.resetSuccess}</p>
             <Link href="/">
-              <Button className="w-full">Войти</Button>
+              <Button className="w-full">{t.authPages.loginBtn}</Button>
             </Link>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-3">
             <Input
               type="password"
-              placeholder="Новый пароль"
+              placeholder=t.authPages.newPassPlaceholder
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
@@ -59,14 +61,14 @@ export default function ResetPasswordPage() {
             />
             <Input
               type="password"
-              placeholder="Повтори пароль"
+              placeholder=t.authPages.confirmPassPlaceholder
               value={confirm}
               onChange={e => setConfirm(e.target.value)}
               required
             />
             {error && <p className="text-xs text-red-400">{error}</p>}
             <Button type="submit" className="w-full" disabled={loading || !token}>
-              {loading ? "Сохраняем..." : "Сохранить пароль"}
+              {loading ? t.authPages.saving : t.authPages.savePass}
             </Button>
           </form>
         )}

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useI18n } from "@/lib/i18n";
 import { useStore, LIFE_AREAS, LIFE_AREA_COLORS, LIFE_AREA_BG, getTodayDate, getLevelFromXP, type LifeArea } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +40,7 @@ function getPeriodDates(period: Period): string[] {
 
 export default function StatsPage() {
   const { state } = useStore();
+  const { t } = useI18n();
   const [period, setPeriod] = useState<Period>("week");
 
   const dates = getPeriodDates(period);
@@ -104,7 +106,7 @@ export default function StatsPage() {
                 }`}
                 data-testid={`period-${p}`}
               >
-                {p === "day" ? "День" : p === "week" ? "Неделя" : p === "month" ? "Месяц" : "Всё время"}
+                {p === "day" ? t.stats.day : p === "week" ? t.stats.week : p === "month" ? t.stats.month : t.stats.allTime}
               </button>
             ))}
           </div>
@@ -114,28 +116,28 @@ export default function StatsPage() {
           <Card className="p-3 border-card-border text-center">
             <Zap className="w-4 h-4 text-primary mx-auto mb-1" />
             <div className="font-display text-2xl font-bold text-primary">{totalXP}</div>
-            <div className="text-xs text-muted-foreground">Total XP</div>
+            <div className="text-xs text-muted-foreground">{t.stats.totalXp}</div>
           </Card>
           <Card className="p-3 border-card-border text-center">
             <CheckCircle className="w-4 h-4 text-green-400 mx-auto mb-1" />
             <div className="font-display text-2xl font-bold text-green-400">{completedTasks.length}</div>
-            <div className="text-xs text-muted-foreground">Задач выполнено</div>
+            <div className="text-xs text-muted-foreground">{t.stats.tasksCompleted}</div>
           </Card>
           <Card className="p-3 border-card-border text-center">
             <Flame className="w-4 h-4 text-orange-400 mx-auto mb-1" />
             <div className="font-display text-2xl font-bold text-orange-400">{state.streak.currentStreak}</div>
-            <div className="text-xs text-muted-foreground">Стрик (дней)</div>
+            <div className="text-xs text-muted-foreground">{t.stats.streakDays}</div>
           </Card>
           <Card className="p-3 border-card-border text-center">
             <Clock className="w-4 h-4 text-blue-400 mx-auto mb-1" />
             <div className="font-display text-2xl font-bold text-blue-400">{focusMinutes}</div>
-            <div className="text-xs text-muted-foreground">Минут фокуса</div>
+            <div className="text-xs text-muted-foreground">{t.stats.focusMinutes}</div>
           </Card>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Card className="p-3 border-card-border sm:col-span-2">
-            <div className="font-display text-xs uppercase tracking-widest text-muted-foreground mb-1">Уровень {level}</div>
+            <div className="font-display text-xs uppercase tracking-widest text-muted-foreground mb-1">{t.stats.level.replace("{level}", level.toString())}</div>
             <div className="flex items-center gap-3 mb-2">
               <div className="flex-1 h-3 bg-muted rounded-full overflow-hidden">
                 <div
@@ -148,15 +150,15 @@ export default function StatsPage() {
             <div className="grid grid-cols-3 gap-2 text-center text-xs">
               <div>
                 <div className="font-mono font-bold text-blue-400">{state.xp.routineXP}</div>
-                <div className="text-muted-foreground">Рутина XP</div>
+                <div className="text-muted-foreground">{t.stats.routineXp}</div>
               </div>
               <div>
                 <div className="font-mono font-bold text-green-400">{state.xp.taskXP}</div>
-                <div className="text-muted-foreground">Задачи XP</div>
+                <div className="text-muted-foreground">{t.stats.taskXp}</div>
               </div>
               <div>
                 <div className="font-mono font-bold text-yellow-400">{state.xp.goalXP}</div>
-                <div className="text-muted-foreground">Цели XP</div>
+                <div className="text-muted-foreground">{t.stats.goalXp}</div>
               </div>
             </div>
           </Card>
@@ -164,16 +166,16 @@ export default function StatsPage() {
           <Card className="p-3 border-card-border text-center">
             <Trophy className="w-5 h-5 text-yellow-400 mx-auto mb-1" />
             <div className="font-display text-2xl font-bold text-yellow-400">{state.streak.longestStreak}</div>
-            <div className="text-xs text-muted-foreground">Рекорд стрика</div>
+            <div className="text-xs text-muted-foreground">{t.stats.longestStreak}</div>
             <div className="mt-2 text-xs text-muted-foreground">
-              {completionRate}% выполнено
+              {t.stats.completionRate.replace("{rate}", completionRate.toString())}
             </div>
           </Card>
         </div>
 
         {(period === "week" || period === "month") && dailyData.some(d => d.xp > 0) && (
           <Card className="p-4 border-card-border">
-            <div className="font-display text-xs uppercase tracking-widest text-muted-foreground mb-3">XP по дням</div>
+            <div className="font-display text-xs uppercase tracking-widest text-muted-foreground mb-3">{t.stats.xpByDay}</div>
             <ResponsiveContainer width="100%" height={160}>
               <BarChart data={dailyData} margin={{ top: 4, right: 4, bottom: 4, left: -20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
@@ -192,7 +194,7 @@ export default function StatsPage() {
 
         {categoryData.length > 0 && (
           <Card className="p-4 border-card-border">
-            <div className="font-display text-xs uppercase tracking-widest text-muted-foreground mb-3">XP по сферам жизни</div>
+            <div className="font-display text-xs uppercase tracking-widest text-muted-foreground mb-3">{t.stats.xpByArea}</div>
             <div className="space-y-2">
               {categoryData.map((item, i) => {
                 const maxXP = categoryData[0].xp;
@@ -220,14 +222,14 @@ export default function StatsPage() {
 
         {state.goals.filter(g => g.completed).length > 0 && (
           <Card className="p-4 border-card-border">
-            <div className="font-display text-xs uppercase tracking-widest text-muted-foreground mb-3">Выполненные цели</div>
+            <div className="font-display text-xs uppercase tracking-widest text-muted-foreground mb-3">{t.stats.completedGoals}</div>
             <div className="space-y-2">
               {state.goals.filter(g => g.completed).map(goal => (
                 <div key={goal.id} className="flex items-center gap-3">
                   <CheckCircle className="w-4 h-4 text-primary flex-shrink-0" />
                   <span className="font-display text-sm text-foreground flex-1">{goal.title}</span>
                   <Badge variant="outline" className="text-xs">
-                    {goal.type === "year" ? "Год" : goal.type === "month" ? "Месяц" : "Неделя"}
+                    {goal.type === "year" ? t.stats.goalYear : goal.type === "month" ? t.stats.goalMonth : t.stats.goalWeek}
                   </Badge>
                   <span className="font-mono text-xs text-primary">+{goal.xp} XP</span>
                 </div>

@@ -3,8 +3,9 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Settings, Clock, ChevronDown, ChevronUp } from "lucide-react";
+import { Settings, Clock, ChevronDown, ChevronUp, Globe } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useI18n } from "@/lib/i18n";
 
 interface TradingSession {
   name: string;
@@ -67,6 +68,7 @@ function Row({ label, startVal, endVal, onStart, onEnd }: {
 
 export default function SettingsPage() {
   const { toast } = useToast();
+  const { t, lang, setLang } = useI18n();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showSessions, setShowSessions] = useState(false);
@@ -108,7 +110,7 @@ export default function SettingsPage() {
   const addSession = () => {
     set("tradingSessions", [
       ...settings.tradingSessions,
-      { name: "Новая", start: 10, end: 12, enabled: true },
+      { name: lang === "ru" ? "Новая" : "New", start: 10, end: 12, enabled: true },
     ]);
   };
 
@@ -126,14 +128,14 @@ export default function SettingsPage() {
         body: JSON.stringify(settings),
       });
       if (res.ok) {
-        toast({ title: "Сохранено ✓" });
+        toast({ title: t.settings.saved });
         localStorage.setItem("userSettings", JSON.stringify(settings));
         window.dispatchEvent(new Event("settingsUpdated"));
       } else {
-        toast({ title: "Ошибка", variant: "destructive" });
+        toast({ title: t.settings.error, variant: "destructive" });
       }
     } catch {
-      toast({ title: "Нет соединения", variant: "destructive" });
+      toast({ title: t.settings.noConn, variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -141,7 +143,7 @@ export default function SettingsPage() {
 
   if (loading) return (
     <div className="h-full flex items-center justify-center">
-      <p className="text-muted-foreground text-sm">Загрузка...</p>
+      <p className="text-muted-foreground text-sm">{t.loading}</p>
     </div>
   );
 
@@ -154,14 +156,31 @@ export default function SettingsPage() {
         {/* Заголовок */}
         <div className="flex items-center gap-2">
           <Settings className="w-5 h-5 text-primary" />
-          <h1 className="font-display text-lg font-bold uppercase tracking-wider">Настройки</h1>
+          <h1 className="font-display text-lg font-bold uppercase tracking-wider">{t.settings.title}</h1>
         </div>
+
+        {/* Язык интерфейса */}
+        <Card className="p-3 border-card-border rounded-2xl space-y-2">
+          <div className="flex items-center gap-2">
+            <Globe className="w-3.5 h-3.5 text-primary" />
+            <span className="font-display text-xs font-bold uppercase tracking-wider">{t.settings.language}</span>
+          </div>
+          <Select value={lang} onValueChange={(v: any) => setLang(v)}>
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ru">Русский (RU)</SelectItem>
+              <SelectItem value="en">English (EN)</SelectItem>
+            </SelectContent>
+          </Select>
+        </Card>
 
         {/* Часовой пояс */}
         <Card className="p-3 border-card-border rounded-2xl space-y-2">
           <div className="flex items-center gap-2">
             <Clock className="w-3.5 h-3.5 text-primary" />
-            <span className="font-display text-xs font-bold uppercase tracking-wider">Часовой пояс</span>
+            <span className="font-display text-xs font-bold uppercase tracking-wider">{t.settings.timezone}</span>
           </div>
           <Select value={String(utcOffset)} onValueChange={v => set("utcOffset", Number(v))}>
             <SelectTrigger className="h-8 text-xs">
@@ -179,14 +198,16 @@ export default function SettingsPage() {
 
         {/* Статусы */}
         <Card className="p-3 border-card-border rounded-2xl">
-          <div className="font-display text-xs font-bold uppercase tracking-wider mb-2">Статусы</div>
+          <div className="font-display text-xs font-bold uppercase tracking-wider mb-2">{t.settings.statuses}</div>
           <div className="divide-y divide-border/50">
-            <Row label="😴 Сон"    startVal={settings.sleepStart} endVal={settings.sleepEnd}
+            <Row label={`😴 ${t.settings.sleep}`}    startVal={settings.sleepStart} endVal={settings.sleepEnd}
               onStart={v => set("sleepStart", v)} onEnd={v => set("sleepEnd", v)} />
-            <Row label="💪 Работа" startVal={settings.workStart}  endVal={settings.workEnd}
+            <Row label={`💪 ${t.settings.work}`} startVal={settings.workStart}  endVal={settings.workEnd}
               onStart={v => set("workStart", v)}  onEnd={v => set("workEnd", v)} />
-            <Row label="☕ Отдых"  startVal={settings.restStart}  endVal={settings.restEnd}
+            <Row label={`☕ ${t.settings.rest}`}  startVal={settings.restStart}  endVal={settings.restEnd}
               onStart={v => set("restStart", v)}  onEnd={v => set("restEnd", v)} />
+            <Row label={`🌙 ${t.settings.evening}`}  startVal={settings.restEnd}  endVal={settings.sleepStart}
+              onStart={v => set("restEnd", v)}  onEnd={v => set("sleepStart", v)} />
           </div>
         </Card>
 
@@ -196,7 +217,7 @@ export default function SettingsPage() {
             className="w-full flex items-center justify-between"
             onClick={() => setShowSessions(s => !s)}
           >
-            <span className="font-display text-xs font-bold uppercase tracking-wider">📈 Торговые сессии</span>
+            <span className="font-display text-xs font-bold uppercase tracking-wider">📈 {t.settings.tradingSessions}</span>
             {showSessions
               ? <ChevronUp className="w-4 h-4 text-muted-foreground" />
               : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
@@ -236,7 +257,7 @@ export default function SettingsPage() {
                 onClick={addSession}
                 className="text-xs text-primary hover:text-primary/80 transition-colors font-display mt-1"
               >
-                + Добавить сессию
+                {t.settings.addSession}
               </button>
             </div>
           )}
@@ -247,7 +268,7 @@ export default function SettingsPage() {
           disabled={saving}
           className="w-full font-display uppercase tracking-widest h-10 rounded-full text-xs"
         >
-          {saving ? "Сохраняем..." : "Сохранить"}
+          {saving ? t.settings.saving : t.settings.save}
         </Button>
       </div>
     </div>
