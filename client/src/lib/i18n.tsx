@@ -4,6 +4,32 @@ export type Lang = "ru" | "en";
 
 export const translations = {
   ru: {
+    welcome: {
+      slide1Title: "Добро пожаловать!",
+      slide1P1: "Рад, что ты здесь. Trade Persona — твоя операционная система трейдера.",
+      slide1P2: "Я вложил много сил в этот проект и искренне благодарен, что ты решил попробовать.",
+      slide1Warn: "⚠️ Приложение в режиме Беты. Пиши в обратную связь о любых недочётах.",
+      slide1Note: "🐢 Сервер на бесплатном Render + MongoDB Atlas — первый отклик чуть медленнее. Это нормально.",
+      slide2Title: "Главная и задачи",
+      slide2P1: "Главная — дашборд дня: персонаж, часы, задачи, прогресс и заметки.",
+      slide2T1: "Задачи — выполняй ежедневно и получай XP. Стрик растёт каждый день.",
+      slide2T2: "Цели — недельные и месячные цели с шагами.",
+      slide2T3: "Заметки дня — мысли и наблюдения прямо на главной.",
+      slide3Title: "Трейдинг и аналитика",
+      slide3T1: "Трейдинг — дневник сделок. Входы, выходы, мысли по рынку.",
+      slide3T2: "Новости — экономический календарь. High-impact события выделены красным.",
+      slide3T3: "Статистика — графики продуктивности, XP, стрики.",
+      slide4Title: "Инструменты",
+      slide4T1: "Фокус — помодоро-таймер. Время сессий пишется в статистику.",
+      slide4T2: "Идеи — сохраняй инсайты мгновенно.",
+      slide4T3: "Настройки — часовой пояс и торговые сессии.",
+      slide4T4: "Обратная связь — кнопка внизу левого меню. Пиши баги и идеи.",
+      back: "Назад",
+      next: "Далее",
+      start: "Начать →"
+    },
+
+
     // ── App shell ──
     loading: "Загрузка...",
     menu: "Меню",
@@ -383,6 +409,11 @@ export const translations = {
     // ── Calendar ──
     calendar: {
       title: "Календарь",
+      weekdays: ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
+      months: ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"],
+      optional: "(доп.)",
+      pros: "За",
+      cons: "Против",
       day: "День",
       week: "Неделя",
       month: "Месяц",
@@ -463,6 +494,31 @@ export const translations = {
   },
 
   en: {
+    welcome: {
+      slide1Title: "Welcome!",
+      slide1P1: "Glad you are here. Trade Persona is your trader operating system.",
+      slide1P2: "I put a lot of effort into this project and sincerely thank you for trying it.",
+      slide1Warn: "⚠️ The app is in Beta. Please report any issues via feedback.",
+      slide1Note: "🐢 Server runs on free Render + MongoDB Atlas — first response might be slower. It is normal.",
+      slide2Title: "Home and Tasks",
+      slide2P1: "Home — daily dashboard: character, clock, tasks, progress, and notes.",
+      slide2T1: "Tasks — complete daily and earn XP. Streak grows every day.",
+      slide2T2: "Goals — weekly and monthly goals with steps.",
+      slide2T3: "Day Notes — thoughts and observations right on the home page.",
+      slide3Title: "Trading and Analytics",
+      slide3T1: "Trading — trade journal. Entries, exits, market thoughts.",
+      slide3T2: "News — economic calendar. High-impact events are highlighted red.",
+      slide3T3: "Stats — productivity charts, XP, streaks.",
+      slide4Title: "Tools",
+      slide4T1: "Focus — pomodoro timer. Session time is recorded in stats.",
+      slide4T2: "Ideas — save insights instantly.",
+      slide4T3: "Settings — timezone and trading sessions.",
+      slide4T4: "Feedback — button at the bottom left menu. Report bugs and ideas.",
+      back: "Back",
+      next: "Next",
+      start: "Start →",
+    },
+
     // ── App shell ──
     loading: "Loading...",
     menu: "Menu",
@@ -841,6 +897,11 @@ export const translations = {
     // ── Calendar ──
     calendar: {
       title: "Calendar",
+      weekdays: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+      months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+      optional: "(opt.)",
+      pros: "Pros",
+      cons: "Cons",
       day: "Day",
       week: "Week",
       month: "Month",

@@ -339,6 +339,7 @@ export interface UserSettings {
   restEnd: number;
   sleepStart: number;
   sleepEnd: number;
+  tradingSessions?: { name: string; start: number; end: number; enabled: boolean }[];
 }
 
 const STATE_EMOJIS: Record<string, string[]> = {

@@ -149,19 +149,21 @@ function SyncButton() {
   }, []);
 
   useEffect(() => {
-    return onSyncResult((ok) => {
+    const unsub = onSyncResult((_ok) => {
       // NOTE: Here t is captured in closure, might be slightly stale if language changes rapidly, but it's fine
     });
+    return () => { unsub(); };
   }, []); // removed toast dependency to avoid re-binding
 
   // Handle manual sync result messages
   useEffect(() => {
-    return onSyncResult((ok) => {
+    const unsub = onSyncResult((ok) => {
       if (ok) {
         const { dismiss } = toast({ title: "✔" });
         setTimeout(() => dismiss(), 1500);
       }
     });
+    return () => { unsub(); };
   }, [toast]);
 
   const handleSync = async () => {
@@ -337,62 +339,64 @@ function MobileNav() {
 // ─── Welcome Popup ─────────────────────────────────────────────────────────
 
 const WELCOME_KEY = "tp_welcome_v1";
-const welcomeSlides = [
-  {
-    icon: "👋", title: "Добро пожаловать!",
-    body: () => (
-      <div className="space-y-3">
-        <p className="text-sm text-muted-foreground leading-relaxed">Рад, что ты здесь. <span className="text-foreground font-semibold">Trade Persona</span> — твоя операционная система трейдера.</p>
-        <p className="text-sm text-muted-foreground leading-relaxed">Я вложил много сил в этот проект и искренне благодарен, что ты решил попробовать.</p>
-        <div className="p-3 border border-primary/20 bg-primary/5 text-xs font-mono text-primary/80 leading-relaxed">⚠️ Приложение в режиме <strong>Беты</strong>. Пиши в обратную связь о любых недочётах.</div>
-        <div className="p-3 border border-yellow-500/20 bg-yellow-500/5 text-xs font-mono text-yellow-400/80 leading-relaxed">🐢 Сервер на бесплатном Render + MongoDB Atlas — первый отклик чуть медленнее. Это нормально.</div>
-      </div>
-    ),
-  },
-  {
-    icon: "🎯", title: "Главная и задачи",
-    body: () => (
-      <div className="space-y-2">
-        <p className="text-sm text-muted-foreground leading-relaxed"><span className="text-foreground font-semibold">Главная</span> — дашборд дня: персонаж, часы, задачи, прогресс и заметки.</p>
-        <div className="flex gap-2 items-start"><span className="text-primary text-xs shrink-0 mt-0.5">✅</span><p className="text-xs text-muted-foreground"><span className="text-foreground">Задачи</span> — выполняй ежедневно и получай XP. Стрик растёт каждый день.</p></div>
-        <div className="flex gap-2 items-start"><span className="text-primary text-xs shrink-0 mt-0.5">⭐</span><p className="text-xs text-muted-foreground"><span className="text-foreground">Цели</span> — недельные и месячные цели с шагами.</p></div>
-        <div className="flex gap-2 items-start"><span className="text-primary text-xs shrink-0 mt-0.5">📝</span><p className="text-xs text-muted-foreground"><span className="text-foreground">Заметки дня</span> — мысли и наблюдения прямо на главной.</p></div>
-      </div>
-    ),
-  },
-  {
-    icon: "📊", title: "Трейдинг и аналитика",
-    body: () => (
-      <div className="space-y-2">
-        <div className="flex gap-2 items-start"><span className="text-primary text-xs shrink-0 mt-0.5">📈</span><p className="text-xs text-muted-foreground"><span className="text-foreground">Трейдинг</span> — дневник сделок. Входы, выходы, мысли по рынку.</p></div>
-        <div className="flex gap-2 items-start"><span className="text-primary text-xs shrink-0 mt-0.5">📰</span><p className="text-xs text-muted-foreground"><span className="text-foreground">Новости</span> — экономический календарь. High-impact события выделены красным.</p></div>
-        <div className="flex gap-2 items-start"><span className="text-primary text-xs shrink-0 mt-0.5">📊</span><p className="text-xs text-muted-foreground"><span className="text-foreground">Статистика</span> — графики продуктивности, XP, стрики.</p></div>
-      </div>
-    ),
-  },
-  {
-    icon: "⏱", title: "Инструменты",
-    body: () => (
-      <div className="space-y-2">
-        <div className="flex gap-2 items-start"><span className="text-primary text-xs shrink-0 mt-0.5">⏱</span><p className="text-xs text-muted-foreground"><span className="text-foreground">Фокус</span> — помодоро-таймер. Время сессий пишется в статистику.</p></div>
-        <div className="flex gap-2 items-start"><span className="text-primary text-xs shrink-0 mt-0.5">💡</span><p className="text-xs text-muted-foreground"><span className="text-foreground">Идеи</span> — сохраняй инсайты мгновенно.</p></div>
-        <div className="flex gap-2 items-start"><span className="text-primary text-xs shrink-0 mt-0.5">⚙️</span><p className="text-xs text-muted-foreground"><span className="text-foreground">Настройки</span> — часовой пояс и торговые сессии.</p></div>
-        <div className="flex gap-2 items-start"><span className="text-primary text-xs shrink-0 mt-0.5">💬</span><p className="text-xs text-muted-foreground"><span className="text-foreground">Обратная связь</span> — кнопка внизу левого меню. Пиши баги и идеи.</p></div>
-      </div>
-    ),
-  },
-];
 
 function WelcomePopup() {
+  const { t } = useI18n();
   const [visible, setVisible] = React.useState(false);
   const [slide, setSlide] = React.useState(0);
   const [fading, setFading] = React.useState(false);
   const [dir, setDir] = React.useState<"l"|"r">("r");
 
+  const welcomeSlides = [
+    {
+      icon: "👋", title: t.welcome.slide1Title,
+      body: () => (
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground leading-relaxed"><span className="text-foreground font-semibold">Trade Persona</span> — {t.welcome.slide1P1.replace("Trade Persona — ", "").replace("Trade Persona is your trader operating system.", "is your trader operating system.")}</p>
+          <p className="text-sm text-muted-foreground leading-relaxed">{t.welcome.slide1P2}</p>
+          <div className="p-3 border border-primary/20 bg-primary/5 text-xs font-mono text-primary/80 leading-relaxed">{t.welcome.slide1Warn}</div>
+          <div className="p-3 border border-yellow-500/20 bg-yellow-500/5 text-xs font-mono text-yellow-400/80 leading-relaxed">{t.welcome.slide1Note}</div>
+        </div>
+      ),
+    },
+    {
+      icon: "🎯", title: t.welcome.slide2Title,
+      body: () => (
+        <div className="space-y-2">
+          <p className="text-sm text-muted-foreground leading-relaxed">{t.welcome.slide2P1}</p>
+          <div className="flex gap-2 items-start"><span className="text-primary text-xs shrink-0 mt-0.5">✅</span><p className="text-xs text-muted-foreground">{t.welcome.slide2T1}</p></div>
+          <div className="flex gap-2 items-start"><span className="text-primary text-xs shrink-0 mt-0.5">⭐</span><p className="text-xs text-muted-foreground">{t.welcome.slide2T2}</p></div>
+          <div className="flex gap-2 items-start"><span className="text-primary text-xs shrink-0 mt-0.5">📝</span><p className="text-xs text-muted-foreground">{t.welcome.slide2T3}</p></div>
+        </div>
+      ),
+    },
+    {
+      icon: "📊", title: t.welcome.slide3Title,
+      body: () => (
+        <div className="space-y-2">
+          <div className="flex gap-2 items-start"><span className="text-primary text-xs shrink-0 mt-0.5">📈</span><p className="text-xs text-muted-foreground">{t.welcome.slide3T1}</p></div>
+          <div className="flex gap-2 items-start"><span className="text-primary text-xs shrink-0 mt-0.5">📰</span><p className="text-xs text-muted-foreground">{t.welcome.slide3T2}</p></div>
+          <div className="flex gap-2 items-start"><span className="text-primary text-xs shrink-0 mt-0.5">📊</span><p className="text-xs text-muted-foreground">{t.welcome.slide3T3}</p></div>
+        </div>
+      ),
+    },
+    {
+      icon: "⏱", title: t.welcome.slide4Title,
+      body: () => (
+        <div className="space-y-2">
+          <div className="flex gap-2 items-start"><span className="text-primary text-xs shrink-0 mt-0.5">⏱</span><p className="text-xs text-muted-foreground">{t.welcome.slide4T1}</p></div>
+          <div className="flex gap-2 items-start"><span className="text-primary text-xs shrink-0 mt-0.5">💡</span><p className="text-xs text-muted-foreground">{t.welcome.slide4T2}</p></div>
+          <div className="flex gap-2 items-start"><span className="text-primary text-xs shrink-0 mt-0.5">⚙️</span><p className="text-xs text-muted-foreground">{t.welcome.slide4T3}</p></div>
+          <div className="flex gap-2 items-start"><span className="text-primary text-xs shrink-0 mt-0.5">💬</span><p className="text-xs text-muted-foreground">{t.welcome.slide4T4}</p></div>
+        </div>
+      ),
+    },
+  ];
+
   React.useEffect(() => {
     if (!localStorage.getItem(WELCOME_KEY)) {
-      const t = setTimeout(() => setVisible(true), 800);
-      return () => clearTimeout(t);
+      const timer = setTimeout(() => setVisible(true), 800);
+      return () => clearTimeout(timer);
     }
   }, []);
 
@@ -437,10 +441,10 @@ function WelcomePopup() {
           </div>
           <div className="flex items-center justify-between px-6 pb-5">
             <button onClick={prev} disabled={slide===0} style={{ background:"transparent", border:"none", clipPath:"none", cursor:"pointer" }} className="flex items-center gap-1 font-mono text-xs text-muted-foreground hover:text-foreground disabled:opacity-30">
-              <ChevronLeft className="w-3.5 h-3.5" /> Назад
+              <ChevronLeft className="w-3.5 h-3.5" /> {t.welcome.back}
             </button>
             <button onClick={next} className="flex items-center gap-2 px-5 py-2 bg-primary text-white font-display text-xs uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all">
-              {slide < welcomeSlides.length-1 ? <><span>Далее</span><ChevronRight className="w-3.5 h-3.5" /></> : "Начать →"}
+              {slide < welcomeSlides.length-1 ? <><span>{t.welcome.next}</span><ChevronRight className="w-3.5 h-3.5" /></> : t.welcome.start}
             </button>
           </div>
         </div>

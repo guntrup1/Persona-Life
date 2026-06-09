@@ -192,7 +192,7 @@ export default function NewsPage() {
               data-testid="button-refresh-news"
             >
               {isSpinning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-              Обновить
+              {t.news.refresh}
             </Button>
           </div>
         </div>
@@ -214,7 +214,7 @@ export default function NewsPage() {
         <Tabs defaultValue="today">
           <TabsList className="w-full rounded-xl h-10">
             <TabsTrigger value="today" className="flex-1 font-display text-xs gap-1.5" data-testid="tab-today">
-              Сегодня
+              {t.news.today}
               {!isLoading && todayItems.length > 0 && (
                 <Badge variant="secondary" className="font-mono text-[10px] h-4 px-1.5 rounded-full">{todayItems.length}</Badge>
               )}
@@ -276,7 +276,7 @@ export default function NewsPage() {
         </Tabs>
 
         <p className="text-center text-[10px] text-muted-foreground uppercase tracking-widest font-mono">
-          Forex Factory · HIGH IMPACT · EUR &amp; USD · Обновляется ежедневно
+          {t.news.footer}
         </p>
       </div>
     </div>

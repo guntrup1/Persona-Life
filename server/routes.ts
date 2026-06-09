@@ -233,7 +233,7 @@ async function doFetch(): Promise<NewsCache> {
   });
 
   const todayEvents = rawEvents.filter(e => e.dateNormalized === todayStr);
-  const futureDates = [...new Set(rawEvents.map(e => e.dateNormalized).filter(d => d > todayStr))].sort();
+  const futureDates = Array.from(new Set(rawEvents.map(e => e.dateNormalized).filter(d => d > todayStr))).sort();
   const nextStr = futureDates[0] || "";
 
   console.log(`[news] today=${todayStr}(${todayEvents.length}), next=${nextStr}(${rawEvents.filter(e => e.dateNormalized === nextStr).length})`);
@@ -298,11 +298,11 @@ export async function registerRoutes(
         const userTime = new Date(utc + utcOffset * 3600000);
         const todayStr = userTime.toISOString().split("T")[0];
 
-        const futureDates = [...new Set(
+        const futureDates = Array.from(new Set(
           cache.allHighImpact
             .map(e => e.dateNormalized)
             .filter(d => d > todayStr)
-        )].sort();
+        )).sort();
         const nextStr = futureDates[0] || "";
 
         const items = cache.allHighImpact.map(e => ({

@@ -244,7 +244,7 @@ export function registerAuthRoutes(app: Express) {
           lastBackupTime.set(userId, now);
           const backups = await UserDataBackup.find({ userId }).sort({ createdAt: -1 }).skip(10);
           if (backups.length > 0) {
-            await UserDataBackup.deleteMany({ _id: { $in: backups.map(b => b._id) } });
+            await UserDataBackup.deleteMany({ _id: { $in: backups.map((b: any) => b._id) } });
           }
         }
       }
@@ -301,7 +301,7 @@ export function registerAuthRoutes(app: Express) {
         .sort({ createdAt: -1 })
         .limit(10)
         .select("_id createdAt");
-      return res.json({ backups: backups.map(b => ({ id: b._id, date: b.createdAt })) });
+      return res.json({ backups: backups.map((b: any) => ({ id: b._id, date: b.createdAt })) });
     } catch (err) {
       console.error("Backups list error:", err);
       return res.status(500).json({ message: "Ошибка" });

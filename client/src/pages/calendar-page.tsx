@@ -225,7 +225,7 @@ export default function CalendarPage() {
                     <ChevronLeft className="w-4 h-4" />
                   </Button>
                   <div className="font-display font-bold text-foreground">
-                    {MONTHS_RU[currentMonth]} {currentYear}
+                    {t.calendar.months[currentMonth]} {currentYear}
                   </div>
                   <Button size="icon" variant="ghost" onClick={nextMonth}>
                     <ChevronRight className="w-4 h-4" />
@@ -233,7 +233,7 @@ export default function CalendarPage() {
                 </div>
 
                 <div className="grid grid-cols-7 gap-1 mb-2">
-                  {WEEKDAYS.map(d => (
+                  {t.calendar.weekdays.map(d => (
                     <div key={d} className="text-center text-xs font-display text-muted-foreground py-1">{d}</div>
                   ))}
                 </div>
@@ -277,7 +277,7 @@ export default function CalendarPage() {
                         }`}
                         onClick={() => setSelectedDate(dateStr)}
                       >
-                        <div className="text-xs text-muted-foreground font-display">{WEEKDAYS[i]}</div>
+                        <div className="text-xs text-muted-foreground font-display">{t.calendar.weekdays[i]}</div>
                         <div className={`font-display font-bold text-sm ${isToday ? "text-primary" : "text-foreground"}`}>
                           {d.getDate()}
                         </div>
@@ -531,7 +531,7 @@ export default function CalendarPage() {
 }
 
 function DayDetails({ selectedDate }: { selectedDate: string }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const { state } = useStore();
   const tradingNotes = state.tradingNotes.filter(n => n.date === selectedDate);
   const dailyBiases = state.dailyBiases.filter(b => b.date === selectedDate);
@@ -555,7 +555,7 @@ function DayDetails({ selectedDate }: { selectedDate: string }) {
                     {new Date(note.createdAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
                   </span>
                   {note.updatedAt !== note.createdAt && (
-                    <span className="text-[10px] text-muted-foreground/60">(ред.)</span>
+                    <span className="text-[10px] text-muted-foreground/60">{lang === 'en' ? '(ed.)' : '(ред.)'}</span>
                   )}
                 </div>
                 <p className="text-sm text-foreground whitespace-pre-wrap">{note.content}</p>
@@ -587,10 +587,10 @@ function DayDetails({ selectedDate }: { selectedDate: string }) {
                   </div>
                 </div>
                 {bias.pros && (
-                  <div className="text-[10px] text-green-400/80 line-clamp-2">▲ {bias.pros}</div>
+                  <div className="text-[10px] text-green-400/80 line-clamp-2">▲ {t.calendar.pros}: {bias.pros}</div>
                 )}
                 {bias.cons && (
-                  <div className="text-[10px] text-red-400/80 line-clamp-2">▼ {bias.cons}</div>
+                  <div className="text-[10px] text-red-400/80 line-clamp-2">▼ {t.calendar.cons}: {bias.cons}</div>
                 )}
                 {bias.screenshotUrl && (
                   <div className="mt-1">
