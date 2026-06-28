@@ -165,6 +165,7 @@ export const translations = {
 
     // ── Tasks ──
     tasks: {
+      priority: "Приоритет",
       title: "Задачи",
       todayTab: "Задачи на сегодня",
       routineTab: "Шаблон рутины",
@@ -222,7 +223,7 @@ export const translations = {
       reschedule: "Перенести задачу",
       tomorrow: "Завтра",
       linkedTasks: "Связанные задачи",
-      priority: "Приоритет",
+      days: { 0: "Вс", 1: "Пн", 2: "Вт", 3: "Ср", 4: "Чт", 5: "Пт", 6: "Сб" },
     },
 
     // ── Goals ──
@@ -275,6 +276,7 @@ export const translations = {
       deleteArchiveDesc: "Цель удалится безвозвратно.",
       details: "Подробности",
       linkedTasks: "Связанные задачи",
+      archiveDesc: (completed: number, total: number) => `Выполнено ${completed} из ${total} пунктов. Всё равно отметить?`,
     },
 
     // ── Timer ──
@@ -653,6 +655,7 @@ export const translations = {
 
     // ── Tasks ──
     tasks: {
+      priority: "Priority",
       title: "Tasks",
       todayTab: "Today's Tasks",
       routineTab: "Routine Templates",
@@ -710,7 +713,7 @@ export const translations = {
       reschedule: "Reschedule",
       tomorrow: "Tomorrow",
       linkedTasks: "Linked tasks",
-      priority: "Priority",
+      days: { 0: "Su", 1: "Mo", 2: "Tu", 3: "We", 4: "Th", 5: "Fr", 6: "Sa" },
     },
 
     // ── Goals ──

@@ -49,6 +49,7 @@ export interface RoutineTemplate {
   xp: number;
   enabled: boolean;
   goalId?: string;
+  days?: number[];
 }
 
 export interface TodayTask {
@@ -570,7 +571,14 @@ function autoLoadRoutine(state: AppState): AppState {
   const hasRoutineToday = state.todayTasks.some(t => t.date === today && t.type === "routine");
   if (hasRoutineToday) return state;
 
-  const enabledRoutines = state.routineTemplates.filter(r => r.enabled);
+  const enabledRoutines = state.routineTemplates.filter(r => {
+    if (!r.enabled) return false;
+    if (r.days && r.days.length > 0) {
+      const todayNum = new Date(today).getDay();
+      return r.days.includes(todayNum);
+    }
+    return true;
+  });
   if (enabledRoutines.length === 0) return state;
 
   const newTasks: TodayTask[] = enabledRoutines.map(r => ({
@@ -884,12 +892,29 @@ export function useStore() {
       mutate(s => ({ ...s, routineTemplates: s.routineTemplates.filter(r => r.id !== id), _deletedIds: [...(s._deletedIds || []), id].slice(-200) }));
     }, []),
 
+    reorderRoutineTemplates: useCallback((oldIndex: number, newIndex: number) => {
+      mutate(s => {
+        const templates = [...s.routineTemplates];
+        const [removed] = templates.splice(oldIndex, 1);
+        templates.splice(newIndex, 0, removed);
+        return { ...s, routineTemplates: templates };
+      });
+    }, []),
+
     loadRoutineForToday: useCallback(() => {
       mutate(s => {
         const today = getTodayDate();
         const existing = s.todayTasks.filter(t => t.date === today && t.type === "routine");
         const existingRoutineIds = existing.map(t => t.routineId);
-        const enabledRoutines = s.routineTemplates.filter(r => r.enabled && !existingRoutineIds.includes(r.id));
+        const enabledRoutines = s.routineTemplates.filter(r => {
+          if (!r.enabled) return false;
+          if (existingRoutineIds.includes(r.id)) return false;
+          if (r.days && r.days.length > 0) {
+            const todayNum = new Date(today).getDay();
+            return r.days.includes(todayNum);
+          }
+          return true;
+        });
         if (enabledRoutines.length === 0) return s;
         const newTasks: TodayTask[] = enabledRoutines.map(r => ({
           id: crypto.randomUUID(), name: r.name, description: r.description,

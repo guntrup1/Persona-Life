@@ -62,7 +62,7 @@ function EditGoalDialog({ goal, onUpdate }: { goal: Goal; onUpdate: (id: string,
           </div>
           {(goal.type === "month" || goal.type === "week") && (
             <div className="space-y-1.5">
-              <Label>{goal.type === "month" ? "{t.goals.parentYear}" : "{t.goals.parentMonth}"}</Label>
+              <Label>{goal.type === "month" ? t.goals.parentYear : t.goals.parentMonth}</Label>
               <Select value={parentId} onValueChange={setParentId}>
                 <SelectTrigger><SelectValue placeholder={t.goals.selectParent} /></SelectTrigger>
                 <SelectContent>
@@ -124,7 +124,7 @@ function AddGoalDialog({ parentId, parentType, onAdd, forcedType }: { parentId?:
           </div>
           {(type === "month" || type === "week") && possibleParents.length > 0 && (
             <div className="space-y-1.5">
-              <Label>{type === "month" ? "{t.goals.parentYear}" : "{t.goals.parentMonth}"}</Label>
+              <Label>{type === "month" ? t.goals.parentYear : t.goals.parentMonth}</Label>
               <Select value={selectedParentId} onValueChange={setSelectedParentId}>
                 <SelectTrigger><SelectValue placeholder={t.goals.selectParent} /></SelectTrigger>
                 <SelectContent>
@@ -277,7 +277,7 @@ function GoalCard({ goal, goals, onToggle, onDelete, onAdd, onUpdate, setGoalTas
   const [expanded, setExpanded] = useState(false);
   const { toast } = useToast();
   const typeColors: Record<GoalType, string> = { year: "text-yellow-400 border-yellow-500/30", month: "text-blue-400 border-blue-500/30", week: "text-green-400 border-green-500/30" };
-  const typeLabels: Record<GoalType, string> = { year: "Год", month: "Месяц", week: "Неделя" };
+  const typeLabels = { year: t.goals.yearTab, month: t.goals.monthTab, week: t.goals.weekTab };
   const childGoals = goals.filter(g => g.parentId === goal.id);
   const progress = getGoalProgress(goal, state);
   const parentGoal = goal.parentId ? goals.find(g => g.id === goal.parentId) : null;
@@ -295,7 +295,7 @@ function GoalCard({ goal, goals, onToggle, onDelete, onAdd, onUpdate, setGoalTas
     if (!goal.completed && planIncomplete) {
       toast({
         title: t.goals.planNotFinished,
-        description: `Выполнено ${plan.filter(p => p.done).length} из ${plan.length} пунктов. Всё равно отметить?`,
+        description: t.goals.archiveDesc(plan.filter(p => p.done).length, plan.length),
         variant: "destructive",
       });
       setTimeout(() => onToggle(goal.id), 1500);
@@ -452,7 +452,7 @@ function ArchivedGoalCard({ goal, state, onRestore, onDelete }: { goal: Goal; st
           )}
         </div>
         <div className="flex flex-col gap-0.5 flex-shrink-0">
-          <Button size="icon" variant="ghost" title="{t.goals.restore}" onClick={onRestore}>
+          <Button size="icon" variant="ghost" title={t.goals.restore} onClick={onRestore}>
             <RotateCcw className="w-3.5 h-3.5 text-muted-foreground" />
           </Button>
           <AlertDialog>
@@ -516,7 +516,7 @@ export default function GoalsPage() {
             <TabsTrigger value="archive" className="font-display text-xs flex items-center gap-1">
               <Archive className="w-3 h-3" />
               {archivedGoals.length > 0 && <span className="bg-primary/20 text-primary rounded-full px-1 text-[10px] font-mono">{archivedGoals.length}</span>}
-              Архив
+              {t.goals.archiveTab}
             </TabsTrigger>
           </TabsList>
 

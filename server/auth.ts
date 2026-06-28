@@ -54,6 +54,7 @@ const resetPasswordSchema = z.object({
 
 const forgotPasswordSchema = z.object({
   email: z.string().email("Некорректный email").toLowerCase(),
+  lang: z.string().optional(),
 });
 
 export function setupAuth(app: Express) {
@@ -96,7 +97,7 @@ export function registerAuthRoutes(app: Express) {
     if (!parsed.success) {
       return res.status(400).json({ message: parsed.error.errors[0].message });
     }
-    const { email, password } = parsed.data;
+    const { email, password, lang } = parsed.data;
 
     try {
       const existing = await User.findOne({ email: email.toLowerCase() });
@@ -122,18 +123,25 @@ export function registerAuthRoutes(app: Express) {
       // Отправляем письмо верификации через Brevo
       const verifyUrl = `${process.env.APP_URL || "https://persona-life.onrender.com"}/verify-email?token=${verifyToken}`;
       try {
+        const isEn = lang === "en";
+        const subject = isEn ? "Verify email — Persona Life" : "Подтверди email — Persona Life";
+        const title = isEn ? "PERSONA LIFE" : "PERSONA LIFE";
+        const desc = isEn ? "Verify your email to log in." : "Подтверди свой email чтобы войти в систему.";
+        const btn = isEn ? "VERIFY EMAIL" : "ПОДТВЕРДИТЬ EMAIL";
+        const footer = isEn ? "Link is valid for 24 hours. If you didn't register, ignore this email." : "Ссылка действует 24 часа. Если ты не регистрировался — просто проигнорируй письмо.";
+
         await sendEmail(
           user.email,
-          "Подтверди email — Persona Life",
+          subject,
           `
           <div style="font-family:sans-serif;max-width:480px;margin:0 auto;background:#0a0a0a;color:#fff;padding:32px;">
-            <h2 style="color:#E11D48;letter-spacing:0.2em;font-size:24px;">PERSONA LIFE</h2>
-            <p style="color:#aaa;">Подтверди свой email чтобы войти в систему.</p>
+            <h2 style="color:#E11D48;letter-spacing:0.2em;font-size:24px;">${title}</h2>
+            <p style="color:#aaa;">${desc}</p>
             <a href="${verifyUrl}"
               style="display:inline-block;margin:24px 0;padding:12px 32px;background:#E11D48;color:#fff;text-decoration:none;font-weight:bold;letter-spacing:0.1em;">
-              ПОДТВЕРДИТЬ EMAIL
+              ${btn}
             </a>
-            <p style="color:#666;font-size:12px;">Ссылка действует 24 часа. Если ты не регистрировался — просто проигнорируй письмо.</p>
+            <p style="color:#666;font-size:12px;">${footer}</p>
           </div>
           `
         );
@@ -324,7 +332,7 @@ export function registerAuthRoutes(app: Express) {
   app.post("/api/auth/forgot-password", async (req, res) => {
     const parsed = forgotPasswordSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
-    const { email } = parsed.data;
+    const { email, lang } = parsed.data;
 
     try {
       const user = await User.findOne({ email: email.toLowerCase() });
@@ -339,18 +347,26 @@ export function registerAuthRoutes(app: Express) {
 
       const resetUrl = `${process.env.APP_URL || "https://persona-life.onrender.com"}/reset-password?token=${token}`;
 
+      const isEn = lang === "en";
+      const subject = isEn ? "Password Reset — Persona Life" : "Сброс пароля — Persona Life";
+      const title = isEn ? "Password Reset" : "Сброс пароля";
+      const desc1 = isEn ? "You requested a password reset for Persona Life." : "Ты запросил сброс пароля для Persona Life.";
+      const desc2 = isEn ? "Click the button below — the link is valid for 1 hour:" : "Нажми на кнопку ниже — ссылка действует 1 час:";
+      const btn = isEn ? "Reset Password" : "Сбросить пароль";
+      const footer = isEn ? "If you didn't request a reset, ignore this email." : "Если ты не запрашивал сброс — просто проигнорируй это письмо.";
+
       await sendEmail(
         user.email,
-        "Сброс пароля — Persona Life",
+        subject,
         `
         <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
-          <h2>Сброс пароля</h2>
-          <p>Ты запросил сброс пароля для Persona Life.</p>
-          <p>Нажми на кнопку ниже — ссылка действует 1 час:</p>
+          <h2>${title}</h2>
+          <p>${desc1}</p>
+          <p>${desc2}</p>
           <a href="${resetUrl}" style="display:inline-block;padding:12px 24px;background:#ef4444;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;">
-            Сбросить пароль
+            ${btn}
           </a>
-          <p style="color:#888;font-size:12px;margin-top:24px;">Если ты не запрашивал сброс — просто проигнорируй это письмо.</p>
+          <p style="color:#888;font-size:12px;margin-top:24px;">${footer}</p>
         </div>
         `
       );
@@ -450,7 +466,7 @@ app.get("/api/auth/verify-email", async (req, res) => {
   app.post("/api/auth/resend-verification", async (req, res) => {
     const parsed = forgotPasswordSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Некорректный email" });
-    const { email } = parsed.data;
+    const { email, lang } = parsed.data;
     try {
       const user = await User.findOne({ email, isVerified: false });
       if (!user) return res.json({ ok: true });
@@ -461,17 +477,24 @@ app.get("/api/auth/verify-email", async (req, res) => {
       await User.findByIdAndUpdate(user._id, { verifyToken, verifyTokenExpires });
 
       const verifyUrl = `${process.env.APP_URL || "https://persona-life.onrender.com"}/verify-email?token=${verifyToken}`;
+      const isEn = lang === "en";
+      const subject = isEn ? "Verify email — Persona Life" : "Подтвердить email — Persona Life";
+      const title = isEn ? "PERSONA LIFE" : "PERSONA LIFE";
+      const desc = isEn ? "Click the button to verify your email:" : "Нажми кнопку чтобы подтвердить email:";
+      const btn = isEn ? "VERIFY" : "ПОДТВЕРДИТЬ";
+      const footer = isEn ? "Link is valid for 24 hours." : "Ссылка действует 24 часа.";
+
       await sendEmail(
         user.email,
-        "Подтвердить email — Persona Life",
+        subject,
         `
         <div style="font-family:sans-serif;max-width:480px;margin:0 auto;">
-          <h2 style="color:#E11D48;">PERSONA LIFE</h2>
-          <p>Нажми кнопку чтобы подтвердить email:</p>
+          <h2 style="color:#E11D48;">${title}</h2>
+          <p>${desc}</p>
           <a href="${verifyUrl}" style="display:inline-block;padding:12px 24px;background:#E11D48;color:#fff;text-decoration:none;font-weight:bold;">
-            ПОДТВЕРДИТЬ
+            ${btn}
           </a>
-          <p style="color:#888;font-size:12px;">Ссылка действует 24 часа.</p>
+          <p style="color:#888;font-size:12px;">${footer}</p>
         </div>
         `
       );

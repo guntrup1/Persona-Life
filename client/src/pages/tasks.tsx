@@ -19,9 +19,26 @@ import {
 import {
   Popover, PopoverContent, PopoverTrigger
 } from "@/components/ui/popover";
-import { CheckCircle, Circle, Plus, Trash2, RefreshCw, CheckSquare, Repeat, Zap, Pencil, Clock, ChevronDown, ChevronRight, CalendarDays, Target } from "lucide-react";
+import { CheckCircle, Circle, Plus, Trash2, RefreshCw, CheckSquare, Repeat, Zap, Pencil, Clock, ChevronDown, ChevronRight, CalendarDays, Target, GripVertical } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/lib/i18n";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 function AddTaskDialog({ onAdd, taskToEdit, open: externalOpen, onOpenChange }: { 
   onAdd: (task: any) => void;
@@ -272,6 +289,7 @@ function AddRoutineDialog({ onAdd, routineToEdit, open: externalOpen, onOpenChan
   const [category, setCategory] = useState<LifeArea>("Body");
   const [xp, setXp] = useState(10);
   const [goalId, setGoalId] = useState<string>("none");
+  const [days, setDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
 
   const { state } = useStore();
   const { t } = useI18n();
@@ -284,14 +302,24 @@ function AddRoutineDialog({ onAdd, routineToEdit, open: externalOpen, onOpenChan
       setCategory(routineToEdit.category);
       setXp(routineToEdit.xp);
       setGoalId(routineToEdit.goalId || "none");
+      setDays(routineToEdit.days || [0, 1, 2, 3, 4, 5, 6]);
     } else if (!routineToEdit && open) {
       setName("");
       setDescription("");
       setCategory("Body");
       setXp(10);
       setGoalId("none");
+      setDays([0, 1, 2, 3, 4, 5, 6]);
     }
   }, [routineToEdit, open]);
+
+  const toggleDay = (dayIndex: number) => {
+    setDays(prev => 
+      prev.includes(dayIndex) 
+        ? prev.filter(d => d !== dayIndex)
+        : [...prev, dayIndex].sort()
+    );
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -302,6 +330,7 @@ function AddRoutineDialog({ onAdd, routineToEdit, open: externalOpen, onOpenChan
       category, 
       xp, 
       goalId: goalId === "none" ? undefined : goalId,
+      days,
       enabled: routineToEdit ? routineToEdit.enabled : true 
     });
     setOpen(false);
@@ -342,6 +371,21 @@ function AddRoutineDialog({ onAdd, routineToEdit, open: externalOpen, onOpenChan
               placeholder={t.tasks.routineDescPlaceholder}
               data-testid="textarea-routine-description"
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Дни недели</Label>
+            <div className="flex gap-1 justify-between mt-1">
+              {[1, 2, 3, 4, 5, 6, 0].map(dayNum => (
+                <button
+                  key={dayNum}
+                  type="button"
+                  onClick={() => toggleDay(dayNum)}
+                  className={`flex-1 h-8 rounded text-[11px] font-medium transition-colors ${days.includes(dayNum) ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
+                >
+                  {(t.tasks.days as any)[dayNum]}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label>{t.tasks.category}</Label>
@@ -392,12 +436,111 @@ function AddRoutineDialog({ onAdd, routineToEdit, open: externalOpen, onOpenChan
   );
 }
 
+function SortableRoutineItem({ routine, setEditingRoutine, linkedGoal }: { routine: RoutineTemplate, setEditingRoutine: any, linkedGoal: any }) {
+  const { state, actions } = useStore();
+  const { t } = useI18n();
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: routine.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <Card ref={setNodeRef} style={style} className="p-3 border-card-border hover-elevate bg-card relative group" data-testid={`routine-${routine.id}`}>
+      <div className="flex items-center gap-3">
+        <div {...attributes} {...listeners} className="cursor-grab hover:text-primary text-muted-foreground opacity-50 group-hover:opacity-100 flex-shrink-0">
+          <GripVertical className="w-4 h-4" />
+        </div>
+        <Switch
+          checked={routine.enabled}
+          onCheckedChange={(checked) => actions.updateRoutineTemplate(routine.id, { enabled: checked })}
+          data-testid={`routine-toggle-${routine.id}`}
+        />
+        <div className="flex-1 min-w-0">
+          <div className="font-display text-sm text-foreground">{routine.name}</div>
+          {routine.description && (
+            <div className="text-xs text-muted-foreground truncate">{routine.description}</div>
+          )}
+          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+            <span className={`text-xs ${LIFE_AREA_COLORS[routine.category]}`}>{routine.category}</span>
+            {linkedGoal && (
+              <Badge variant="outline" className="text-[10px] py-0 h-3.5 border-primary/30 text-primary/70">
+                {linkedGoal.title}
+              </Badge>
+            )}
+            {routine.days && routine.days.length < 7 && routine.days.length > 0 && (
+              <div className="text-[10px] text-muted-foreground flex gap-0.5">
+                {routine.days.map(d => (t.tasks.days as any)[d]).join(", ")}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className="font-mono text-xs text-primary font-bold">+{routine.xp} XP</span>
+          <Button 
+            size="icon" 
+            variant="ghost" 
+            onClick={() => setEditingRoutine(routine)}
+            data-testid={`routine-edit-${routine.id}`}
+          >
+            <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button size="icon" variant="ghost" data-testid={`routine-delete-${routine.id}`}>
+                <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{t.tasks.deleteRoutineQ}</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {t.tasks.deleteRoutineDesc.replace('{name}', routine.name)}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>{t.tasks.cancel}</AlertDialogCancel>
+                <AlertDialogAction onClick={() => actions.deleteRoutineTemplate(routine.id)}>
+                  {t.tasks.delete}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 export default function TasksPage() {
   const { state, actions, todayTasks, isRoutineLoaded } = useStore();
   const { toast } = useToast();
   const { t } = useI18n();
   const [editingTask, setEditingTask] = useState<TodayTask | null>(null);
   const [editingRoutine, setEditingRoutine] = useState<RoutineTemplate | null>(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = state.routineTemplates.findIndex((r) => r.id === active.id);
+      const newIndex = state.routineTemplates.findIndex((r) => r.id === over.id);
+      actions.reorderRoutineTemplates(oldIndex, newIndex);
+    }
+  };
+
 
   const handleToggle = (id: string) => actions.toggleTask(id);
 
@@ -577,68 +720,31 @@ export default function TasksPage() {
                 <p className="text-xs text-muted-foreground mt-1">{t.tasks.noTemplatesDesc}</p>
               </Card>
             ) : (
-              <div className="space-y-2">
-                {state.routineTemplates.map(routine => {
-                  const linkedGoal = routine.goalId ? state.goals.find(g => g.id === routine.goalId) : null;
-                  return (
-                    <Card key={routine.id} className="p-3 border-card-border hover-elevate" data-testid={`routine-${routine.id}`}>
-                      <div className="flex items-center gap-3">
-                        <Switch
-                          checked={routine.enabled}
-                          onCheckedChange={(checked) => actions.updateRoutineTemplate(routine.id, { enabled: checked })}
-                          data-testid={`routine-toggle-${routine.id}`}
+                            <DndContext 
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <div className="space-y-2">
+                  <SortableContext 
+                    items={state.routineTemplates.map(r => r.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {state.routineTemplates.map(routine => {
+                      const linkedGoal = routine.goalId ? state.goals.find(g => g.id === routine.goalId) : null;
+                      return (
+                        <SortableRoutineItem 
+                          key={routine.id} 
+                          routine={routine} 
+                          setEditingRoutine={setEditingRoutine}
+                          linkedGoal={linkedGoal}
                         />
-                        <div className="flex-1 min-w-0">
-                          <div className="font-display text-sm text-foreground">{routine.name}</div>
-                          {routine.description && (
-                            <div className="text-xs text-muted-foreground truncate">{routine.description}</div>
-                          )}
-                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                            <span className={`text-xs ${LIFE_AREA_COLORS[routine.category]}`}>{routine.category}</span>
-                            {linkedGoal && (
-                              <Badge variant="outline" className="text-[10px] py-0 h-3.5 border-primary/30 text-primary/70">
-                                {linkedGoal.title}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className="font-mono text-xs text-primary font-bold">+{routine.xp} XP</span>
-                          <Button 
-                            size="icon" 
-                            variant="ghost" 
-                            onClick={() => setEditingRoutine(routine)}
-                            data-testid={`routine-edit-${routine.id}`}
-                          >
-                            <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button size="icon" variant="ghost" data-testid={`routine-delete-${routine.id}`}>
-                                <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>{t.tasks.deleteRoutineQ}</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  {t.tasks.deleteRoutineDesc.replace("{name}", routine.name)}
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>{t.tasks.cancel}</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => actions.deleteRoutineTemplate(routine.id)}>
-                                  Удалить
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </div>
-                    </Card>
-                  );
-                })}
-              </div>
+                      );
+                    })}
+                  </SortableContext>
+                </div>
+              </DndContext>
+
             )}
 
             <Card className="p-3 bg-muted/50 border-dashed border-border">

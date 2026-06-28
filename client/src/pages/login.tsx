@@ -8,7 +8,7 @@ import { Link } from "wouter";
 import { useI18n, LangToggle } from "@/lib/i18n";
 
 export default function LoginPage() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const { login, register } = useAuth();
   const { toast } = useToast();
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -31,7 +31,7 @@ export default function LoginPage() {
       await fetch("/api/auth/resend-verification", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, lang }),
       });
       setResendDone(true);
     } catch {
@@ -60,7 +60,7 @@ export default function LoginPage() {
         toast({ title: t.auth.welcomeBack });
       }
     } else {
-      const result = await register(email, password);
+      const result = await register(email, password, lang);
       if (result.error) {
         toast({ title: t.auth.errReg, description: result.error, variant: "destructive" });
       } else {
