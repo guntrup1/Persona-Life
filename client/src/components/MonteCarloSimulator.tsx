@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
-import { Trash2, Save, TrendingUp, TrendingDown, ArrowRight, Activity, CalendarDays } from "lucide-react";
+import { Trash2, Save, Activity, CalendarDays } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 
@@ -21,9 +21,7 @@ function runMonteCarlo(
   riskPercent: number,
   riskType: "fixed" | "dynamic",
   commission: number,
-  tradesPerDay: number,
-  backtestTrades: number | null,
-  backtestDays: number | null
+  tradesPerDay: number
 ): SimulationResult {
   const NUM_PATHS = 1000;
   const paths: number[][] = [];
@@ -34,7 +32,6 @@ function runMonteCarlo(
   let streak5Count = 0;
   let streak10Count = 0;
   
-  // Prop stats
   let phase1Pass = 0;
   let phase2Pass = 0;
   let livePass = 0;
@@ -43,7 +40,6 @@ function runMonteCarlo(
   for (let p = 0; p < NUM_PATHS; p++) {
     let balance = startingBalance;
     let maxBalance = startingBalance;
-    let currentDrawdown = 0;
     let maxPathDrawdown = 0;
     let currentStreak = 0;
     let hit3 = false, hit5 = false, hit10 = false;
@@ -62,8 +58,6 @@ function runMonteCarlo(
         break;
       }
       
-      // Если tradesPerDay < 1, значит каждая сделка происходит в новый день.
-      // Иначе обнуляем dayStartBalance каждые tradesPerDay сделок.
       if (tradesPerDay > 0) {
         if (tradesPerDay < 1) {
           dayStartBalance = balance;
@@ -105,7 +99,7 @@ function runMonteCarlo(
             maxBalance = phaseStartBalance;
           } else if (propState === "PHASE_2" && balance >= phaseStartBalance * 1.05) {
             propState = "LIVE";
-            passedLiveAtTrade = t + 1; // +1 because trade index is 0-based
+            passedLiveAtTrade = t + 1;
             balance = phaseStartBalance; 
             dayStartBalance = phaseStartBalance;
             maxBalance = phaseStartBalance;
@@ -169,9 +163,8 @@ function runMonteCarlo(
   
   if (mode === "PROP" && livePass > 0) {
     avgTradesToLive = totalTradesToLive / livePass;
-    if (backtestTrades && backtestDays && backtestTrades > 0) {
-      const daysPerTrade = backtestDays / backtestTrades;
-      avgDaysToLive = avgTradesToLive * daysPerTrade;
+    if (tradesPerDay > 0) {
+      avgDaysToLive = avgTradesToLive / tradesPerDay;
     }
   }
   
@@ -180,17 +173,11 @@ function runMonteCarlo(
   let halfYearlyIncome = null;
   let yearlyIncome = null;
   
-  if (backtestTrades && backtestDays && backtestTrades > 0) {
-    const daysPerTrade = backtestDays / backtestTrades;
-    monthlyIncome = mathExpectation * (30 / daysPerTrade);
-    quarterlyIncome = mathExpectation * (90 / daysPerTrade);
-    halfYearlyIncome = mathExpectation * (182 / daysPerTrade);
-    yearlyIncome = mathExpectation * (365 / daysPerTrade);
-  } else if (tradesPerDay > 0) {
-    monthlyIncome = mathExpectation * tradesPerDay * 20; 
-    quarterlyIncome = mathExpectation * tradesPerDay * 60;
-    halfYearlyIncome = mathExpectation * tradesPerDay * 120;
-    yearlyIncome = mathExpectation * tradesPerDay * 240;
+  if (tradesPerDay > 0) {
+    monthlyIncome = mathExpectation * tradesPerDay * (365 / 12);
+    quarterlyIncome = mathExpectation * tradesPerDay * (365 / 4);
+    halfYearlyIncome = mathExpectation * tradesPerDay * (365 / 2);
+    yearlyIncome = mathExpectation * tradesPerDay * 365;
   }
   
   return {
@@ -228,18 +215,20 @@ export function MonteCarloSimulator() {
   const [sessionName, setSessionName] = useState("");
   const [rr, setRr] = useState(2);
   const [winRate, setWinRate] = useState(40);
-  const [trades, setTrades] = useState(100);
+  const [trades, setTrades] = useState(168);
   const [startBalance, setStartBalance] = useState(5000);
   const [riskPercent, setRiskPercent] = useState(1);
   const [riskType, setRiskType] = useState<"fixed" | "dynamic">("fixed");
   const [commission, setCommission] = useState(0.1);
-  const [tradesPerMonth, setTradesPerMonth] = useState<string>("10");
-  
-  // New Backtest fields
-  const [backtestTrades, setBacktestTrades] = useState<string>("");
-  const [backtestDays, setBacktestDays] = useState<string>("");
+  const [backtestDays, setBacktestDays] = useState<string>("912");
   
   const [currentResult, setCurrentResult] = useState<SimulationResult | null>(null);
+  
+  const calcTradesPerMonth = () => {
+    const d = parseFloat(backtestDays);
+    if (isNaN(d) || d <= 0) return 0;
+    return (trades / d) * (365 / 12);
+  };
   
   const handleRun = () => {
     if (!sessionName.trim()) {
@@ -247,25 +236,14 @@ export function MonteCarloSimulator() {
       return;
     }
     
-    const btTrades = parseFloat(backtestTrades) || null;
-    const btDays = parseFloat(backtestDays) || null;
-    
-    let tpd = 0;
-    if (btTrades && btDays && btTrades > 0 && btDays > 0) {
-      tpd = btTrades / btDays;
-    } else {
-      const tpm = parseFloat(tradesPerMonth);
-      if (mode === "PROP" && (isNaN(tpm) || tpm <= 0)) {
-        toast({ title: "Укажите 'Сделок в месяц' или данные бэктеста для PROP", variant: "destructive" });
-        return;
-      }
-      if (!isNaN(tpm) && tpm > 0) {
-        tpd = tpm / 30; // approx trades per day
-      }
+    const bDays = parseFloat(backtestDays);
+    if (isNaN(bDays) || bDays <= 0) {
+      toast({ title: "Укажите количество дней бэктеста", variant: "destructive" });
+      return;
     }
     
-    const res = runMonteCarlo(mode, winRate, rr, trades, startBalance, riskPercent, riskType, commission, tpd, btTrades, btDays);
-    
+    const tpd = trades / bDays;
+    const res = runMonteCarlo(mode, winRate, rr, trades, startBalance, riskPercent, riskType, commission, tpd);
     setCurrentResult(res);
   };
   
@@ -283,8 +261,8 @@ export function MonteCarloSimulator() {
       mode,
       winRate, rr, trades, startingBalance: startBalance,
       riskPercent, riskType, commission, 
-      tradesPerMonth: parseFloat(tradesPerMonth) || null,
-      backtestTrades: parseFloat(backtestTrades) || null,
+      tradesPerMonth: null,
+      backtestTrades: trades,
       backtestDays: parseFloat(backtestDays) || null,
       results: currentResult
     };
@@ -294,14 +272,12 @@ export function MonteCarloSimulator() {
     setSessionName("");
     setRr(2);
     setWinRate(40);
-    setTrades(100);
+    setTrades(168);
     setStartBalance(5000);
     setRiskPercent(1);
     setRiskType("fixed");
     setCommission(0.1);
-    setTradesPerMonth("10");
-    setBacktestTrades("");
-    setBacktestDays("");
+    setBacktestDays("912");
     setCurrentResult(null);
   };
   
@@ -324,6 +300,11 @@ export function MonteCarloSimulator() {
     }
     return data;
   }, [sim1, sim2]);
+
+  const formatPct = (val: number | null) => {
+    if (val === null) return "-";
+    return (val / startBalance * 100).toFixed(2) + "%";
+  };
 
   const renderDashboard = (res: SimulationResult) => (
     <div className="space-y-6 mt-6 animate-in fade-in zoom-in-95 duration-500">
@@ -382,7 +363,12 @@ export function MonteCarloSimulator() {
         </Card>
         <Card className="p-4 bg-background/50 backdrop-blur border-white/5">
           <p className="text-sm text-muted-foreground">{t.simulator.mathExpectation}</p>
-          <p className="text-2xl font-bold text-yellow-400">{res.mathExpectation.toFixed(2)}$</p>
+          <p 
+            title={`${res.mathExpectation.toFixed(2)}$`}
+            className="text-2xl font-bold text-yellow-400 cursor-help border-b border-dashed border-yellow-400/50"
+          >
+            {formatPct(res.mathExpectation)}
+          </p>
         </Card>
       </div>
 
@@ -404,14 +390,29 @@ export function MonteCarloSimulator() {
           <Card className="p-4 bg-background/50 border-white/5">
             <div className="flex items-center gap-2 mb-3">
               <CalendarDays className="w-4 h-4 text-green-400" />
-              <h4 className="font-semibold">{t.simulator.timeProjections || "Временные проекции (на основе бэктеста)"}</h4>
+              <h4 className="font-semibold">{t.simulator.timeProjections || "Временные проекции"}</h4>
             </div>
             <div className="space-y-2 text-sm">
-              <div className="flex justify-between"><span>{t.simulator.avgIncome}:</span> <span className="text-green-400">{res.avgIncomePerTrade.toFixed(2)}$</span></div>
-              <div className="flex justify-between"><span>{t.simulator.monthIncome}:</span> <span className="text-green-400">{res.monthlyIncome?.toFixed(2)}$</span></div>
-              <div className="flex justify-between"><span>{t.simulator.quarterIncome}:</span> <span className="text-green-400">{res.quarterlyIncome?.toFixed(2)}$</span></div>
-              <div className="flex justify-between"><span>{t.simulator.halfYearIncome}:</span> <span className="text-green-400">{res.halfYearlyIncome?.toFixed(2)}$</span></div>
-              <div className="flex justify-between font-bold"><span>{t.simulator.yearIncome}:</span> <span className="text-green-400">{res.yearlyIncome?.toFixed(2)}$</span></div>
+              <div className="flex justify-between">
+                <span>{t.simulator.avgIncome}:</span> 
+                <span title={`${res.avgIncomePerTrade.toFixed(2)}$`} className="text-green-400 cursor-help border-b border-dashed border-green-400/50">{formatPct(res.avgIncomePerTrade)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>{t.simulator.monthIncome}:</span> 
+                <span title={`${res.monthlyIncome?.toFixed(2)}$`} className="text-green-400 cursor-help border-b border-dashed border-green-400/50">{formatPct(res.monthlyIncome)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>{t.simulator.quarterIncome}:</span> 
+                <span title={`${res.quarterlyIncome?.toFixed(2)}$`} className="text-green-400 cursor-help border-b border-dashed border-green-400/50">{formatPct(res.quarterlyIncome)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>{t.simulator.halfYearIncome}:</span> 
+                <span title={`${res.halfYearlyIncome?.toFixed(2)}$`} className="text-green-400 cursor-help border-b border-dashed border-green-400/50">{formatPct(res.halfYearlyIncome)}</span>
+              </div>
+              <div className="flex justify-between font-bold">
+                <span>{t.simulator.yearIncome}:</span> 
+                <span title={`${res.yearlyIncome?.toFixed(2)}$`} className="text-green-400 cursor-help border-b border-dashed border-green-400/50">{formatPct(res.yearlyIncome)}</span>
+              </div>
             </div>
           </Card>
         )}
@@ -477,7 +478,7 @@ export function MonteCarloSimulator() {
               </div>
               
               <div className="space-y-2">
-                <Label>{t.simulator.tradesCount}</Label>
+                <Label>{t.simulator.tradesCount || "Кол-во сделок"}</Label>
                 <Input type="number" value={trades} onChange={e => { setTrades(parseFloat(e.target.value)); setCurrentResult(null); }} className="bg-black/40" />
               </div>
               <div className="space-y-2">
@@ -503,50 +504,26 @@ export function MonteCarloSimulator() {
                 <Label>{t.simulator.commission}</Label>
                 <Input type="number" step="0.01" value={commission} onChange={e => { setCommission(parseFloat(e.target.value)); setCurrentResult(null); }} className="bg-black/40" />
               </div>
+              
               <div className="space-y-2">
-                <Label className="text-gray-200">
-                  {t.simulator.tradesPerMonth || "Сделок в месяц (в среднем)"}
-                </Label>
+                <Label>{t.simulator.backtestDays || "Период (дней)"}</Label>
                 <Input 
                   type="number" 
-                  value={tradesPerMonth} 
-                  onChange={e => { setTradesPerMonth(e.target.value); setCurrentResult(null); }} 
-                  placeholder="Например: 15" 
+                  value={backtestDays} 
+                  onChange={e => { setBacktestDays(e.target.value); setCurrentResult(null); }} 
+                  placeholder="Например: 912" 
                   className="bg-black/40" 
                 />
               </div>
             </div>
 
-            <div className="mt-8 pt-6 border-t border-white/10">
-              <div className="flex items-center gap-2 mb-4">
-                <CalendarDays className="w-5 h-5 text-gray-400" />
-                <h4 className="font-semibold text-gray-300">Временные рамки бэктеста (Опционально)</h4>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label className="text-gray-400">{t.simulator.backtestTrades || "Сделок в бэктесте"}</Label>
-                  <Input 
-                    type="number" 
-                    value={backtestTrades} 
-                    onChange={e => { setBacktestTrades(e.target.value); setCurrentResult(null); }} 
-                    placeholder="Например: 168" 
-                    className="bg-black/40" 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-gray-400">{t.simulator.backtestDays || "Дней в бэктесте (период)"}</Label>
-                  <Input 
-                    type="number" 
-                    value={backtestDays} 
-                    onChange={e => { setBacktestDays(e.target.value); setCurrentResult(null); }} 
-                    placeholder="Например: 912" 
-                    className="bg-black/40" 
-                  />
-                </div>
-              </div>
+            <div className="mt-6 flex justify-end">
+               <div className="text-sm text-gray-400 bg-black/20 px-3 py-1.5 rounded-md border border-white/5">
+                 Сделок в месяц (в среднем): <span className="text-white font-bold">{calcTradesPerMonth().toFixed(1)}</span>
+               </div>
             </div>
             
-            <div className="flex gap-4 mt-8">
+            <div className="flex gap-4 mt-6">
               <Button onClick={handleRun} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold tracking-widest">{t.simulator.runSim}</Button>
               {currentResult && (
                 <Button onClick={handleSave} variant="outline" className="flex-1 border-red-500/50 hover:bg-red-500/10">
