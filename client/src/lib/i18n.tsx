@@ -378,6 +378,8 @@ export const translations = {
       commission: "Комиссия и проскальзывание (% от риска)",
       tradesPerMonth: "Сделок в месяц (в среднем)",
       maxTradesPerDay: "Макс. сделок в день (Для Daily DD)",
+      downloadJson: "Скачать ИИ-датасет (JSON)",
+      shareImage: "Поделиться статистикой",
       runSim: "Запустить симуляцию",
       
       resultsTitle: "Результаты симуляции",
@@ -937,6 +939,8 @@ export const translations = {
       commission: "Commission & Slippage (% of risk)",
       tradesPerMonth: "Avg Trades per month",
       maxTradesPerDay: "Max trades per day (For Daily DD)",
+      downloadJson: "Download AI-Dataset (JSON)",
+      shareImage: "Share Statistics",
       runSim: "Run Simulation",
       
       resultsTitle: "Simulation Results",

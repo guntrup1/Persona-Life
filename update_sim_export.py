@@ -1,4 +1,6 @@
-import React, { useState, useMemo, useRef } from "react";
+import os
+
+content = """import React, { useState, useMemo, useRef } from "react";
 import { useI18n } from "@/lib/i18n";
 import { useStore, SimulationSession, SimulationResult } from "@/lib/store";
 import { Card } from "@/components/ui/card";
@@ -305,7 +307,7 @@ export function MonteCarloSimulator() {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(sim, null, 2));
     const downloadAnchorNode = document.createElement('a');
     downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", `simulation_${sim.name.replace(/\s+/g, '_')}_${new Date(sim.createdAt).toISOString().split('T')[0]}.json`);
+    downloadAnchorNode.setAttribute("download", `simulation_${sim.name.replace(/\\s+/g, '_')}_${new Date(sim.createdAt).toISOString().split('T')[0]}.json`);
     document.body.appendChild(downloadAnchorNode); // required for firefox
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
@@ -855,3 +857,7 @@ export function MonteCarloSimulator() {
     </div>
   );
 }
+"""
+
+with open("client/src/components/MonteCarloSimulator.tsx", "w", encoding="utf-8") as f:
+    f.write(content)
