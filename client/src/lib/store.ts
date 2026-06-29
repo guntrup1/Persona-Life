@@ -79,7 +79,7 @@ export interface SimulationSession {
   riskPercent: number;
   riskType: "fixed" | "dynamic";
   commission: number;
-  tradesPerDay: number | null;
+  tradesPerMonth: number | null;
   backtestTrades: number | null;
   backtestDays: number | null;
   results: SimulationResult;

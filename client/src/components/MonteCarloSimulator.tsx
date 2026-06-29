@@ -62,8 +62,14 @@ function runMonteCarlo(
         break;
       }
       
-      if (t > 0 && tradesPerDay > 0 && t % Math.ceil(tradesPerDay) === 0) {
-        dayStartBalance = balance;
+      // Если tradesPerDay < 1, значит каждая сделка происходит в новый день.
+      // Иначе обнуляем dayStartBalance каждые tradesPerDay сделок.
+      if (tradesPerDay > 0) {
+        if (tradesPerDay < 1) {
+          dayStartBalance = balance;
+        } else if (t > 0 && t % Math.ceil(tradesPerDay) === 0) {
+          dayStartBalance = balance;
+        }
       }
       
       const riskAmount = riskType === "fixed" ? phaseStartBalance * (riskPercent / 100) : balance * (riskPercent / 100);
@@ -227,7 +233,7 @@ export function MonteCarloSimulator() {
   const [riskPercent, setRiskPercent] = useState(1);
   const [riskType, setRiskType] = useState<"fixed" | "dynamic">("fixed");
   const [commission, setCommission] = useState(0.1);
-  const [tradesPerDay, setTradesPerDay] = useState<string>("3");
+  const [tradesPerMonth, setTradesPerMonth] = useState<string>("10");
   
   // New Backtest fields
   const [backtestTrades, setBacktestTrades] = useState<string>("");
@@ -241,16 +247,22 @@ export function MonteCarloSimulator() {
       return;
     }
     
-    let tpd = parseFloat(tradesPerDay);
-    if (mode === "PROP" && (isNaN(tpd) || tpd <= 0)) {
-      toast({ title: "Макс сделок в день (Trades per day) требуется для расчета Daily DD", variant: "destructive" });
-      return;
-    }
-    
-    if (isNaN(tpd)) tpd = 0;
-    
     const btTrades = parseFloat(backtestTrades) || null;
     const btDays = parseFloat(backtestDays) || null;
+    
+    let tpd = 0;
+    if (btTrades && btDays && btTrades > 0 && btDays > 0) {
+      tpd = btTrades / btDays;
+    } else {
+      const tpm = parseFloat(tradesPerMonth);
+      if (mode === "PROP" && (isNaN(tpm) || tpm <= 0)) {
+        toast({ title: "Укажите 'Сделок в месяц' или данные бэктеста для PROP", variant: "destructive" });
+        return;
+      }
+      if (!isNaN(tpm) && tpm > 0) {
+        tpd = tpm / 30; // approx trades per day
+      }
+    }
     
     const res = runMonteCarlo(mode, winRate, rr, trades, startBalance, riskPercent, riskType, commission, tpd, btTrades, btDays);
     
@@ -271,7 +283,7 @@ export function MonteCarloSimulator() {
       mode,
       winRate, rr, trades, startingBalance: startBalance,
       riskPercent, riskType, commission, 
-      tradesPerDay: parseFloat(tradesPerDay) || null,
+      tradesPerMonth: parseFloat(tradesPerMonth) || null,
       backtestTrades: parseFloat(backtestTrades) || null,
       backtestDays: parseFloat(backtestDays) || null,
       results: currentResult
@@ -287,7 +299,7 @@ export function MonteCarloSimulator() {
     setRiskPercent(1);
     setRiskType("fixed");
     setCommission(0.1);
-    setTradesPerDay("3");
+    setTradesPerMonth("10");
     setBacktestTrades("");
     setBacktestDays("");
     setCurrentResult(null);
@@ -492,15 +504,15 @@ export function MonteCarloSimulator() {
                 <Input type="number" step="0.01" value={commission} onChange={e => { setCommission(parseFloat(e.target.value)); setCurrentResult(null); }} className="bg-black/40" />
               </div>
               <div className="space-y-2">
-                <Label className={mode === "PROP" ? "text-blue-400 font-bold" : ""}>
-                  {t.simulator.tradesPerDay} {mode === "PROP" && "*"}
+                <Label className="text-gray-200">
+                  {t.simulator.tradesPerMonth || "Сделок в месяц (в среднем)"}
                 </Label>
                 <Input 
                   type="number" 
-                  value={tradesPerDay} 
-                  onChange={e => { setTradesPerDay(e.target.value); setCurrentResult(null); }} 
-                  placeholder={mode === "PROP" ? "Max trades per day for Daily DD" : "0"} 
-                  className={`bg-black/40 ${mode === "PROP" && !tradesPerDay ? "border-blue-500/50" : ""}`} 
+                  value={tradesPerMonth} 
+                  onChange={e => { setTradesPerMonth(e.target.value); setCurrentResult(null); }} 
+                  placeholder="Например: 15" 
+                  className="bg-black/40" 
                 />
               </div>
             </div>
