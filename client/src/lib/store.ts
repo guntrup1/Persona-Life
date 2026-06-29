@@ -63,6 +63,8 @@ export interface SimulationResult {
   probPhase1?: number;
   probPhase2?: number;
   probLive?: number;
+  avgTradesToLive?: number;
+  avgDaysToLive?: number;
 }
 
 export interface SimulationSession {
@@ -78,6 +80,8 @@ export interface SimulationSession {
   riskType: "fixed" | "dynamic";
   commission: number;
   tradesPerDay: number | null;
+  backtestTrades: number | null;
+  backtestDays: number | null;
   results: SimulationResult;
 }
 

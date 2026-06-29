@@ -346,6 +346,11 @@ export const translations = {
     // ── Ideas ──
     simulator: {
       simMode: "Режим симуляции",
+      backtestTrades: "Сделок в бэктесте",
+      backtestDays: "Дней в бэктесте (период)",
+      avgTradesToFunded: "Среднее кол-во сделок до Funded:",
+      avgDaysToFunded: "Среднее кол-во дней до Funded:",
+      timeProjections: "Временные проекции (на основе бэктеста)",
       modeSelf: "SELF (Стандартный)",
       modeProp: "PROP (Проп-компания)",
       propStats: "PROP Статистика (Фазы)",
@@ -899,6 +904,11 @@ export const translations = {
     // ── Ideas ──
     simulator: {
       simMode: "Simulation Mode",
+      backtestTrades: "Backtest Trades",
+      backtestDays: "Backtest Days (Period)",
+      avgTradesToFunded: "Avg Trades to Funded:",
+      avgDaysToFunded: "Avg Days to Funded:",
+      timeProjections: "Time Projections (based on backtest)",
       modeSelf: "SELF (Standard)",
       modeProp: "PROP (Prop Firm)",
       propStats: "PROP Statistics (Phases)",

@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
-import { Trash2, Save, TrendingUp, TrendingDown, ArrowRight, Activity } from "lucide-react";
+import { Trash2, Save, TrendingUp, TrendingDown, ArrowRight, Activity, CalendarDays } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 
@@ -21,7 +21,9 @@ function runMonteCarlo(
   riskPercent: number,
   riskType: "fixed" | "dynamic",
   commission: number,
-  tradesPerDay: number
+  tradesPerDay: number,
+  backtestTrades: number | null,
+  backtestDays: number | null
 ): SimulationResult {
   const NUM_PATHS = 1000;
   const paths: number[][] = [];
@@ -35,7 +37,8 @@ function runMonteCarlo(
   // Prop stats
   let phase1Pass = 0;
   let phase2Pass = 0;
-  let livePass = 0; // Means they reached live
+  let livePass = 0;
+  let totalTradesToLive = 0;
   
   for (let p = 0; p < NUM_PATHS; p++) {
     let balance = startingBalance;
@@ -50,17 +53,16 @@ function runMonteCarlo(
     let propState: "PHASE_1" | "PHASE_2" | "LIVE" | "FAILED" = "PHASE_1";
     let phaseStartBalance = startingBalance;
     let dayStartBalance = startingBalance;
+    let passedLiveAtTrade = -1;
     
     for (let t = 0; t < trades; t++) {
       if (balance <= 0 || (mode === "PROP" && propState === "FAILED")) {
-        // Ruin or failed prop, fill rest with previous balance (or 0 if ruin)
         const fillVal = balance <= 0 ? 0 : balance;
         for (let i = t; i < trades; i++) path.push(fillVal);
         break;
       }
       
-      // Update dayStartBalance if it's a new day
-      if (t > 0 && tradesPerDay > 0 && t % tradesPerDay === 0) {
+      if (t > 0 && tradesPerDay > 0 && t % Math.ceil(tradesPerDay) === 0) {
         dayStartBalance = balance;
       }
       
@@ -69,11 +71,9 @@ function runMonteCarlo(
       
       const rand = Math.random() * 100;
       if (rand <= winRate) {
-        // Win
         balance += (riskAmount * rr) - commAmount;
         currentStreak = 0;
       } else {
-        // Loss
         balance -= (riskAmount + commAmount);
         currentStreak++;
         if (currentStreak >= 3) hit3 = true;
@@ -85,22 +85,22 @@ function runMonteCarlo(
       const drawdown = ((maxBalance - balance) / maxBalance) * 100;
       if (drawdown > maxPathDrawdown) maxPathDrawdown = drawdown;
       
-      // PROP MODE EVALUATION
       if (mode === "PROP") {
-        const dailyLossLimit = dayStartBalance * 0.95; // -5% daily limit
-        const maxLossLimit = phaseStartBalance * 0.90; // -10% overall limit
+        const dailyLossLimit = dayStartBalance * 0.95;
+        const maxLossLimit = phaseStartBalance * 0.90;
         
         if (balance <= dailyLossLimit || balance <= maxLossLimit) {
           propState = "FAILED";
         } else {
           if (propState === "PHASE_1" && balance >= phaseStartBalance * 1.08) {
             propState = "PHASE_2";
-            balance = phaseStartBalance; // Reset account
+            balance = phaseStartBalance; 
             dayStartBalance = phaseStartBalance;
             maxBalance = phaseStartBalance;
           } else if (propState === "PHASE_2" && balance >= phaseStartBalance * 1.05) {
             propState = "LIVE";
-            balance = phaseStartBalance; // Reset account
+            passedLiveAtTrade = t + 1; // +1 because trade index is 0-based
+            balance = phaseStartBalance; 
             dayStartBalance = phaseStartBalance;
             maxBalance = phaseStartBalance;
           }
@@ -115,6 +115,9 @@ function runMonteCarlo(
       if (propState === "LIVE") {
         phase2Pass++;
         livePass++;
+        if (passedLiveAtTrade > 0) {
+          totalTradesToLive += passedLiveAtTrade;
+        }
       }
     }
     
@@ -122,21 +125,17 @@ function runMonteCarlo(
     totalDrawdowns += maxPathDrawdown;
     
     const finalBalance = path[path.length - 1];
-    if (finalBalance < startingBalance * 0.1) ruinCount++; // Risk of ruin
-    
+    if (finalBalance < startingBalance * 0.1) ruinCount++;
     if (hit3) streak3Count++;
     if (hit5) streak5Count++;
     if (hit10) streak10Count++;
   }
   
-  // Sort paths by final balance to find worst, median, best
   paths.sort((a, b) => a[a.length - 1] - b[b.length - 1]);
-  
   const worstPath = paths[0];
   const medianPath = paths[Math.floor(NUM_PATHS / 2)];
   const bestPath = paths[NUM_PATHS - 1];
   
-  // Create 50 random paths for visual cloud
   const cloudPaths = [];
   for (let i = 0; i < 50; i++) {
     cloudPaths.push(paths[Math.floor(Math.random() * NUM_PATHS)]);
@@ -157,8 +156,36 @@ function runMonteCarlo(
   const avgLoss = riskAmountApprox + commAmountApprox;
   const wr = winRate / 100;
   const mathExpectation = (avgWin * wr) - (avgLoss * (1 - wr));
-  
   const profitFactor = (avgWin * wr) / (avgLoss * (1 - wr));
+  
+  let avgTradesToLive = undefined;
+  let avgDaysToLive = undefined;
+  
+  if (mode === "PROP" && livePass > 0) {
+    avgTradesToLive = totalTradesToLive / livePass;
+    if (backtestTrades && backtestDays && backtestTrades > 0) {
+      const daysPerTrade = backtestDays / backtestTrades;
+      avgDaysToLive = avgTradesToLive * daysPerTrade;
+    }
+  }
+  
+  let monthlyIncome = null;
+  let quarterlyIncome = null;
+  let halfYearlyIncome = null;
+  let yearlyIncome = null;
+  
+  if (backtestTrades && backtestDays && backtestTrades > 0) {
+    const daysPerTrade = backtestDays / backtestTrades;
+    monthlyIncome = mathExpectation * (30 / daysPerTrade);
+    quarterlyIncome = mathExpectation * (90 / daysPerTrade);
+    halfYearlyIncome = mathExpectation * (182 / daysPerTrade);
+    yearlyIncome = mathExpectation * (365 / daysPerTrade);
+  } else if (tradesPerDay > 0) {
+    monthlyIncome = mathExpectation * tradesPerDay * 20; 
+    quarterlyIncome = mathExpectation * tradesPerDay * 60;
+    halfYearlyIncome = mathExpectation * tradesPerDay * 120;
+    yearlyIncome = mathExpectation * tradesPerDay * 240;
+  }
   
   return {
     probSL: 100 - winRate,
@@ -171,15 +198,17 @@ function runMonteCarlo(
     maxDrawdown: totalDrawdowns / NUM_PATHS,
     riskOfRuin: (ruinCount / NUM_PATHS) * 100,
     avgIncomePerTrade: mathExpectation,
-    monthlyIncome: null,
-    quarterlyIncome: null,
-    halfYearlyIncome: null,
-    yearlyIncome: null,
+    monthlyIncome,
+    quarterlyIncome,
+    halfYearlyIncome,
+    yearlyIncome,
     chartData,
     isPropMode: mode === "PROP",
     probPhase1: (phase1Pass / NUM_PATHS) * 100,
-    probPhase2: (phase2Pass / (phase1Pass || 1)) * 100, // Chance to pass P2 given P1 passed
-    probLive: (livePass / NUM_PATHS) * 100, // Overall chance
+    probPhase2: (phase2Pass / (phase1Pass || 1)) * 100,
+    probLive: (livePass / NUM_PATHS) * 100,
+    avgTradesToLive,
+    avgDaysToLive
   };
 }
 
@@ -189,7 +218,6 @@ export function MonteCarloSimulator() {
   
   const [activeTab, setActiveTab] = useState("new");
   
-  // Form State
   const [mode, setMode] = useState<"SELF" | "PROP">("SELF");
   const [sessionName, setSessionName] = useState("");
   const [rr, setRr] = useState(2);
@@ -201,6 +229,10 @@ export function MonteCarloSimulator() {
   const [commission, setCommission] = useState(0.1);
   const [tradesPerDay, setTradesPerDay] = useState<string>("3");
   
+  // New Backtest fields
+  const [backtestTrades, setBacktestTrades] = useState<string>("");
+  const [backtestDays, setBacktestDays] = useState<string>("");
+  
   const [currentResult, setCurrentResult] = useState<SimulationResult | null>(null);
   
   const handleRun = () => {
@@ -211,21 +243,16 @@ export function MonteCarloSimulator() {
     
     let tpd = parseFloat(tradesPerDay);
     if (mode === "PROP" && (isNaN(tpd) || tpd <= 0)) {
-      toast({ title: "Сделок в день (Trades per day) is required for PROP mode > 0", variant: "destructive" });
+      toast({ title: "Макс сделок в день (Trades per day) требуется для расчета Daily DD", variant: "destructive" });
       return;
     }
     
     if (isNaN(tpd)) tpd = 0;
     
-    const res = runMonteCarlo(mode, winRate, rr, trades, startBalance, riskPercent, riskType, commission, tpd);
+    const btTrades = parseFloat(backtestTrades) || null;
+    const btDays = parseFloat(backtestDays) || null;
     
-    // Calculate time based stats if tradesPerDay is set
-    if (tpd > 0 && mode === "SELF") {
-      res.monthlyIncome = res.avgIncomePerTrade * tpd * 20; // ~20 trading days
-      res.quarterlyIncome = res.avgIncomePerTrade * tpd * 60;
-      res.halfYearlyIncome = res.avgIncomePerTrade * tpd * 120;
-      res.yearlyIncome = res.avgIncomePerTrade * tpd * 240;
-    }
+    const res = runMonteCarlo(mode, winRate, rr, trades, startBalance, riskPercent, riskType, commission, tpd, btTrades, btDays);
     
     setCurrentResult(res);
   };
@@ -233,7 +260,6 @@ export function MonteCarloSimulator() {
   const handleSave = () => {
     if (!currentResult) return;
     
-    // Use fallback for ID generation in case crypto.randomUUID is unavailable in non-secure contexts
     const simId = (typeof crypto !== 'undefined' && crypto.randomUUID) 
       ? crypto.randomUUID() 
       : Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
@@ -246,12 +272,13 @@ export function MonteCarloSimulator() {
       winRate, rr, trades, startingBalance: startBalance,
       riskPercent, riskType, commission, 
       tradesPerDay: parseFloat(tradesPerDay) || null,
+      backtestTrades: parseFloat(backtestTrades) || null,
+      backtestDays: parseFloat(backtestDays) || null,
       results: currentResult
     };
     actions.addSimulation(sim);
     toast({ title: t.simulator.simSaved });
     
-    // Clear all fields to default state after saving
     setSessionName("");
     setRr(2);
     setWinRate(40);
@@ -261,10 +288,11 @@ export function MonteCarloSimulator() {
     setRiskType("fixed");
     setCommission(0.1);
     setTradesPerDay("3");
+    setBacktestTrades("");
+    setBacktestDays("");
     setCurrentResult(null);
   };
   
-  // Compare State
   const [comp1, setComp1] = useState<string>("");
   const [comp2, setComp2] = useState<string>("");
   
@@ -295,7 +323,7 @@ export function MonteCarloSimulator() {
             <Activity className="text-blue-400 w-5 h-5" />
             <h4 className="font-bold text-lg text-blue-100">{t.simulator.propStats || "PROP Статистика (Фазы)"}</h4>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div className="bg-black/40 p-4 rounded-lg">
               <p className="text-sm text-muted-foreground">{t.simulator.probPhase1 || "Шанс пройти Фазу 1"}</p>
               <p className="text-2xl font-bold text-blue-400">{res.probPhase1?.toFixed(1)}%</p>
@@ -309,6 +337,21 @@ export function MonteCarloSimulator() {
               <p className="text-2xl font-bold text-emerald-400">{res.probLive?.toFixed(1)}%</p>
             </div>
           </div>
+          
+          {res.avgTradesToLive !== undefined && (
+            <div className="bg-blue-950/30 p-4 rounded-lg border border-blue-500/10 grid grid-cols-1 md:grid-cols-2 gap-4">
+               <div>
+                 <p className="text-sm text-blue-300/80">{t.simulator.avgTradesToFunded || "Среднее кол-во сделок до Funded:"}</p>
+                 <p className="text-xl font-bold text-blue-200">~{Math.ceil(res.avgTradesToLive)} сделок</p>
+               </div>
+               {res.avgDaysToLive !== undefined && (
+                 <div>
+                   <p className="text-sm text-blue-300/80">{t.simulator.avgDaysToFunded || "Среднее кол-во дней до Funded:"}</p>
+                   <p className="text-xl font-bold text-blue-200">~{Math.ceil(res.avgDaysToLive)} дней</p>
+                 </div>
+               )}
+            </div>
+          )}
         </Card>
       )}
       
@@ -345,9 +388,12 @@ export function MonteCarloSimulator() {
           </div>
         </Card>
         
-        {!res.isPropMode && res.monthlyIncome !== null && (
+        {res.monthlyIncome !== null && (
           <Card className="p-4 bg-background/50 border-white/5">
-            <h4 className="font-semibold mb-3">{t.simulator.timeStats}</h4>
+            <div className="flex items-center gap-2 mb-3">
+              <CalendarDays className="w-4 h-4 text-green-400" />
+              <h4 className="font-semibold">{t.simulator.timeProjections || "Временные проекции (на основе бэктеста)"}</h4>
+            </div>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between"><span>{t.simulator.avgIncome}:</span> <span className="text-green-400">{res.avgIncomePerTrade.toFixed(2)}$</span></div>
               <div className="flex justify-between"><span>{t.simulator.monthIncome}:</span> <span className="text-green-400">{res.monthlyIncome?.toFixed(2)}$</span></div>
@@ -393,7 +439,7 @@ export function MonteCarloSimulator() {
           <Card className="p-6 bg-background/50 backdrop-blur border-white/5">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold tracking-wider text-red-400">{t.simulator.formTitle}</h3>
-              <Select value={mode} onValueChange={(v: "SELF" | "PROP") => setMode(v)}>
+              <Select value={mode} onValueChange={(v: "SELF" | "PROP") => { setMode(v); setCurrentResult(null); }}>
                 <SelectTrigger className="w-[200px] bg-black/60 border-primary/50 text-primary font-bold">
                   <SelectValue />
                 </SelectTrigger>
@@ -411,29 +457,29 @@ export function MonteCarloSimulator() {
               </div>
               <div className="space-y-2">
                 <Label>{t.simulator.avgRR}</Label>
-                <Input type="number" step="0.1" value={rr} onChange={e => setRr(parseFloat(e.target.value))} className="bg-black/40" />
+                <Input type="number" step="0.1" value={rr} onChange={e => { setRr(parseFloat(e.target.value)); setCurrentResult(null); }} className="bg-black/40" />
               </div>
               <div className="space-y-2">
                 <Label>{t.simulator.winRate}</Label>
-                <Input type="number" value={winRate} onChange={e => setWinRate(parseFloat(e.target.value))} className="bg-black/40" />
+                <Input type="number" value={winRate} onChange={e => { setWinRate(parseFloat(e.target.value)); setCurrentResult(null); }} className="bg-black/40" />
               </div>
               
               <div className="space-y-2">
                 <Label>{t.simulator.tradesCount}</Label>
-                <Input type="number" value={trades} onChange={e => setTrades(parseFloat(e.target.value))} className="bg-black/40" />
+                <Input type="number" value={trades} onChange={e => { setTrades(parseFloat(e.target.value)); setCurrentResult(null); }} className="bg-black/40" />
               </div>
               <div className="space-y-2">
                 <Label>{t.simulator.startBalance}</Label>
-                <Input type="number" value={startBalance} onChange={e => setStartBalance(parseFloat(e.target.value))} className="bg-black/40" />
+                <Input type="number" value={startBalance} onChange={e => { setStartBalance(parseFloat(e.target.value)); setCurrentResult(null); }} className="bg-black/40" />
               </div>
               <div className="space-y-2">
                 <Label>{t.simulator.riskPerTrade}</Label>
-                <Input type="number" step="0.1" value={riskPercent} onChange={e => setRiskPercent(parseFloat(e.target.value))} className="bg-black/40" />
+                <Input type="number" step="0.1" value={riskPercent} onChange={e => { setRiskPercent(parseFloat(e.target.value)); setCurrentResult(null); }} className="bg-black/40" />
               </div>
               
               <div className="space-y-2">
                 <Label>{t.simulator.riskType}</Label>
-                <Select value={riskType} onValueChange={(v: "fixed" | "dynamic") => setRiskType(v)}>
+                <Select value={riskType} onValueChange={(v: "fixed" | "dynamic") => { setRiskType(v); setCurrentResult(null); }}>
                   <SelectTrigger className="bg-black/40"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="fixed">{t.simulator.riskFixed}</SelectItem>
@@ -443,7 +489,7 @@ export function MonteCarloSimulator() {
               </div>
               <div className="space-y-2">
                 <Label>{t.simulator.commission}</Label>
-                <Input type="number" step="0.01" value={commission} onChange={e => setCommission(parseFloat(e.target.value))} className="bg-black/40" />
+                <Input type="number" step="0.01" value={commission} onChange={e => { setCommission(parseFloat(e.target.value)); setCurrentResult(null); }} className="bg-black/40" />
               </div>
               <div className="space-y-2">
                 <Label className={mode === "PROP" ? "text-blue-400 font-bold" : ""}>
@@ -452,10 +498,39 @@ export function MonteCarloSimulator() {
                 <Input 
                   type="number" 
                   value={tradesPerDay} 
-                  onChange={e => setTradesPerDay(e.target.value)} 
-                  placeholder={mode === "PROP" ? "Required for Daily DD" : "0"} 
+                  onChange={e => { setTradesPerDay(e.target.value); setCurrentResult(null); }} 
+                  placeholder={mode === "PROP" ? "Max trades per day for Daily DD" : "0"} 
                   className={`bg-black/40 ${mode === "PROP" && !tradesPerDay ? "border-blue-500/50" : ""}`} 
                 />
+              </div>
+            </div>
+
+            <div className="mt-8 pt-6 border-t border-white/10">
+              <div className="flex items-center gap-2 mb-4">
+                <CalendarDays className="w-5 h-5 text-gray-400" />
+                <h4 className="font-semibold text-gray-300">Временные рамки бэктеста (Опционально)</h4>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label className="text-gray-400">{t.simulator.backtestTrades || "Сделок в бэктесте"}</Label>
+                  <Input 
+                    type="number" 
+                    value={backtestTrades} 
+                    onChange={e => { setBacktestTrades(e.target.value); setCurrentResult(null); }} 
+                    placeholder="Например: 168" 
+                    className="bg-black/40" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-gray-400">{t.simulator.backtestDays || "Дней в бэктесте (период)"}</Label>
+                  <Input 
+                    type="number" 
+                    value={backtestDays} 
+                    onChange={e => { setBacktestDays(e.target.value); setCurrentResult(null); }} 
+                    placeholder="Например: 912" 
+                    className="bg-black/40" 
+                  />
+                </div>
               </div>
             </div>
             
@@ -497,9 +572,16 @@ export function MonteCarloSimulator() {
                         <div className="flex justify-between"><span>Мат. ожид.:</span> <span className="text-yellow-400">{sim1.results.mathExpectation.toFixed(2)}$</span></div>
                         <div className="flex justify-between"><span>Просадка:</span> <span className="text-red-400">{sim1.results.maxDrawdown.toFixed(2)}%</span></div>
                         {sim1.mode === "PROP" && (
-                          <div className="flex justify-between border-t border-white/10 pt-2 mt-2">
-                            <span className="text-blue-400/80">Шанс Live:</span> <span className="text-blue-400 font-bold">{sim1.results.probLive?.toFixed(1)}%</span>
-                          </div>
+                          <>
+                            <div className="flex justify-between border-t border-white/10 pt-2 mt-2">
+                              <span className="text-blue-400/80">Шанс Live:</span> <span className="text-blue-400 font-bold">{sim1.results.probLive?.toFixed(1)}%</span>
+                            </div>
+                            {sim1.results.avgDaysToLive !== undefined && (
+                              <div className="flex justify-between">
+                                <span className="text-blue-400/80">Дней до Live:</span> <span className="text-blue-400">~{Math.ceil(sim1.results.avgDaysToLive)}</span>
+                              </div>
+                            )}
+                          </>
                         )}
                         <Button variant="ghost" size="sm" className="w-full text-red-500 hover:text-red-400 mt-4" onClick={() => { actions.deleteSimulation(sim1.id); setComp1(""); toast({title: t.simulator.simDeleted}); }}>
                           <Trash2 className="w-4 h-4 mr-2" /> {t.simulator.deleteSim}
@@ -526,9 +608,16 @@ export function MonteCarloSimulator() {
                         <div className="flex justify-between"><span>Мат. ожид.:</span> <span className="text-yellow-400">{sim2.results.mathExpectation.toFixed(2)}$</span></div>
                         <div className="flex justify-between"><span>Просадка:</span> <span className="text-red-400">{sim2.results.maxDrawdown.toFixed(2)}%</span></div>
                         {sim2.mode === "PROP" && (
-                          <div className="flex justify-between border-t border-white/10 pt-2 mt-2">
-                            <span className="text-blue-400/80">Шанс Live:</span> <span className="text-blue-400 font-bold">{sim2.results.probLive?.toFixed(1)}%</span>
-                          </div>
+                          <>
+                            <div className="flex justify-between border-t border-white/10 pt-2 mt-2">
+                              <span className="text-blue-400/80">Шанс Live:</span> <span className="text-blue-400 font-bold">{sim2.results.probLive?.toFixed(1)}%</span>
+                            </div>
+                            {sim2.results.avgDaysToLive !== undefined && (
+                              <div className="flex justify-between">
+                                <span className="text-blue-400/80">Дней до Live:</span> <span className="text-blue-400">~{Math.ceil(sim2.results.avgDaysToLive)}</span>
+                              </div>
+                            )}
+                          </>
                         )}
                         <Button variant="ghost" size="sm" className="w-full text-red-500 hover:text-red-400 mt-4" onClick={() => { actions.deleteSimulation(sim2.id); setComp2(""); toast({title: t.simulator.simDeleted}); }}>
                           <Trash2 className="w-4 h-4 mr-2" /> {t.simulator.deleteSim}
