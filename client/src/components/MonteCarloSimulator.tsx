@@ -8,17 +8,20 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
-import { Trash2, Save, TrendingUp, TrendingDown, ArrowRight } from "lucide-react";
+import { Trash2, Save, TrendingUp, TrendingDown, ArrowRight, Activity } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
 
 function runMonteCarlo(
+  mode: "SELF" | "PROP",
   winRate: number,
   rr: number,
   trades: number,
   startingBalance: number,
   riskPercent: number,
   riskType: "fixed" | "dynamic",
-  commission: number
+  commission: number,
+  tradesPerDay: number
 ): SimulationResult {
   const NUM_PATHS = 1000;
   const paths: number[][] = [];
@@ -28,6 +31,11 @@ function runMonteCarlo(
   let streak3Count = 0;
   let streak5Count = 0;
   let streak10Count = 0;
+  
+  // Prop stats
+  let phase1Pass = 0;
+  let phase2Pass = 0;
+  let livePass = 0; // Means they reached live
   
   for (let p = 0; p < NUM_PATHS; p++) {
     let balance = startingBalance;
@@ -39,14 +47,24 @@ function runMonteCarlo(
     
     const path: number[] = [balance];
     
+    let propState: "PHASE_1" | "PHASE_2" | "LIVE" | "FAILED" = "PHASE_1";
+    let phaseStartBalance = startingBalance;
+    let dayStartBalance = startingBalance;
+    
     for (let t = 0; t < trades; t++) {
-      if (balance <= 0) {
-        // Ruin, fill rest with 0
-        for (let i = t; i < trades; i++) path.push(0);
+      if (balance <= 0 || (mode === "PROP" && propState === "FAILED")) {
+        // Ruin or failed prop, fill rest with previous balance (or 0 if ruin)
+        const fillVal = balance <= 0 ? 0 : balance;
+        for (let i = t; i < trades; i++) path.push(fillVal);
         break;
       }
       
-      const riskAmount = riskType === "fixed" ? startingBalance * (riskPercent / 100) : balance * (riskPercent / 100);
+      // Update dayStartBalance if it's a new day
+      if (t > 0 && tradesPerDay > 0 && t % tradesPerDay === 0) {
+        dayStartBalance = balance;
+      }
+      
+      const riskAmount = riskType === "fixed" ? phaseStartBalance * (riskPercent / 100) : balance * (riskPercent / 100);
       const commAmount = riskAmount * (commission / 100);
       
       const rand = Math.random() * 100;
@@ -67,22 +85,51 @@ function runMonteCarlo(
       const drawdown = ((maxBalance - balance) / maxBalance) * 100;
       if (drawdown > maxPathDrawdown) maxPathDrawdown = drawdown;
       
+      // PROP MODE EVALUATION
+      if (mode === "PROP") {
+        const dailyLossLimit = dayStartBalance * 0.95; // -5% daily limit
+        const maxLossLimit = phaseStartBalance * 0.90; // -10% overall limit
+        
+        if (balance <= dailyLossLimit || balance <= maxLossLimit) {
+          propState = "FAILED";
+        } else {
+          if (propState === "PHASE_1" && balance >= phaseStartBalance * 1.08) {
+            propState = "PHASE_2";
+            balance = phaseStartBalance; // Reset account
+            dayStartBalance = phaseStartBalance;
+            maxBalance = phaseStartBalance;
+          } else if (propState === "PHASE_2" && balance >= phaseStartBalance * 1.05) {
+            propState = "LIVE";
+            balance = phaseStartBalance; // Reset account
+            dayStartBalance = phaseStartBalance;
+            maxBalance = phaseStartBalance;
+          }
+        }
+      }
+      
       path.push(balance);
+    }
+    
+    if (mode === "PROP") {
+      if (propState === "PHASE_2" || propState === "LIVE") phase1Pass++;
+      if (propState === "LIVE") {
+        phase2Pass++;
+        livePass++;
+      }
     }
     
     paths.push(path);
     totalDrawdowns += maxPathDrawdown;
     
     const finalBalance = path[path.length - 1];
-    if (finalBalance < startingBalance * 0.1) ruinCount++; // Risk of ruin = <10% of start
+    if (finalBalance < startingBalance * 0.1) ruinCount++; // Risk of ruin
     
     if (hit3) streak3Count++;
     if (hit5) streak5Count++;
     if (hit10) streak10Count++;
   }
   
-  // Chart data extraction
-  // We sort paths by final balance
+  // Sort paths by final balance to find worst, median, best
   paths.sort((a, b) => a[a.length - 1] - b[b.length - 1]);
   
   const worstPath = paths[0];
@@ -128,7 +175,11 @@ function runMonteCarlo(
     quarterlyIncome: null,
     halfYearlyIncome: null,
     yearlyIncome: null,
-    chartData
+    chartData,
+    isPropMode: mode === "PROP",
+    probPhase1: (phase1Pass / NUM_PATHS) * 100,
+    probPhase2: (phase2Pass / (phase1Pass || 1)) * 100, // Chance to pass P2 given P1 passed
+    probLive: (livePass / NUM_PATHS) * 100, // Overall chance
   };
 }
 
@@ -139,15 +190,16 @@ export function MonteCarloSimulator() {
   const [activeTab, setActiveTab] = useState("new");
   
   // Form State
+  const [mode, setMode] = useState<"SELF" | "PROP">("SELF");
   const [sessionName, setSessionName] = useState("");
   const [rr, setRr] = useState(2);
   const [winRate, setWinRate] = useState(40);
   const [trades, setTrades] = useState(100);
-  const [startBalance, setStartBalance] = useState(1000);
+  const [startBalance, setStartBalance] = useState(5000);
   const [riskPercent, setRiskPercent] = useState(1);
   const [riskType, setRiskType] = useState<"fixed" | "dynamic">("fixed");
   const [commission, setCommission] = useState(0.1);
-  const [tradesPerDay, setTradesPerDay] = useState<string>("");
+  const [tradesPerDay, setTradesPerDay] = useState<string>("3");
   
   const [currentResult, setCurrentResult] = useState<SimulationResult | null>(null);
   
@@ -157,11 +209,18 @@ export function MonteCarloSimulator() {
       return;
     }
     
-    const res = runMonteCarlo(winRate, rr, trades, startBalance, riskPercent, riskType, commission);
+    let tpd = parseFloat(tradesPerDay);
+    if (mode === "PROP" && (isNaN(tpd) || tpd <= 0)) {
+      toast({ title: "Сделок в день (Trades per day) is required for PROP mode > 0", variant: "destructive" });
+      return;
+    }
+    
+    if (isNaN(tpd)) tpd = 0;
+    
+    const res = runMonteCarlo(mode, winRate, rr, trades, startBalance, riskPercent, riskType, commission, tpd);
     
     // Calculate time based stats if tradesPerDay is set
-    const tpd = parseFloat(tradesPerDay);
-    if (!isNaN(tpd) && tpd > 0) {
+    if (tpd > 0 && mode === "SELF") {
       res.monthlyIncome = res.avgIncomePerTrade * tpd * 20; // ~20 trading days
       res.quarterlyIncome = res.avgIncomePerTrade * tpd * 60;
       res.halfYearlyIncome = res.avgIncomePerTrade * tpd * 120;
@@ -177,6 +236,7 @@ export function MonteCarloSimulator() {
       id: crypto.randomUUID(),
       name: sessionName,
       createdAt: new Date().toISOString(),
+      mode,
       winRate, rr, trades, startingBalance: startBalance,
       riskPercent, riskType, commission, 
       tradesPerDay: parseFloat(tradesPerDay) || null,
@@ -208,8 +268,31 @@ export function MonteCarloSimulator() {
   }, [sim1, sim2]);
 
   const renderDashboard = (res: SimulationResult) => (
-    <div className="space-y-6 mt-6">
+    <div className="space-y-6 mt-6 animate-in fade-in zoom-in-95 duration-500">
       <h3 className="text-xl font-bold tracking-wider text-red-400">{t.simulator.resultsTitle}</h3>
+      
+      {res.isPropMode && (
+        <Card className="p-6 bg-blue-900/10 border-blue-500/20 shadow-[0_0_15px_rgba(59,130,246,0.1)] mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Activity className="text-blue-400 w-5 h-5" />
+            <h4 className="font-bold text-lg text-blue-100">{t.simulator.propStats || "PROP Статистика (Фазы)"}</h4>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-black/40 p-4 rounded-lg">
+              <p className="text-sm text-muted-foreground">{t.simulator.probPhase1 || "Шанс пройти Фазу 1"}</p>
+              <p className="text-2xl font-bold text-blue-400">{res.probPhase1?.toFixed(1)}%</p>
+            </div>
+            <div className="bg-black/40 p-4 rounded-lg">
+              <p className="text-sm text-muted-foreground">{t.simulator.probPhase2 || "Шанс пройти Фазу 2"}</p>
+              <p className="text-2xl font-bold text-purple-400">{res.probPhase2?.toFixed(1)}%</p>
+            </div>
+            <div className="bg-black/40 p-4 rounded-lg border border-emerald-500/20">
+              <p className="text-sm text-emerald-500/80 font-medium">{t.simulator.probLive || "Шанс получить Live"}</p>
+              <p className="text-2xl font-bold text-emerald-400">{res.probLive?.toFixed(1)}%</p>
+            </div>
+          </div>
+        </Card>
+      )}
       
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="p-4 bg-background/50 backdrop-blur border-white/5">
@@ -238,11 +321,13 @@ export function MonteCarloSimulator() {
             <div className="flex justify-between"><span>{t.simulator.streak5}:</span> <span>{res.streak5.toFixed(1)}%</span></div>
             <div className="flex justify-between"><span>{t.simulator.streak10}:</span> <span>{res.streak10.toFixed(1)}%</span></div>
             <div className="flex justify-between text-yellow-400 mt-2"><span>{t.simulator.maxDrawdown}:</span> <span>{res.maxDrawdown.toFixed(2)}%</span></div>
-            <div className="flex justify-between text-red-400"><span>{t.simulator.riskOfRuin}:</span> <span>{res.riskOfRuin.toFixed(2)}%</span></div>
+            {!res.isPropMode && (
+              <div className="flex justify-between text-red-400"><span>{t.simulator.riskOfRuin}:</span> <span>{res.riskOfRuin.toFixed(2)}%</span></div>
+            )}
           </div>
         </Card>
         
-        {res.monthlyIncome !== null && (
+        {!res.isPropMode && res.monthlyIncome !== null && (
           <Card className="p-4 bg-background/50 border-white/5">
             <h4 className="font-semibold mb-3">{t.simulator.timeStats}</h4>
             <div className="space-y-2 text-sm">
@@ -265,7 +350,6 @@ export function MonteCarloSimulator() {
               <XAxis dataKey="step" stroke="#888" />
               <YAxis stroke="#888" domain={['auto', 'auto']} />
               <Tooltip contentStyle={{ backgroundColor: '#111', borderColor: '#333' }} />
-              {/* Draw 50 cloud lines */}
               {Array.from({ length: 50 }).map((_, i) => (
                 <Line key={i} type="monotone" dataKey={`path_${i}`} stroke="#555" strokeWidth={1} dot={false} opacity={0.3} isAnimationActive={false} />
               ))}
@@ -289,7 +373,18 @@ export function MonteCarloSimulator() {
         
         <TabsContent value="new" className="mt-4">
           <Card className="p-6 bg-background/50 backdrop-blur border-white/5">
-            <h3 className="text-xl font-bold tracking-wider mb-6 text-red-400">{t.simulator.formTitle}</h3>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold tracking-wider text-red-400">{t.simulator.formTitle}</h3>
+              <Select value={mode} onValueChange={(v: "SELF" | "PROP") => setMode(v)}>
+                <SelectTrigger className="w-[200px] bg-black/60 border-primary/50 text-primary font-bold">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="SELF">{t.simulator.modeSelf || "SELF (Стандарт)"}</SelectItem>
+                  <SelectItem value="PROP">{t.simulator.modeProp || "PROP (Проп-компания)"}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="space-y-2">
@@ -333,8 +428,16 @@ export function MonteCarloSimulator() {
                 <Input type="number" step="0.01" value={commission} onChange={e => setCommission(parseFloat(e.target.value))} className="bg-black/40" />
               </div>
               <div className="space-y-2">
-                <Label>{t.simulator.tradesPerDay}</Label>
-                <Input type="number" value={tradesPerDay} onChange={e => setTradesPerDay(e.target.value)} placeholder="0" className="bg-black/40" />
+                <Label className={mode === "PROP" ? "text-blue-400 font-bold" : ""}>
+                  {t.simulator.tradesPerDay} {mode === "PROP" && "*"}
+                </Label>
+                <Input 
+                  type="number" 
+                  value={tradesPerDay} 
+                  onChange={e => setTradesPerDay(e.target.value)} 
+                  placeholder={mode === "PROP" ? "Required for Daily DD" : "0"} 
+                  className={`bg-black/40 ${mode === "PROP" && !tradesPerDay ? "border-blue-500/50" : ""}`} 
+                />
               </div>
             </div>
             
@@ -367,11 +470,19 @@ export function MonteCarloSimulator() {
                       </SelectContent>
                     </Select>
                     {sim1 && (
-                      <div className="text-sm space-y-2 p-4 bg-black/20 rounded-lg">
+                      <div className="text-sm space-y-2 p-4 bg-black/20 rounded-lg relative">
+                        <Badge variant="outline" className={`absolute top-2 right-2 ${sim1.mode === 'PROP' ? 'bg-blue-500/20 text-blue-400 border-blue-500/50' : 'bg-gray-500/20'}`}>
+                          {sim1.mode}
+                        </Badge>
                         <div className="flex justify-between"><span>Винрейт:</span> <span className="text-white">{sim1.winRate}%</span></div>
                         <div className="flex justify-between"><span>RR:</span> <span className="text-white">{sim1.rr}</span></div>
                         <div className="flex justify-between"><span>Мат. ожид.:</span> <span className="text-yellow-400">{sim1.results.mathExpectation.toFixed(2)}$</span></div>
                         <div className="flex justify-between"><span>Просадка:</span> <span className="text-red-400">{sim1.results.maxDrawdown.toFixed(2)}%</span></div>
+                        {sim1.mode === "PROP" && (
+                          <div className="flex justify-between border-t border-white/10 pt-2 mt-2">
+                            <span className="text-blue-400/80">Шанс Live:</span> <span className="text-blue-400 font-bold">{sim1.results.probLive?.toFixed(1)}%</span>
+                          </div>
+                        )}
                         <Button variant="ghost" size="sm" className="w-full text-red-500 hover:text-red-400 mt-4" onClick={() => { actions.deleteSimulation(sim1.id); setComp1(""); toast({title: t.simulator.simDeleted}); }}>
                           <Trash2 className="w-4 h-4 mr-2" /> {t.simulator.deleteSim}
                         </Button>
@@ -388,11 +499,19 @@ export function MonteCarloSimulator() {
                       </SelectContent>
                     </Select>
                     {sim2 && (
-                      <div className="text-sm space-y-2 p-4 bg-black/20 rounded-lg">
+                      <div className="text-sm space-y-2 p-4 bg-black/20 rounded-lg relative">
+                        <Badge variant="outline" className={`absolute top-2 right-2 ${sim2.mode === 'PROP' ? 'bg-blue-500/20 text-blue-400 border-blue-500/50' : 'bg-gray-500/20'}`}>
+                          {sim2.mode}
+                        </Badge>
                         <div className="flex justify-between"><span>Винрейт:</span> <span className="text-white">{sim2.winRate}%</span></div>
                         <div className="flex justify-between"><span>RR:</span> <span className="text-white">{sim2.rr}</span></div>
                         <div className="flex justify-between"><span>Мат. ожид.:</span> <span className="text-yellow-400">{sim2.results.mathExpectation.toFixed(2)}$</span></div>
                         <div className="flex justify-between"><span>Просадка:</span> <span className="text-red-400">{sim2.results.maxDrawdown.toFixed(2)}%</span></div>
+                        {sim2.mode === "PROP" && (
+                          <div className="flex justify-between border-t border-white/10 pt-2 mt-2">
+                            <span className="text-blue-400/80">Шанс Live:</span> <span className="text-blue-400 font-bold">{sim2.results.probLive?.toFixed(1)}%</span>
+                          </div>
+                        )}
                         <Button variant="ghost" size="sm" className="w-full text-red-500 hover:text-red-400 mt-4" onClick={() => { actions.deleteSimulation(sim2.id); setComp2(""); toast({title: t.simulator.simDeleted}); }}>
                           <Trash2 className="w-4 h-4 mr-2" /> {t.simulator.deleteSim}
                         </Button>

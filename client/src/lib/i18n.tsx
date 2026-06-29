@@ -345,6 +345,17 @@ export const translations = {
 
     // ── Ideas ──
     simulator: {
+      simMode: "Режим симуляции",
+      modeSelf: "SELF (Стандартный)",
+      modeProp: "PROP (Проп-компания)",
+      propStats: "PROP Статистика (Фазы)",
+      probPhase1: "Шанс пройти Фазу 1",
+      probPhase2: "Шанс пройти Фазу 2",
+      probLive: "Шанс получить Live",
+      propFailed: "Провалено",
+      propPhase1: "Фаза 1",
+      propPhase2: "Фаза 2",
+      propLiveStatus: "Live",
       tabJournal: "Дневник",
       tabSimulator: "Симулятор Монте-Карло",
       tabArchive: "Архив Симуляций",
@@ -887,6 +898,17 @@ export const translations = {
 
     // ── Ideas ──
     simulator: {
+      simMode: "Simulation Mode",
+      modeSelf: "SELF (Standard)",
+      modeProp: "PROP (Prop Firm)",
+      propStats: "PROP Statistics (Phases)",
+      probPhase1: "Chance to pass Phase 1",
+      probPhase2: "Chance to pass Phase 2",
+      probLive: "Chance to get Live",
+      propFailed: "Failed",
+      propPhase1: "Phase 1",
+      propPhase2: "Phase 2",
+      propLiveStatus: "Live",
       tabJournal: "Journal",
       tabSimulator: "Monte Carlo Simulator",
       tabArchive: "Simulation Archive",

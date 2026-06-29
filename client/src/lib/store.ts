@@ -56,13 +56,20 @@ export interface SimulationResult {
   quarterlyIncome: number | null;
   halfYearlyIncome: number | null;
   yearlyIncome: number | null;
-  chartData: any[]; // we'll use any[] for recharts to keep it flexible
+  chartData: any[];
+  
+  // Prop stats
+  isPropMode?: boolean;
+  probPhase1?: number;
+  probPhase2?: number;
+  probLive?: number;
 }
 
 export interface SimulationSession {
   id: string;
   name: string;
   createdAt: string;
+  mode: "SELF" | "PROP";
   winRate: number;
   rr: number;
   trades: number;
