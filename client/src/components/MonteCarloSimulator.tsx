@@ -232,8 +232,14 @@ export function MonteCarloSimulator() {
   
   const handleSave = () => {
     if (!currentResult) return;
+    
+    // Use fallback for ID generation in case crypto.randomUUID is unavailable in non-secure contexts
+    const simId = (typeof crypto !== 'undefined' && crypto.randomUUID) 
+      ? crypto.randomUUID() 
+      : Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      
     const sim: SimulationSession = {
-      id: crypto.randomUUID(),
+      id: simId,
       name: sessionName,
       createdAt: new Date().toISOString(),
       mode,
@@ -244,6 +250,18 @@ export function MonteCarloSimulator() {
     };
     actions.addSimulation(sim);
     toast({ title: t.simulator.simSaved });
+    
+    // Clear all fields to default state after saving
+    setSessionName("");
+    setRr(2);
+    setWinRate(40);
+    setTrades(100);
+    setStartBalance(5000);
+    setRiskPercent(1);
+    setRiskType("fixed");
+    setCommission(0.1);
+    setTradesPerDay("3");
+    setCurrentResult(null);
   };
   
   // Compare State
