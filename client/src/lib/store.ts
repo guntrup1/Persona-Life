@@ -41,6 +41,39 @@ export type TradeAsset = "GER40" | "EUR" | "XAU" | "GBP";
 export type NoteTag = "мысль" | "идея" | "ошибка";
 export type BiasDirection = "bullish" | "bearish" | "neutral";
 
+export interface SimulationResult {
+  probSL: number;
+  probTP: number;
+  profitFactor: number;
+  mathExpectation: number;
+  streak3: number;
+  streak5: number;
+  streak10: number;
+  maxDrawdown: number;
+  riskOfRuin: number;
+  avgIncomePerTrade: number;
+  monthlyIncome: number | null;
+  quarterlyIncome: number | null;
+  halfYearlyIncome: number | null;
+  yearlyIncome: number | null;
+  chartData: any[]; // we'll use any[] for recharts to keep it flexible
+}
+
+export interface SimulationSession {
+  id: string;
+  name: string;
+  createdAt: string;
+  winRate: number;
+  rr: number;
+  trades: number;
+  startingBalance: number;
+  riskPercent: number;
+  riskType: "fixed" | "dynamic";
+  commission: number;
+  tradesPerDay: number | null;
+  results: SimulationResult;
+}
+
 export interface RoutineTemplate {
   id: string;
   name: string;
@@ -178,6 +211,7 @@ export interface AppState {
   streak: StreakData;
   xp: XPData;
   routineLoadedDates: string[];
+  simulations?: SimulationSession[];
   _deletedIds?: string[];
 }
 
@@ -208,6 +242,7 @@ const DEFAULT_STATE: AppState = {
   streak: { currentStreak: 0, lastCompletedDate: null, longestStreak: 0 },
   xp: DEFAULT_XP,
   routineLoadedDates: [],
+  simulations: [],
 };
 
 function loadState(): AppState {
@@ -1113,6 +1148,14 @@ export function useStore() {
 
     deleteDayNote: useCallback((id: string) => {
       mutate(s => ({ ...s, dayNotes: s.dayNotes.filter(n => n.id !== id), _deletedIds: [...(s._deletedIds || []), id].slice(-200) }));
+    }, []),
+
+    addSimulation: useCallback((sim: SimulationSession) => {
+      mutate(s => ({ ...s, simulations: [sim, ...(s.simulations || [])] }));
+    }, []),
+
+    deleteSimulation: useCallback((id: string) => {
+      mutate(s => ({ ...s, simulations: (s.simulations || []).filter(sim => sim.id !== id), _deletedIds: [...(s._deletedIds || []), id].slice(-200) }));
     }, []),
   };
 

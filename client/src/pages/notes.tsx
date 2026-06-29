@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { MonteCarloSimulator } from "@/components/MonteCarloSimulator";
 import { FileText, Plus, Trash2, Clock, TrendingUp, ArrowUpRight, ArrowDownRight, MoveRight, Camera, X, Pencil, Lightbulb, CheckCircle, Circle } from "lucide-react";
 
 const ASSETS: TradeAsset[] = ["GER40", "EUR", "XAU", "GBP"];
@@ -406,6 +408,7 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
 export default function NotesPage() {
   const { state, actions, todayBiases } = useStore();
   const { t, lang } = useI18n();
+  const [mainTab, setMainTab] = useState("journal");
   const [filterAsset, setFilterAsset] = useState<TradeAsset | "all">("all");
   const [filterTag, setFilterTag] = useState<NoteTag | "all">("all");
   const [filterPeriod, setFilterPeriod] = useState<"today" | "week" | "month" | "all">("all");
@@ -465,6 +468,12 @@ export default function NotesPage() {
   return (
     <div className="h-full overflow-auto">
       <div className="max-w-4xl mx-auto p-4 space-y-6">
+        <Tabs value={mainTab} onValueChange={setMainTab} className="w-full">
+          <TabsList className="w-full bg-black/40 border border-white/5 mb-6">
+            <TabsTrigger value="journal" className="flex-1">{t.simulator?.tabJournal || "Дневник сделок"}</TabsTrigger>
+            <TabsTrigger value="simulator" className="flex-1">{t.simulator?.tabSimulator || "Симулятор Монте-Карло"}</TabsTrigger>
+          </TabsList>
+          <TabsContent value="journal" className="space-y-6 m-0">
         {/* Daily Bias Section */}
         <section className="space-y-3">
           <div className="flex items-center justify-between">
@@ -675,6 +684,11 @@ export default function NotesPage() {
 
         {/* Trading Ideas Section */}
         <TradingIdeasSection />
+          </TabsContent>
+          <TabsContent value="simulator" className="m-0">
+            <MonteCarloSimulator />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
