@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useI18n } from "@/lib/i18n";
 import { useStore, SimulationSession, SimulationResult } from "@/lib/store";
 import { Card } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
-import { Trash2, Save, Activity, CalendarDays } from "lucide-react";
+import { Trash2, Save, Activity, CalendarDays, Eye } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 
@@ -224,6 +224,10 @@ export function MonteCarloSimulator() {
   
   const [currentResult, setCurrentResult] = useState<SimulationResult | null>(null);
   
+  // Archive states
+  const [viewingSimId, setViewingSimId] = useState<string>("");
+  const [comp2Id, setComp2Id] = useState<string>("none");
+  
   const calcTradesPerMonth = () => {
     const d = parseFloat(backtestDays);
     if (isNaN(d) || d <= 0) return 0;
@@ -281,32 +285,29 @@ export function MonteCarloSimulator() {
     setCurrentResult(null);
   };
   
-  const [comp1, setComp1] = useState<string>("");
-  const [comp2, setComp2] = useState<string>("");
-  
-  const sim1 = state.simulations?.find(s => s.id === comp1);
-  const sim2 = state.simulations?.find(s => s.id === comp2);
+  const viewingSim = state.simulations?.find(s => s.id === viewingSimId);
+  const comp2Sim = state.simulations?.find(s => s.id === comp2Id);
   
   const compareChartData = useMemo(() => {
-    if (!sim1 || !sim2) return [];
-    const len = Math.max(sim1.trades, sim2.trades);
+    if (!viewingSim || !comp2Sim) return [];
+    const len = Math.max(viewingSim.trades, comp2Sim.trades);
     const data = [];
     for (let i = 0; i <= len; i++) {
       data.push({
         step: i,
-        sim1: sim1.results.chartData[i]?.median || sim1.results.chartData[sim1.results.chartData.length-1]?.median || 0,
-        sim2: sim2.results.chartData[i]?.median || sim2.results.chartData[sim2.results.chartData.length-1]?.median || 0,
+        sim1: viewingSim.results.chartData[i]?.median || viewingSim.results.chartData[viewingSim.results.chartData.length-1]?.median || 0,
+        sim2: comp2Sim.results.chartData[i]?.median || comp2Sim.results.chartData[comp2Sim.results.chartData.length-1]?.median || 0,
       });
     }
     return data;
-  }, [sim1, sim2]);
+  }, [viewingSim, comp2Sim]);
 
-  const formatPct = (val: number | null) => {
+  const formatPct = (val: number | null, sb: number) => {
     if (val === null) return "-";
-    return (val / startBalance * 100).toFixed(2) + "%";
+    return (val / sb * 100).toFixed(2) + "%";
   };
 
-  const renderDashboard = (res: SimulationResult) => (
+  const renderDashboard = (res: SimulationResult, sb: number) => (
     <div className="space-y-6 mt-6 animate-in fade-in zoom-in-95 duration-500">
       <h3 className="text-xl font-bold tracking-wider text-red-400">{t.simulator.resultsTitle}</h3>
       
@@ -365,9 +366,9 @@ export function MonteCarloSimulator() {
           <p className="text-sm text-muted-foreground">{t.simulator.mathExpectation}</p>
           <p 
             title={`${res.mathExpectation.toFixed(2)}$`}
-            className="text-2xl font-bold text-yellow-400 cursor-help border-b border-dashed border-yellow-400/50"
+            className="text-2xl font-bold text-yellow-400 cursor-help border-b border-dashed border-yellow-400/50 inline-block"
           >
-            {formatPct(res.mathExpectation)}
+            {formatPct(res.mathExpectation, sb)}
           </p>
         </Card>
       </div>
@@ -395,23 +396,23 @@ export function MonteCarloSimulator() {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span>{t.simulator.avgIncome}:</span> 
-                <span title={`${res.avgIncomePerTrade.toFixed(2)}$`} className="text-green-400 cursor-help border-b border-dashed border-green-400/50">{formatPct(res.avgIncomePerTrade)}</span>
+                <span title={`${res.avgIncomePerTrade.toFixed(2)}$`} className="text-green-400 cursor-help border-b border-dashed border-green-400/50">{formatPct(res.avgIncomePerTrade, sb)}</span>
               </div>
               <div className="flex justify-between">
                 <span>{t.simulator.monthIncome}:</span> 
-                <span title={`${res.monthlyIncome?.toFixed(2)}$`} className="text-green-400 cursor-help border-b border-dashed border-green-400/50">{formatPct(res.monthlyIncome)}</span>
+                <span title={`${res.monthlyIncome?.toFixed(2)}$`} className="text-green-400 cursor-help border-b border-dashed border-green-400/50">{formatPct(res.monthlyIncome, sb)}</span>
               </div>
               <div className="flex justify-between">
                 <span>{t.simulator.quarterIncome}:</span> 
-                <span title={`${res.quarterlyIncome?.toFixed(2)}$`} className="text-green-400 cursor-help border-b border-dashed border-green-400/50">{formatPct(res.quarterlyIncome)}</span>
+                <span title={`${res.quarterlyIncome?.toFixed(2)}$`} className="text-green-400 cursor-help border-b border-dashed border-green-400/50">{formatPct(res.quarterlyIncome, sb)}</span>
               </div>
               <div className="flex justify-between">
                 <span>{t.simulator.halfYearIncome}:</span> 
-                <span title={`${res.halfYearlyIncome?.toFixed(2)}$`} className="text-green-400 cursor-help border-b border-dashed border-green-400/50">{formatPct(res.halfYearlyIncome)}</span>
+                <span title={`${res.halfYearlyIncome?.toFixed(2)}$`} className="text-green-400 cursor-help border-b border-dashed border-green-400/50">{formatPct(res.halfYearlyIncome, sb)}</span>
               </div>
               <div className="flex justify-between font-bold">
                 <span>{t.simulator.yearIncome}:</span> 
-                <span title={`${res.yearlyIncome?.toFixed(2)}$`} className="text-green-400 cursor-help border-b border-dashed border-green-400/50">{formatPct(res.yearlyIncome)}</span>
+                <span title={`${res.yearlyIncome?.toFixed(2)}$`} className="text-green-400 cursor-help border-b border-dashed border-green-400/50">{formatPct(res.yearlyIncome, sb)}</span>
               </div>
             </div>
           </Card>
@@ -445,7 +446,7 @@ export function MonteCarloSimulator() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-background/50 border border-white/10">
           <TabsTrigger value="new">{t.simulator.tabSimulator}</TabsTrigger>
-          <TabsTrigger value="compare">{t.simulator.compareSims}</TabsTrigger>
+          <TabsTrigger value="compare">{t.simulator.compareSims || "Архив симуляций"}</TabsTrigger>
         </TabsList>
         
         <TabsContent value="new" className="mt-4">
@@ -533,7 +534,7 @@ export function MonteCarloSimulator() {
             </div>
           </Card>
           
-          {currentResult && renderDashboard(currentResult)}
+          {currentResult && renderDashboard(currentResult, startBalance)}
         </TabsContent>
         
         <TabsContent value="compare" className="mt-4">
@@ -541,97 +542,110 @@ export function MonteCarloSimulator() {
             {(!state.simulations || state.simulations.length === 0) ? (
               <div className="text-center text-muted-foreground py-12">{t.simulator.noArchive}</div>
             ) : (
-              <div className="space-y-8">
-                <div className="grid grid-cols-2 gap-8">
-                  <div className="space-y-4">
-                    <Label>Симуляция 1</Label>
-                    <Select value={comp1} onValueChange={setComp1}>
-                      <SelectTrigger className="bg-black/40"><SelectValue placeholder={t.simulator.selectSim} /></SelectTrigger>
-                      <SelectContent>
-                        {state.simulations.map(s => <SelectItem key={s.id} value={s.id}>{s.name} ({new Date(s.createdAt).toLocaleDateString()})</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    {sim1 && (
-                      <div className="text-sm space-y-2 p-4 bg-black/20 rounded-lg relative">
-                        <Badge variant="outline" className={`absolute top-2 right-2 ${sim1.mode === 'PROP' ? 'bg-blue-500/20 text-blue-400 border-blue-500/50' : 'bg-gray-500/20'}`}>
-                          {sim1.mode}
-                        </Badge>
-                        <div className="flex justify-between"><span>Винрейт:</span> <span className="text-white">{sim1.winRate}%</span></div>
-                        <div className="flex justify-between"><span>RR:</span> <span className="text-white">{sim1.rr}</span></div>
-                        <div className="flex justify-between"><span>Мат. ожид.:</span> <span className="text-yellow-400">{sim1.results.mathExpectation.toFixed(2)}$</span></div>
-                        <div className="flex justify-between"><span>Просадка:</span> <span className="text-red-400">{sim1.results.maxDrawdown.toFixed(2)}%</span></div>
-                        {sim1.mode === "PROP" && (
-                          <>
-                            <div className="flex justify-between border-t border-white/10 pt-2 mt-2">
-                              <span className="text-blue-400/80">Шанс Live:</span> <span className="text-blue-400 font-bold">{sim1.results.probLive?.toFixed(1)}%</span>
-                            </div>
-                            {sim1.results.avgDaysToLive !== undefined && (
-                              <div className="flex justify-between">
-                                <span className="text-blue-400/80">Дней до Live:</span> <span className="text-blue-400">~{Math.ceil(sim1.results.avgDaysToLive)}</span>
-                              </div>
-                            )}
-                          </>
-                        )}
-                        <Button variant="ghost" size="sm" className="w-full text-red-500 hover:text-red-400 mt-4" onClick={() => { actions.deleteSimulation(sim1.id); setComp1(""); toast({title: t.simulator.simDeleted}); }}>
-                          <Trash2 className="w-4 h-4 mr-2" /> {t.simulator.deleteSim}
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <Label>Симуляция 2</Label>
-                    <Select value={comp2} onValueChange={setComp2}>
-                      <SelectTrigger className="bg-black/40"><SelectValue placeholder={t.simulator.selectSim} /></SelectTrigger>
-                      <SelectContent>
-                        {state.simulations.map(s => <SelectItem key={s.id} value={s.id}>{s.name} ({new Date(s.createdAt).toLocaleDateString()})</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    {sim2 && (
-                      <div className="text-sm space-y-2 p-4 bg-black/20 rounded-lg relative">
-                        <Badge variant="outline" className={`absolute top-2 right-2 ${sim2.mode === 'PROP' ? 'bg-blue-500/20 text-blue-400 border-blue-500/50' : 'bg-gray-500/20'}`}>
-                          {sim2.mode}
-                        </Badge>
-                        <div className="flex justify-between"><span>Винрейт:</span> <span className="text-white">{sim2.winRate}%</span></div>
-                        <div className="flex justify-between"><span>RR:</span> <span className="text-white">{sim2.rr}</span></div>
-                        <div className="flex justify-between"><span>Мат. ожид.:</span> <span className="text-yellow-400">{sim2.results.mathExpectation.toFixed(2)}$</span></div>
-                        <div className="flex justify-between"><span>Просадка:</span> <span className="text-red-400">{sim2.results.maxDrawdown.toFixed(2)}%</span></div>
-                        {sim2.mode === "PROP" && (
-                          <>
-                            <div className="flex justify-between border-t border-white/10 pt-2 mt-2">
-                              <span className="text-blue-400/80">Шанс Live:</span> <span className="text-blue-400 font-bold">{sim2.results.probLive?.toFixed(1)}%</span>
-                            </div>
-                            {sim2.results.avgDaysToLive !== undefined && (
-                              <div className="flex justify-between">
-                                <span className="text-blue-400/80">Дней до Live:</span> <span className="text-blue-400">~{Math.ceil(sim2.results.avgDaysToLive)}</span>
-                              </div>
-                            )}
-                          </>
-                        )}
-                        <Button variant="ghost" size="sm" className="w-full text-red-500 hover:text-red-400 mt-4" onClick={() => { actions.deleteSimulation(sim2.id); setComp2(""); toast({title: t.simulator.simDeleted}); }}>
-                          <Trash2 className="w-4 h-4 mr-2" /> {t.simulator.deleteSim}
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </div>
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 
-                {sim1 && sim2 && (
-                  <div className="h-[400px] w-full mt-8 pt-8 border-t border-white/10">
-                    <h4 className="text-center font-bold mb-4">Сравнение Медианных Исходов</h4>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={compareChartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                        <XAxis dataKey="step" stroke="#888" />
-                        <YAxis stroke="#888" domain={['auto', 'auto']} />
-                        <Tooltip contentStyle={{ backgroundColor: '#111', borderColor: '#333' }} />
-                        <Legend />
-                        <Line type="monotone" dataKey="sim1" stroke="#3b82f6" strokeWidth={2} dot={false} name={sim1.name} />
-                        <Line type="monotone" dataKey="sim2" stroke="#a855f7" strokeWidth={2} dot={false} name={sim2.name} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
+                {/* Левая панель - Список сессий */}
+                <div className="lg:col-span-1 border-r border-white/10 pr-4 space-y-3 max-h-[800px] overflow-y-auto custom-scrollbar">
+                  <h4 className="font-bold mb-4 text-gray-300">Сохраненные сессии</h4>
+                  {state.simulations.map(sim => (
+                    <div 
+                      key={sim.id} 
+                      onClick={() => setViewingSimId(sim.id)}
+                      className={`p-3 rounded-lg cursor-pointer border transition-colors ${viewingSimId === sim.id ? 'bg-black/60 border-red-500/50 shadow-inner shadow-red-500/10' : 'bg-black/20 border-white/5 hover:bg-black/40'}`}
+                    >
+                      <div className="flex justify-between items-start mb-1">
+                        <h5 className="font-bold text-sm truncate pr-2" title={sim.name}>{sim.name}</h5>
+                        <Badge variant="outline" className={`text-[10px] px-1 py-0 h-4 ${sim.mode === 'PROP' ? 'bg-blue-500/20 text-blue-400 border-blue-500/50' : 'bg-gray-500/20 text-gray-300 border-gray-500/50'}`}>{sim.mode}</Badge>
+                      </div>
+                      <div className="text-xs text-gray-500 mb-2">{new Date(sim.createdAt).toLocaleDateString()}</div>
+                      <div className="flex justify-between text-xs items-center">
+                        <span className="text-white bg-white/10 px-1.5 py-0.5 rounded">WR: {sim.winRate}%</span>
+                        <span className="text-yellow-400">EV: {formatPct(sim.results.mathExpectation, sim.startingBalance)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Основная панель - Детальный просмотр */}
+                <div className="lg:col-span-3">
+                  {viewingSim ? (
+                    <div className="animate-in fade-in duration-300 h-full">
+                      <div className="flex justify-between items-center bg-black/30 p-4 rounded-lg border border-white/5 mb-2">
+                        <div>
+                          <h2 className="text-2xl font-bold text-white mb-1 flex items-center gap-2">
+                            <Eye className="w-5 h-5 text-red-400" />
+                            {viewingSim.name}
+                          </h2>
+                          <div className="text-sm text-gray-400">Создано: {new Date(viewingSim.createdAt).toLocaleString()}</div>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-2 items-end sm:items-center">
+                          <Select value={comp2Id} onValueChange={setComp2Id}>
+                            <SelectTrigger className="bg-black/60 w-[200px] border-primary/30">
+                              <SelectValue placeholder="Сравнить с..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Не сравнивать</SelectItem>
+                              {state.simulations.filter(s => s.id !== viewingSim.id).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                          <Button variant="destructive" size="icon" onClick={() => { 
+                            actions.deleteSimulation(viewingSim.id); 
+                            if(viewingSimId === viewingSim.id) setViewingSimId(""); 
+                            toast({title: t.simulator.simDeleted}); 
+                          }}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                        <div className="bg-black/40 p-3 rounded-lg border border-white/5">
+                          <p className="text-xs text-gray-500">Сделок / Период</p>
+                          <p className="font-bold text-white">{viewingSim.trades} / {viewingSim.backtestDays || "-"} дней</p>
+                        </div>
+                        <div className="bg-black/40 p-3 rounded-lg border border-white/5">
+                          <p className="text-xs text-gray-500">Стартовый баланс</p>
+                          <p className="font-bold text-white">{viewingSim.startingBalance}$</p>
+                        </div>
+                        <div className="bg-black/40 p-3 rounded-lg border border-white/5">
+                          <p className="text-xs text-gray-500">Риск на сделку</p>
+                          <p className="font-bold text-white">{viewingSim.riskPercent}% ({viewingSim.riskType})</p>
+                        </div>
+                        <div className="bg-black/40 p-3 rounded-lg border border-white/5">
+                          <p className="text-xs text-gray-500">Комиссия</p>
+                          <p className="font-bold text-white">{viewingSim.commission}%</p>
+                        </div>
+                      </div>
+
+                      {renderDashboard(viewingSim.results, viewingSim.startingBalance)}
+
+                      {comp2Sim && comp2Id !== "none" && (
+                         <div className="h-[400px] w-full mt-12 pt-8 border-t border-white/10">
+                           <h4 className="text-center font-bold mb-4 text-xl">
+                             Сравнение Медианных Исходов: <span className="text-blue-500">{viewingSim.name}</span> vs <span className="text-purple-500">{comp2Sim.name}</span>
+                           </h4>
+                           <ResponsiveContainer width="100%" height="100%">
+                             <LineChart data={compareChartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                               <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                               <XAxis dataKey="step" stroke="#888" />
+                               <YAxis stroke="#888" domain={['auto', 'auto']} />
+                               <Tooltip contentStyle={{ backgroundColor: '#111', borderColor: '#333' }} />
+                               <Legend />
+                               <Line type="monotone" dataKey="sim1" stroke="#3b82f6" strokeWidth={2} dot={false} name={viewingSim.name} />
+                               <Line type="monotone" dataKey="sim2" stroke="#a855f7" strokeWidth={2} dot={false} name={comp2Sim.name} />
+                             </LineChart>
+                           </ResponsiveContainer>
+                         </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center text-gray-500 py-32 border border-dashed border-white/10 rounded-xl bg-black/10">
+                       <CalendarDays className="w-16 h-16 mb-4 opacity-50" />
+                       <p className="text-lg">Выберите сессию из списка слева</p>
+                       <p className="text-sm opacity-70">для просмотра деталей и статистики</p>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </Card>

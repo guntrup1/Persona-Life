@@ -404,7 +404,7 @@ export const translations = {
       medianCase: "Медианный",
       worstCase: "Худший",
       
-      compareSims: "Сравнить 2 симуляции",
+      compareSims: "Архив симуляций",
       selectSim: "Выберите симуляцию",
       noArchive: "Архив пуст",
       deleteSim: "Удалить симуляцию",
