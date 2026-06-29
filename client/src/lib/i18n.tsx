@@ -377,6 +377,7 @@ export const translations = {
       riskDynamic: "Динамический (от текущего)",
       commission: "Комиссия и проскальзывание (% от риска)",
       tradesPerMonth: "Сделок в месяц (в среднем)",
+      maxTradesPerDay: "Макс. сделок в день (Для Daily DD)",
       runSim: "Запустить симуляцию",
       
       resultsTitle: "Результаты симуляции",
@@ -935,6 +936,7 @@ export const translations = {
       riskDynamic: "Dynamic (from current)",
       commission: "Commission & Slippage (% of risk)",
       tradesPerMonth: "Avg Trades per month",
+      maxTradesPerDay: "Max trades per day (For Daily DD)",
       runSim: "Run Simulation",
       
       resultsTitle: "Simulation Results",

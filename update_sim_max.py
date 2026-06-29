@@ -1,4 +1,6 @@
-import React, { useState, useMemo, useEffect } from "react";
+import os
+
+content = """import React, { useState, useMemo, useEffect } from "react";
 import { useI18n } from "@/lib/i18n";
 import { useStore, SimulationSession, SimulationResult } from "@/lib/store";
 import { Card } from "@/components/ui/card";
@@ -679,3 +681,7 @@ export function MonteCarloSimulator() {
     </div>
   );
 }
+"""
+
+with open("client/src/components/MonteCarloSimulator.tsx", "w", encoding="utf-8") as f:
+    f.write(content)

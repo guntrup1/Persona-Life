@@ -1,4 +1,6 @@
-import React, { useState, useMemo, useEffect } from "react";
+import os
+
+content = """import React, { useState, useMemo, useEffect } from "react";
 import { useI18n } from "@/lib/i18n";
 import { useStore, SimulationSession, SimulationResult } from "@/lib/store";
 import { Card } from "@/components/ui/card";
@@ -21,8 +23,7 @@ function runMonteCarlo(
   riskPercent: number,
   riskType: "fixed" | "dynamic",
   commission: number,
-  avgTradesPerDay: number,
-  maxTradesPerDay: number
+  tradesPerDay: number
 ): SimulationResult {
   const NUM_PATHS = 1000;
   const paths: number[][] = [];
@@ -59,10 +60,10 @@ function runMonteCarlo(
         break;
       }
       
-      if (mode === "PROP" && maxTradesPerDay > 0) {
-        if (maxTradesPerDay < 1) {
+      if (tradesPerDay > 0) {
+        if (tradesPerDay < 1) {
           dayStartBalance = balance;
-        } else if (t > 0 && t % Math.ceil(maxTradesPerDay) === 0) {
+        } else if (t > 0 && t % Math.ceil(tradesPerDay) === 0) {
           dayStartBalance = balance;
         }
       }
@@ -164,8 +165,8 @@ function runMonteCarlo(
   
   if (mode === "PROP" && livePass > 0) {
     avgTradesToLive = totalTradesToLive / livePass;
-    if (avgTradesPerDay > 0) {
-      avgDaysToLive = avgTradesToLive / avgTradesPerDay;
+    if (tradesPerDay > 0) {
+      avgDaysToLive = avgTradesToLive / tradesPerDay;
     }
   }
   
@@ -174,11 +175,11 @@ function runMonteCarlo(
   let halfYearlyIncome = null;
   let yearlyIncome = null;
   
-  if (avgTradesPerDay > 0) {
-    monthlyIncome = mathExpectation * avgTradesPerDay * (365 / 12);
-    quarterlyIncome = mathExpectation * avgTradesPerDay * (365 / 4);
-    halfYearlyIncome = mathExpectation * avgTradesPerDay * (365 / 2);
-    yearlyIncome = mathExpectation * avgTradesPerDay * 365;
+  if (tradesPerDay > 0) {
+    monthlyIncome = mathExpectation * tradesPerDay * (365 / 12);
+    quarterlyIncome = mathExpectation * tradesPerDay * (365 / 4);
+    halfYearlyIncome = mathExpectation * tradesPerDay * (365 / 2);
+    yearlyIncome = mathExpectation * tradesPerDay * 365;
   }
   
   return {
@@ -223,8 +224,6 @@ export function MonteCarloSimulator() {
   const [commission, setCommission] = useState(0.1);
   const [backtestDays, setBacktestDays] = useState<string>("912");
   
-  const [maxTradesPerDay, setMaxTradesPerDay] = useState<string>("2");
-  
   const [currentResult, setCurrentResult] = useState<SimulationResult | null>(null);
   
   // Archive states
@@ -249,15 +248,8 @@ export function MonteCarloSimulator() {
       return;
     }
     
-    let maxTpd = parseFloat(maxTradesPerDay);
-    if (mode === "PROP" && (isNaN(maxTpd) || maxTpd <= 0)) {
-      toast({ title: "Макс. сделок в день требуется для расчета Daily DD в PROP режиме", variant: "destructive" });
-      return;
-    }
-    if (isNaN(maxTpd)) maxTpd = 0;
-    
-    const avgTpd = trades / bDays;
-    const res = runMonteCarlo(mode, winRate, rr, trades, startBalance, riskPercent, riskType, commission, avgTpd, maxTpd);
+    const tpd = trades / bDays;
+    const res = runMonteCarlo(mode, winRate, rr, trades, startBalance, riskPercent, riskType, commission, tpd);
     setCurrentResult(res);
   };
   
@@ -276,7 +268,6 @@ export function MonteCarloSimulator() {
       winRate, rr, trades, startingBalance: startBalance,
       riskPercent, riskType, commission, 
       tradesPerMonth: null,
-      maxTradesPerDay: mode === "PROP" ? (parseFloat(maxTradesPerDay) || null) : null,
       backtestTrades: trades,
       backtestDays: parseFloat(backtestDays) || null,
       results: currentResult
@@ -293,7 +284,6 @@ export function MonteCarloSimulator() {
     setRiskType("fixed");
     setCommission(0.1);
     setBacktestDays("912");
-    setMaxTradesPerDay("2");
     setCurrentResult(null);
   };
   
@@ -528,19 +518,6 @@ export function MonteCarloSimulator() {
                   className="bg-black/40" 
                 />
               </div>
-
-              {mode === "PROP" && (
-                <div className="space-y-2 animate-in fade-in duration-300">
-                  <Label className="text-blue-400 font-bold">{t.simulator.maxTradesPerDay || "Макс. сделок в день (Для Daily DD)"}</Label>
-                  <Input 
-                    type="number" 
-                    value={maxTradesPerDay} 
-                    onChange={e => { setMaxTradesPerDay(e.target.value); setCurrentResult(null); }} 
-                    placeholder="Например: 2" 
-                    className="bg-black/40 border-blue-500/50" 
-                  />
-                </div>
-              )}
             </div>
 
             <div className="mt-6 flex justify-end">
@@ -679,3 +656,7 @@ export function MonteCarloSimulator() {
     </div>
   );
 }
+"""
+
+with open("client/src/components/MonteCarloSimulator.tsx", "w", encoding="utf-8") as f:
+    f.write(content)
