@@ -897,7 +897,34 @@ export function useStore() {
         const templates = [...s.routineTemplates];
         const [removed] = templates.splice(oldIndex, 1);
         templates.splice(newIndex, 0, removed);
-        return { ...s, routineTemplates: templates };
+
+        // Build new order map from reordered templates
+        const orderMap = new Map<string, number>();
+        templates.forEach((t, i) => orderMap.set(t.id, i));
+
+        // Re-sort routine tasks in todayTasks to match new template order
+        const today = getTodayDate();
+        const routineTasks = s.todayTasks.filter(t => t.type === "routine" && t.date === today);
+        const otherTasks = s.todayTasks.filter(t => !(t.type === "routine" && t.date === today));
+
+        routineTasks.sort((a, b) => {
+          const idxA = a.routineId ? (orderMap.get(a.routineId) ?? 999) : 999;
+          const idxB = b.routineId ? (orderMap.get(b.routineId) ?? 999) : 999;
+          return idxA - idxB;
+        });
+
+        // Rebuild todayTasks: routine tasks first (sorted), then the rest
+        const newTodayTasks: typeof s.todayTasks = [];
+        let routineIdx = 0;
+        for (const task of s.todayTasks) {
+          if (task.type === "routine" && task.date === today) {
+            newTodayTasks.push(routineTasks[routineIdx++]);
+          } else {
+            newTodayTasks.push(task);
+          }
+        }
+
+        return { ...s, routineTemplates: templates, todayTasks: newTodayTasks };
       });
     }, []),
 
