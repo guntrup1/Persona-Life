@@ -85,6 +85,7 @@ export interface SimulationSession {
   startingBalance: number;
   riskType: "fixed" | "dynamic";
   commission: number;
+  maxTradesPerDay?: number;
   assets: Asset[];
   results: SimulationResult;
 }

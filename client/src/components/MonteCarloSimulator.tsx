@@ -18,7 +18,8 @@ function runMonteCarloPortfolio(
   startingBalance: number,
   riskType: "fixed" | "dynamic",
   commission: number,
-  assets: Asset[]
+  assets: Asset[],
+  maxTradesPerDay: number = 0
 ): SimulationResult {
   const NUM_PATHS = 1000;
   const paths: number[][] = [];
@@ -55,6 +56,8 @@ function runMonteCarloPortfolio(
 
   const maxDays = Math.max(...assets.map(a => a.backtestDays), 1);
   const avgTradesPerDay = assets.reduce((acc, a) => acc + (a.trades / (a.backtestDays || 1)), 0);
+  const evScaling = (maxTradesPerDay > 0 && avgTradesPerDay > maxTradesPerDay) ? (maxTradesPerDay / avgTradesPerDay) : 1;
+  totalMathExpectation *= evScaling;
 
   // Global variables for overall stats
   let streak3Count = 0;
@@ -102,6 +105,10 @@ function runMonteCarloPortfolio(
       
       // Shuffle today's trades randomly
       todayTrades.sort(() => Math.random() - 0.5);
+      
+      if (maxTradesPerDay > 0 && todayTrades.length > maxTradesPerDay) {
+        todayTrades = todayTrades.slice(0, maxTradesPerDay);
+      }
       
       // Execute trades
       for (const trade of todayTrades) {
@@ -236,6 +243,7 @@ export function MonteCarloSimulator() {
   const [startBalance, setStartBalance] = useState(5000);
   const [riskType, setRiskType] = useState<"fixed" | "dynamic">("fixed");
   const [commission, setCommission] = useState(0.1);
+  const [maxTrades, setMaxTrades] = useState<number | undefined>(undefined);
   
   const [assets, setAssets] = useState<Asset[]>([
     { id: "1", name: "Asset 1 (e.g. EURUSD)", winRate: 40, rr: 2, riskPercent: 1, trades: 168, backtestDays: 912 }
@@ -272,11 +280,16 @@ export function MonteCarloSimulator() {
   };
   
   const calcTotalTradesPerMonth = () => {
-    return assets.reduce((acc, a) => {
+    const raw = assets.reduce((acc, a) => {
       const d = a.backtestDays;
       if (d <= 0) return acc;
       return acc + ((a.trades / d) * (365 / 12));
     }, 0);
+    if (maxTrades && maxTrades > 0) {
+       const dailyAvg = raw / (365/12);
+       if (dailyAvg > maxTrades) return maxTrades * (365 / 12);
+    }
+    return raw;
   };
   
   const handleRun = () => {
@@ -292,7 +305,7 @@ export function MonteCarloSimulator() {
       }
     }
     
-    const res = runMonteCarloPortfolio(mode, startBalance, riskType, commission, assets);
+    const res = runMonteCarloPortfolio(mode, startBalance, riskType, commission, assets, maxTrades || 0);
     setCurrentResult(res);
   };
   
@@ -311,6 +324,7 @@ export function MonteCarloSimulator() {
       startingBalance: startBalance,
       riskType, 
       commission, 
+      maxTradesPerDay: maxTrades,
       assets: [...assets],
       results: currentResult
     };
@@ -508,7 +522,7 @@ export function MonteCarloSimulator() {
       </div>
       
       <Card className="p-4 bg-background/50 border-white/5">
-        <h4 className="font-semibold mb-4">{t.simulator.chartTitle} (По дням)</h4>
+        <h4 className="font-semibold mb-4">{t.simulator.chartTitle} (По дням, 1000 симуляций)</h4>
         <div className="h-[400px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={res.chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
@@ -724,6 +738,10 @@ export function MonteCarloSimulator() {
                     <span className="absolute right-3 top-2.5 text-zinc-500 text-sm">%</span>
                   </div>
                 </div>
+                <div className="space-y-1.5">
+                  <Label className="text-zinc-400 text-xs">Макс. сделок в день</Label>
+                  <Input type="number" value={maxTrades === undefined ? "" : maxTrades} onChange={e => { setMaxTrades(e.target.value ? parseInt(e.target.value) : undefined); setCurrentResult(null); }} placeholder="Без лимита" className="bg-black/40 border-zinc-800" />
+                </div>
                 <div className="pt-4 border-t border-white/10 mt-4">
                   <p className="text-xs text-zinc-400 mb-1">Ожидаемых сделок в месяц:</p>
                   <p className="text-xl font-bold text-white">{calcTotalTradesPerMonth().toFixed(1)}</p>
@@ -755,29 +773,29 @@ export function MonteCarloSimulator() {
                         </Button>
                       )}
                       
-                      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                      <div className="grid grid-cols-2 md:grid-cols-7 gap-2">
                         <div className="col-span-2 md:col-span-2 space-y-1">
                           <Label className="text-[10px] text-zinc-500 uppercase">Название</Label>
-                          <Input value={asset.name} onChange={e => updateAsset(asset.id, 'name', e.target.value)} className="h-8 text-sm bg-black/40 border-zinc-800" />
+                          <Input value={asset.name} onChange={e => updateAsset(asset.id, 'name', e.target.value)} className="h-8 text-sm bg-black/40 border-zinc-800 px-2" />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[10px] text-zinc-500 uppercase">Win Rate (%)</Label>
-                          <Input type="number" value={asset.winRate} onChange={e => updateAsset(asset.id, 'winRate', parseFloat(e.target.value))} className="h-8 text-sm bg-black/40 border-zinc-800" />
+                          <Input type="number" value={asset.winRate} onChange={e => updateAsset(asset.id, 'winRate', parseFloat(e.target.value))} className="h-8 text-sm bg-black/40 border-zinc-800 px-1 text-center" />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[10px] text-zinc-500 uppercase">RR (1:X)</Label>
-                          <Input type="number" step="0.1" value={asset.rr} onChange={e => updateAsset(asset.id, 'rr', parseFloat(e.target.value))} className="h-8 text-sm bg-black/40 border-zinc-800" />
+                          <Input type="number" step="0.1" value={asset.rr} onChange={e => updateAsset(asset.id, 'rr', parseFloat(e.target.value))} className="h-8 text-sm bg-black/40 border-zinc-800 px-1 text-center" />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[10px] text-zinc-500 uppercase">Риск (%)</Label>
-                          <Input type="number" step="0.1" value={asset.riskPercent} onChange={e => updateAsset(asset.id, 'riskPercent', parseFloat(e.target.value))} className="h-8 text-sm bg-black/40 border-zinc-800" />
+                          <Input type="number" step="0.1" value={asset.riskPercent} onChange={e => updateAsset(asset.id, 'riskPercent', parseFloat(e.target.value))} className="h-8 text-sm bg-black/40 border-zinc-800 px-1 text-center" />
                         </div>
-                        <div className="space-y-1">
-                          <Label className="text-[10px] text-zinc-500 uppercase">Сделок / Период</Label>
+                        <div className="col-span-2 md:col-span-2 space-y-1">
+                          <Label className="text-[10px] text-zinc-500 uppercase flex whitespace-nowrap overflow-hidden">Сделок / Период</Label>
                           <div className="flex items-center gap-1">
-                            <Input type="number" value={asset.trades} onChange={e => updateAsset(asset.id, 'trades', parseFloat(e.target.value))} className="h-8 w-1/2 text-sm bg-black/40 border-zinc-800 p-1 text-center" />
-                            <span className="text-zinc-600">/</span>
-                            <Input type="number" value={asset.backtestDays} onChange={e => updateAsset(asset.id, 'backtestDays', parseFloat(e.target.value))} className="h-8 w-1/2 text-sm bg-black/40 border-zinc-800 p-1 text-center" />
+                            <Input type="number" value={asset.trades} onChange={e => updateAsset(asset.id, 'trades', parseFloat(e.target.value))} className="h-8 text-sm bg-black/40 border-zinc-800 px-1 text-center flex-1" />
+                            <span className="text-zinc-600 text-sm">/</span>
+                            <Input type="number" value={asset.backtestDays} onChange={e => updateAsset(asset.id, 'backtestDays', parseFloat(e.target.value))} className="h-8 text-sm bg-black/40 border-zinc-800 px-1 text-center flex-1" />
                           </div>
                         </div>
                       </div>
