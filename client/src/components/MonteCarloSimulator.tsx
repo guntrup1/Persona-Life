@@ -558,7 +558,7 @@ export function MonteCarloSimulator() {
                   <div className="flex justify-between items-center border-b border-white/10 pb-5">
                     <div>
                       <p className="text-xs text-zinc-500 uppercase tracking-widest mb-1 font-semibold">Активов</p>
-                      <p className="text-3xl font-black text-white">{viewingSim.assets.length}</p>
+                      <p className="text-3xl font-black text-white">{viewingSim.assets?.length || 0}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-xs text-zinc-500 uppercase tracking-widest mb-1 font-semibold">Сделок / Месяц</p>
@@ -574,7 +574,7 @@ export function MonteCarloSimulator() {
                      </div>
                      <div>
                        <p className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1 font-semibold">Win Rate (Avg)</p>
-                       <p className="text-lg font-bold text-white">{(viewingSim.assets.reduce((acc, a) => acc + a.winRate, 0) / viewingSim.assets.length).toFixed(1)}%</p>
+                       <p className="text-lg font-bold text-white">{((viewingSim.assets || []).reduce((acc, a) => acc + a.winRate, 0) / Math.max(viewingSim.assets?.length || 1, 1)).toFixed(1)}%</p>
                      </div>
                   </div>
                 </div>
@@ -822,7 +822,7 @@ export function MonteCarloSimulator() {
                         <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 border-transparent ${sim.mode === 'PROP' ? 'bg-blue-600/30 text-blue-300' : 'bg-zinc-700/50 text-zinc-300'}`}>{sim.mode}</Badge>
                       </div>
                       <div className="flex justify-between text-xs items-center mb-1 text-zinc-400">
-                        <span>Активов: {sim.assets.length}</span>
+                        <span>Активов: {sim.assets?.length || 0}</span>
                         <span>{new Date(sim.createdAt).toLocaleDateString()}</span>
                       </div>
                       <div className="flex justify-between text-xs items-center">
@@ -889,7 +889,7 @@ export function MonteCarloSimulator() {
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
                         <div className="bg-white/5 p-4 rounded-xl border border-white/5 text-center">
                           <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Активов</p>
-                          <p className="font-bold text-white text-lg">{viewingSim.assets.length}</p>
+                          <p className="font-bold text-white text-lg">{viewingSim.assets?.length || 0}</p>
                         </div>
                         <div className="bg-white/5 p-4 rounded-xl border border-white/5 text-center">
                           <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Старт. баланс</p>
