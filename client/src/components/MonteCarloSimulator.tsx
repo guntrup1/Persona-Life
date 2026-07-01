@@ -47,11 +47,11 @@ function runMonteCarloPortfolio(
     const wr = a.winRate / 100;
     const ev = (winAmt * wr) - (lossAmt * (1 - wr));
     
-    totalMathExpectation += ev;
+    totalMathExpectation += ev * freq;
     totalWinTrades += wr * a.trades;
     totalLossTrades += (1 - wr) * a.trades;
     
-    return { ...a, freq, ev };
+    return { ...a, freq, ev: ev * freq };
   });
 
   const maxDays = Math.max(...assets.map(a => a.backtestDays), 1);
@@ -218,7 +218,7 @@ function runMonteCarloPortfolio(
     streak10: (streak10Count / NUM_PATHS) * 100,
     maxDrawdown: totalDrawdowns / NUM_PATHS,
     riskOfRuin: (ruinCount / NUM_PATHS) * 100,
-    avgIncomePerTrade: totalMathExpectation, // Technically avg income per DAY now
+    avgIncomePerTrade: totalMathExpectation, // This is now correctly EV per DAY
     monthlyIncome,
     quarterlyIncome,
     halfYearlyIncome,
