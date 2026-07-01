@@ -75,6 +75,7 @@ export interface Asset {
   riskPercent: number;
   trades: number;
   backtestDays: number;
+  targetProfit?: number;
 }
 
 export interface SimulationSession {

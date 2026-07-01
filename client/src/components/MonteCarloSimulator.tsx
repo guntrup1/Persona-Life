@@ -245,8 +245,16 @@ export function MonteCarloSimulator() {
   const [commission, setCommission] = useState(0.1);
   const [maxTrades, setMaxTrades] = useState<number | undefined>(undefined);
   
+  // helper to calculate winrate/profit
+  const calcTargetProfit = (a: Partial<Asset>, comm: number) => {
+     const w = (a.winRate || 0) / 100;
+     const c = comm / 100;
+     const evR = w * ((a.rr || 0) + 1) - (1 + c);
+     return parseFloat((evR * (a.trades || 0) * (a.riskPercent || 0)).toFixed(2));
+  };
+
   const [assets, setAssets] = useState<Asset[]>([
-    { id: "1", name: "Asset 1 (e.g. EURUSD)", winRate: 40, rr: 2, riskPercent: 1, trades: 168, backtestDays: 912 }
+    { id: "1", name: "Asset 1 (e.g. EURUSD)", winRate: 40, rr: 2, riskPercent: 1, trades: 168, backtestDays: 912, targetProfit: 33.43 }
   ]);
   
   const [currentResult, setCurrentResult] = useState<SimulationResult | null>(null);
@@ -257,8 +265,13 @@ export function MonteCarloSimulator() {
   const shareCardRef = useRef<HTMLDivElement>(null);
   const [isCapturing, setIsCapturing] = useState(false);
   
+  // Recalculate all target profits when commission changes
+  useEffect(() => {
+    setAssets(prev => prev.map(a => ({ ...a, targetProfit: calcTargetProfit(a, commission) })));
+  }, [commission]);
+  
   const handleAddAsset = () => {
-    setAssets([...assets, { 
+    const newAsset: Asset = { 
       id: Date.now().toString(), 
       name: `Asset ${assets.length + 1}`, 
       winRate: 40, 
@@ -266,7 +279,9 @@ export function MonteCarloSimulator() {
       riskPercent: 1, 
       trades: 100, 
       backtestDays: 365 
-    }]);
+    };
+    newAsset.targetProfit = calcTargetProfit(newAsset, commission);
+    setAssets([...assets, newAsset]);
   };
 
   const handleRemoveAsset = (id: string) => {
@@ -275,7 +290,23 @@ export function MonteCarloSimulator() {
   };
 
   const updateAsset = (id: string, field: keyof Asset, value: string | number) => {
-    setAssets(assets.map(a => a.id === id ? { ...a, [field]: value } : a));
+    setAssets(assets.map(a => {
+      if (a.id !== id) return a;
+      const updated = { ...a, [field]: value };
+      
+      if (field === 'targetProfit') {
+         const p = parseFloat(value as string) || 0;
+         if (updated.trades > 0 && updated.riskPercent > 0) {
+            const evR = p / (updated.trades * updated.riskPercent);
+            const c = commission / 100;
+            const w = ((evR + 1 + c) / (updated.rr + 1)) * 100;
+            updated.winRate = parseFloat(w.toFixed(2));
+         }
+      } else if (['winRate', 'rr', 'riskPercent', 'trades'].includes(field)) {
+         updated.targetProfit = calcTargetProfit(updated, commission);
+      }
+      return updated;
+    }));
     setCurrentResult(null);
   };
   
@@ -773,14 +804,21 @@ export function MonteCarloSimulator() {
                         </Button>
                       )}
                       
-                      <div className="grid grid-cols-2 md:grid-cols-7 gap-2">
+                      <div className="grid grid-cols-2 md:grid-cols-8 gap-2">
                         <div className="col-span-2 md:col-span-2 space-y-1">
                           <Label className="text-[10px] text-zinc-500 uppercase">Название</Label>
                           <Input value={asset.name} onChange={e => updateAsset(asset.id, 'name', e.target.value)} className="h-8 text-sm bg-black/40 border-zinc-800 px-2" />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[10px] text-zinc-500 uppercase">Win Rate (%)</Label>
-                          <Input type="number" value={asset.winRate} onChange={e => updateAsset(asset.id, 'winRate', parseFloat(e.target.value))} className="h-8 text-sm bg-black/40 border-zinc-800 px-1 text-center" />
+                          <Input type="number" step="0.01" value={asset.winRate} onChange={e => updateAsset(asset.id, 'winRate', parseFloat(e.target.value))} className="h-8 text-sm bg-black/40 border-zinc-800 px-1 text-center" />
+                        </div>
+                        <div className="space-y-1 relative group/profit">
+                          <Label className="text-[10px] text-emerald-500 font-bold uppercase truncate">Profit (%)</Label>
+                          <Input type="number" step="0.1" value={asset.targetProfit || 0} onChange={e => updateAsset(asset.id, 'targetProfit', parseFloat(e.target.value))} className="h-8 text-sm bg-emerald-950/20 border-emerald-900/50 text-emerald-400 px-1 text-center font-bold shadow-[0_0_10px_rgba(52,211,153,0.1)]" />
+                          <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-black/90 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover/profit:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-opacity">
+                            Впишите профит, чтобы рассчитать Win Rate
+                          </div>
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[10px] text-zinc-500 uppercase">RR (1:X)</Label>
