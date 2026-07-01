@@ -279,9 +279,16 @@ function loadState(): AppState {
       return DEFAULT_STATE;
     }
     const parsed = JSON.parse(raw);
+    
+    // Clear old simulations format (single asset -> multiple assets)
+    let safeSims = parsed.simulations || [];
+    if (!Array.isArray(safeSims)) safeSims = [];
+    safeSims = safeSims.filter((s: any) => s.assets && Array.isArray(s.assets));
+
     return {
       ...DEFAULT_STATE,
       ...parsed,
+      simulations: safeSims,
       dailyBiases: parsed.dailyBiases || [],
       dayNotes: parsed.dayNotes || [],
       routineTemplates: Array.isArray(parsed.routineTemplates) ? parsed.routineTemplates : DEFAULT_STATE.routineTemplates,
@@ -763,9 +770,15 @@ function mergeArraysByKey<T extends { id: string }>(local: T[], server: T[], key
 function mergeStates(local: AppState, server: AppState): AppState {
   const combinedDeletedArr = [...new Set([...(local._deletedIds || []), ...(server._deletedIds || [])])].slice(-200);
   const deletedIds = new Set(combinedDeletedArr);
+  
+  let safeSims = server.simulations || local.simulations || [];
+  if (!Array.isArray(safeSims)) safeSims = [];
+  safeSims = safeSims.filter((s: any) => s.assets && Array.isArray(s.assets));
+
   const merged = {
     ...DEFAULT_STATE,
     ...server,
+    simulations: safeSims,
     routineTemplates: mergeArraysById(local.routineTemplates || [], server.routineTemplates || [], deletedIds),
     todayTasks: mergeArraysByKey(
       local.todayTasks || [], server.todayTasks || [],
