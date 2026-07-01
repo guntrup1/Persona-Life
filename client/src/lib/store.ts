@@ -67,22 +67,25 @@ export interface SimulationResult {
   avgDaysToLive?: number;
 }
 
+export interface Asset {
+  id: string;
+  name: string;
+  winRate: number;
+  rr: number;
+  riskPercent: number;
+  trades: number;
+  backtestDays: number;
+}
+
 export interface SimulationSession {
   id: string;
   name: string;
   createdAt: string;
   mode: "SELF" | "PROP";
-  winRate: number;
-  rr: number;
-  trades: number;
   startingBalance: number;
-  riskPercent: number;
   riskType: "fixed" | "dynamic";
   commission: number;
-  tradesPerMonth: number | null;
-  maxTradesPerDay: number | null;
-  backtestTrades: number | null;
-  backtestDays: number | null;
+  assets: Asset[];
   results: SimulationResult;
 }
 
