@@ -267,9 +267,15 @@ function loadState(): AppState {
       const oldRaw = localStorage.getItem("lifeos_v1");
       if (oldRaw) {
         const old = JSON.parse(oldRaw);
+        
+        let safeSims = old.simulations || [];
+        if (!Array.isArray(safeSims)) safeSims = [];
+        safeSims = safeSims.filter((s: any) => s.assets && Array.isArray(s.assets));
+        
         return {
           ...DEFAULT_STATE,
           ...old,
+          simulations: safeSims,
           dailyBiases: old.dailyBiases || [],
           dayNotes: old.dayNotes || [],
           xp: { ...DEFAULT_XP, ...old.xp, categoryXP: { ...DEFAULT_XP.categoryXP, ...(old.xp?.categoryXP || {}) } },
