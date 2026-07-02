@@ -19,7 +19,8 @@ function runMonteCarloPortfolio(
   riskType: "fixed" | "dynamic",
   commission: number,
   assets: Asset[],
-  maxTradesPerDay: number = 0
+  maxTradesPerDay: number = 0,
+  maxWinsPerDay: number = 0
 ): SimulationResult {
   const NUM_PATHS = 1000;
   const paths: number[][] = [];
@@ -31,33 +32,19 @@ function runMonteCarloPortfolio(
   let livePass = 0;
   let totalDaysToLive = 0;
   
-  let totalMathExpectation = 0;
-  let totalWinTrades = 0;
-  let totalLossTrades = 0;
+  let totalEmpiricalProfit = 0;
+  let totalEmpiricalWins = 0;
+  let totalEmpiricalLosses = 0;
+  let totalActiveDays = 0;
   
   // Calculate frequencies and metrics per asset
   const assetConfigs = assets.map(a => {
     const freq = a.backtestDays > 0 ? a.trades / a.backtestDays : 0;
-    
-    // Calculate theoretical math expectation per asset (for SELF mode display)
-    const riskAmt = startingBalance * (a.riskPercent / 100);
-    const commAmt = riskAmt * (commission / 100);
-    const winAmt = (riskAmt * a.rr) - commAmt;
-    const lossAmt = riskAmt + commAmt;
-    const wr = a.winRate / 100;
-    const ev = (winAmt * wr) - (lossAmt * (1 - wr));
-    
-    totalMathExpectation += ev * freq;
-    totalWinTrades += wr * a.trades;
-    totalLossTrades += (1 - wr) * a.trades;
-    
-    return { ...a, freq, ev: ev * freq };
+    return { ...a, freq };
   });
 
   const maxDays = Math.max(...assets.map(a => a.backtestDays), 1);
   const avgTradesPerDay = assets.reduce((acc, a) => acc + (a.trades / (a.backtestDays || 1)), 0);
-  const evScaling = (maxTradesPerDay > 0 && avgTradesPerDay > maxTradesPerDay) ? (maxTradesPerDay / avgTradesPerDay) : 1;
-  totalMathExpectation *= evScaling;
 
   // Global variables for overall stats
   let streak3Count = 0;
@@ -84,7 +71,9 @@ function runMonteCarloPortfolio(
         continue; // Keep array same length
       }
       
+      totalActiveDays++;
       let dayStartBalance = balance;
+      let winsToday = 0;
       
       // Generate trades for today
       let todayTrades: { asset: typeof assetConfigs[0] }[] = [];
@@ -112,14 +101,30 @@ function runMonteCarloPortfolio(
       
       // Execute trades
       for (const trade of todayTrades) {
+        if (maxWinsPerDay > 0 && winsToday >= maxWinsPerDay) {
+          break; // Stop trading for the day after hitting Take-Profit limit
+        }
+        
         const riskAmount = riskType === "fixed" ? phaseStartBalance * (trade.asset.riskPercent / 100) : balance * (trade.asset.riskPercent / 100);
         const commAmount = riskAmount * (commission / 100);
         
         const isWin = (Math.random() * 100) <= trade.asset.winRate;
         
+        // Empirical tracking (Always as fixed risk from starting balance to get pure mathematical edge)
+        const shadowRisk = startingBalance * (trade.asset.riskPercent / 100);
+        const shadowComm = shadowRisk * (commission / 100);
+        if (isWin) {
+          totalEmpiricalProfit += (shadowRisk * trade.asset.rr) - shadowComm;
+          totalEmpiricalWins++;
+        } else {
+          totalEmpiricalProfit -= (shadowRisk + shadowComm);
+          totalEmpiricalLosses++;
+        }
+        
         if (isWin) {
           balance += (riskAmount * trade.asset.rr) - commAmount;
           currentStreak = 0;
+          winsToday++;
         } else {
           balance -= (riskAmount + commAmount);
           currentStreak++;
@@ -196,29 +201,32 @@ function runMonteCarloPortfolio(
     });
   }
   
-  const overallWinRate = (totalWinTrades / (totalWinTrades + totalLossTrades)) * 100;
+  const empiricalEVPerDay = totalActiveDays > 0 ? (totalEmpiricalProfit / totalActiveDays) : 0;
+  const overallWinRate = (totalEmpiricalWins + totalEmpiricalLosses) > 0 
+    ? (totalEmpiricalWins / (totalEmpiricalWins + totalEmpiricalLosses)) * 100 
+    : 0;
   
   let avgDaysToLive = undefined;
   if (mode === "PROP" && livePass > 0) {
     avgDaysToLive = totalDaysToLive / livePass;
   }
   
-  let monthlyIncome = avgTradesPerDay > 0 ? totalMathExpectation * (365 / 12) : null;
-  let quarterlyIncome = avgTradesPerDay > 0 ? totalMathExpectation * (365 / 4) : null;
-  let halfYearlyIncome = avgTradesPerDay > 0 ? totalMathExpectation * (365 / 2) : null;
-  let yearlyIncome = avgTradesPerDay > 0 ? totalMathExpectation * 365 : null;
+  let monthlyIncome = avgTradesPerDay > 0 ? empiricalEVPerDay * (365 / 12) : null;
+  let quarterlyIncome = avgTradesPerDay > 0 ? empiricalEVPerDay * (365 / 4) : null;
+  let halfYearlyIncome = avgTradesPerDay > 0 ? empiricalEVPerDay * (365 / 2) : null;
+  let yearlyIncome = avgTradesPerDay > 0 ? empiricalEVPerDay * 365 : null;
   
   return {
     probSL: 100 - overallWinRate,
     probTP: overallWinRate,
-    profitFactor: 0, // Hard to calculate correctly for portfolio without tracking all wins/losses precisely
-    mathExpectation: totalMathExpectation,
+    profitFactor: 0, 
+    mathExpectation: empiricalEVPerDay, // updated to use empirical EV
     streak3: (streak3Count / NUM_PATHS) * 100,
     streak5: (streak5Count / NUM_PATHS) * 100,
     streak10: (streak10Count / NUM_PATHS) * 100,
     maxDrawdown: totalDrawdowns / NUM_PATHS,
     riskOfRuin: (ruinCount / NUM_PATHS) * 100,
-    avgIncomePerTrade: totalMathExpectation, // This is now correctly EV per DAY
+    avgIncomePerTrade: empiricalEVPerDay, // This is now correctly EV per DAY
     monthlyIncome,
     quarterlyIncome,
     halfYearlyIncome,
@@ -244,6 +252,7 @@ export function MonteCarloSimulator() {
   const [riskType, setRiskType] = useState<"fixed" | "dynamic">("fixed");
   const [commission, setCommission] = useState(0.1);
   const [maxTrades, setMaxTrades] = useState<number | undefined>(undefined);
+  const [maxWins, setMaxWins] = useState<number | undefined>(undefined);
   
   // helper to calculate winrate/profit
   const calcTargetProfit = (a: Partial<Asset>, comm: number) => {
@@ -336,7 +345,7 @@ export function MonteCarloSimulator() {
       }
     }
     
-    const res = runMonteCarloPortfolio(mode, startBalance, riskType, commission, assets, maxTrades || 0);
+    const res = runMonteCarloPortfolio(mode, startBalance, riskType, commission, assets, maxTrades || 0, maxWins || 0);
     setCurrentResult(res);
   };
   
@@ -356,6 +365,7 @@ export function MonteCarloSimulator() {
       riskType, 
       commission, 
       maxTradesPerDay: maxTrades,
+      maxWinsPerDay: maxWins,
       assets: [...assets],
       results: currentResult
     };
@@ -772,6 +782,10 @@ export function MonteCarloSimulator() {
                 <div className="space-y-1.5">
                   <Label className="text-zinc-400 text-xs">Макс. сделок в день</Label>
                   <Input type="number" value={maxTrades === undefined ? "" : maxTrades} onChange={e => { setMaxTrades(e.target.value ? parseInt(e.target.value) : undefined); setCurrentResult(null); }} placeholder="Без лимита" className="bg-black/40 border-zinc-800" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-zinc-400 text-xs text-emerald-500 font-bold">Макс. тейков в день</Label>
+                  <Input type="number" value={maxWins === undefined ? "" : maxWins} onChange={e => { setMaxWins(e.target.value ? parseInt(e.target.value) : undefined); setCurrentResult(null); }} placeholder="Без лимита" className="bg-emerald-950/20 border-emerald-900/50 text-emerald-400" />
                 </div>
                 <div className="pt-4 border-t border-white/10 mt-4">
                   <p className="text-xs text-zinc-400 mb-1">Ожидаемых сделок в месяц:</p>
