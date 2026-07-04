@@ -88,6 +88,7 @@ export interface SimulationSession {
   commission: number;
   maxTradesPerDay?: number;
   maxWinsPerDay?: number;
+  notes?: string;
   assets: Asset[];
   results: SimulationResult;
 }

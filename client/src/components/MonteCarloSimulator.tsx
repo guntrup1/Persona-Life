@@ -253,6 +253,7 @@ export function MonteCarloSimulator() {
   const [commission, setCommission] = useState(0.1);
   const [maxTrades, setMaxTrades] = useState<number | undefined>(undefined);
   const [maxWins, setMaxWins] = useState<number | undefined>(undefined);
+  const [simNotes, setSimNotes] = useState("");
   
   // helper to calculate winrate/profit
   const calcTargetProfit = (a: Partial<Asset>, comm: number) => {
@@ -366,6 +367,7 @@ export function MonteCarloSimulator() {
       commission, 
       maxTradesPerDay: maxTrades,
       maxWinsPerDay: maxWins,
+      notes: simNotes,
       assets: [...assets],
       results: currentResult
     };
@@ -373,6 +375,7 @@ export function MonteCarloSimulator() {
     toast({ title: t.simulator.simSaved });
     
     setSessionName("");
+    setSimNotes("");
     setCurrentResult(null);
   };
 
@@ -744,11 +747,11 @@ export function MonteCarloSimulator() {
               </Select>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              <div className="md:col-span-1 space-y-4 bg-black/20 p-5 rounded-xl border border-white/5">
-                <div className="flex items-center gap-2 mb-2 border-b border-white/10 pb-2">
-                  <ShieldAlert className="w-4 h-4 text-red-400" />
-                  <h4 className="font-bold text-sm text-zinc-300">Счет и Риск</h4>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+              <div className="md:col-span-1 space-y-6 bg-black/20 p-6 rounded-2xl border border-white/5 shadow-inner">
+                <div className="flex items-center gap-2 mb-2 border-b border-white/10 pb-3">
+                  <ShieldAlert className="w-5 h-5 text-red-400" />
+                  <h4 className="font-bold text-base text-zinc-300">Счет и Риск</h4>
                 </div>
 
                 <div className="space-y-1.5">
@@ -787,24 +790,33 @@ export function MonteCarloSimulator() {
                   <Label className="text-zinc-400 text-xs text-emerald-500 font-bold">Макс. тейков в день</Label>
                   <Input type="number" value={maxWins === undefined ? "" : maxWins} onChange={e => { setMaxWins(e.target.value ? parseInt(e.target.value) : undefined); setCurrentResult(null); }} placeholder="Без лимита" className="bg-emerald-950/20 border-emerald-900/50 text-emerald-400" />
                 </div>
-                <div className="pt-4 border-t border-white/10 mt-4">
+                <div className="space-y-1.5">
+                  <Label className="text-zinc-400 text-xs">Заметки к симуляции</Label>
+                  <textarea 
+                    value={simNotes} 
+                    onChange={e => setSimNotes(e.target.value)} 
+                    placeholder="Например: Тест агрессивного разгона..." 
+                    className="flex min-h-[80px] w-full rounded-md border border-zinc-800 bg-black/40 px-3 py-2 text-sm text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-red-500/50 custom-scrollbar resize-y" 
+                  />
+                </div>
+                <div className="pt-5 border-t border-white/10 mt-6">
                   <p className="text-xs text-zinc-400 mb-1">Ожидаемых сделок в месяц:</p>
                   <p className="text-xl font-bold text-white">{calcTotalTradesPerMonth().toFixed(1)}</p>
                 </div>
               </div>
 
-              <div className="md:col-span-3 space-y-4">
-                <div className="flex items-center justify-between border-b border-white/10 pb-2">
+              <div className="md:col-span-3 space-y-6">
+                <div className="flex items-center justify-between border-b border-white/10 pb-3">
                   <div className="flex items-center gap-2">
-                    <BarChart3 className="w-4 h-4 text-emerald-400" />
-                    <h4 className="font-bold text-sm text-zinc-300">Активы в портфеле</h4>
+                    <BarChart3 className="w-5 h-5 text-emerald-400" />
+                    <h4 className="font-bold text-base text-zinc-300">Активы в портфеле</h4>
                   </div>
-                  <Button size="sm" variant="outline" className="h-8 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10" onClick={handleAddAsset}>
-                    <Plus className="w-4 h-4 mr-1" /> Добавить актив
+                  <Button size="sm" variant="outline" className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 rounded-xl px-4 py-2" onClick={handleAddAsset}>
+                    <Plus className="w-4 h-4 mr-2" /> Добавить актив
                   </Button>
                 </div>
                 
-                <div className="space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+                <div className="space-y-5 max-h-[500px] overflow-y-auto custom-scrollbar pr-3">
                   {assets.map((asset, index) => (
                     <div key={asset.id} className="bg-black/20 p-4 rounded-xl border border-white/5 relative group">
                       {assets.length > 1 && (
@@ -956,10 +968,10 @@ export function MonteCarloSimulator() {
                         </div>
                       </div>
                       
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-                        <div className="bg-white/5 p-4 rounded-xl border border-white/5 text-center">
-                          <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Активов</p>
-                          <p className="font-bold text-white text-lg">{viewingSim.assets?.length || 0}</p>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-8">
+                        <div className="bg-white/5 p-5 rounded-2xl border border-white/5 text-center">
+                          <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Активов</p>
+                          <p className="font-black text-white text-xl">{viewingSim.assets?.length || 0}</p>
                         </div>
                         <div className="bg-white/5 p-4 rounded-xl border border-white/5 text-center">
                           <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Старт. баланс</p>
@@ -969,11 +981,18 @@ export function MonteCarloSimulator() {
                           <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Тип риска</p>
                           <p className="font-bold text-red-400 text-lg">{viewingSim.riskType}</p>
                         </div>
-                        <div className="bg-white/5 p-4 rounded-xl border border-white/5 text-center">
-                          <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Комиссия</p>
-                          <p className="font-bold text-white text-lg">{viewingSim.commission}%</p>
+                        <div className="bg-white/5 p-5 rounded-2xl border border-white/5 text-center">
+                          <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Комиссия</p>
+                          <p className="font-black text-white text-xl">{viewingSim.commission}%</p>
                         </div>
                       </div>
+
+                      {viewingSim.notes && (
+                        <div className="mt-6 bg-black/20 border border-white/10 p-5 rounded-2xl">
+                          <h4 className="text-zinc-500 text-xs font-bold uppercase tracking-wider mb-2">Заметки</h4>
+                          <p className="text-zinc-300 whitespace-pre-wrap text-sm leading-relaxed">{viewingSim.notes}</p>
+                        </div>
+                      )}
 
                       {renderDashboard(viewingSim.results, viewingSim.startingBalance, viewingSim.assets)}
 
