@@ -1001,6 +1001,15 @@ export function useStore() {
       });
     }, []),
 
+    reorderTodayTasks: useCallback((oldIndex: number, newIndex: number) => {
+      mutate(s => {
+        const tasks = [...s.todayTasks];
+        const [removed] = tasks.splice(oldIndex, 1);
+        tasks.splice(newIndex, 0, removed);
+        return { ...s, todayTasks: tasks };
+      });
+    }, []),
+
     loadRoutineForToday: useCallback(() => {
       mutate(s => {
         const today = getTodayDate();

@@ -526,18 +526,29 @@ export default function TasksPage() {
   const [editingTask, setEditingTask] = useState<TodayTask | null>(null);
   const [editingRoutine, setEditingRoutine] = useState<RoutineTemplate | null>(null);
   const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleRoutineDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (over && active.id !== over.id) {
       const oldIndex = state.routineTemplates.findIndex((r) => r.id === active.id);
       const newIndex = state.routineTemplates.findIndex((r) => r.id === over.id);
-      actions.reorderRoutineTemplates(oldIndex, newIndex);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        actions.reorderRoutineTemplates(oldIndex, newIndex);
+      }
+    }
+  };
+
+  const handleTodayDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = state.todayTasks.findIndex((t) => t.id === active.id);
+      const newIndex = state.todayTasks.findIndex((t) => t.id === over.id);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        actions.reorderTodayTasks(oldIndex, newIndex);
+      }
     }
   };
 
@@ -605,24 +616,27 @@ export default function TasksPage() {
               </div>
             </div>
 
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleTodayDragEnd}>
             {routineTasks.length > 0 && (
               <div>
                 <div className="text-xs font-display uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-1">
                   <Repeat className="w-3 h-3" />
                   {t.hub.routine}
                 </div>
-                <div className="space-y-2">
-                  {routineTasks.map(task => (
-                    <TaskRow 
-                      key={task.id} 
-                      task={task} 
-                      onToggle={handleToggle} 
-                      onDelete={actions.deleteTask}
-                      onEdit={() => setEditingTask(task)}
-                      onReschedule={handleReschedule}
-                    />
-                  ))}
-                </div>
+                <SortableContext items={routineTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-2">
+                    {routineTasks.map(task => (
+                      <SortableTaskRow 
+                        key={task.id} 
+                        task={task} 
+                        onToggle={handleToggle} 
+                        onDelete={actions.deleteTask}
+                        onEdit={() => setEditingTask(task)}
+                        onReschedule={handleReschedule}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
               </div>
             )}
 
@@ -632,18 +646,20 @@ export default function TasksPage() {
                   <Zap className="w-3 h-3" />
                   {t.nav.tasks.toUpperCase()}
                 </div>
-                <div className="space-y-2">
-                  {unlinkedTasks.map(task => (
-                    <TaskRow 
-                      key={task.id} 
-                      task={task} 
-                      onToggle={handleToggle} 
-                      onDelete={actions.deleteTask}
-                      onEdit={() => setEditingTask(task)}
-                      onReschedule={handleReschedule}
-                    />
-                  ))}
-                </div>
+                <SortableContext items={unlinkedTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-2">
+                    {unlinkedTasks.map(task => (
+                      <SortableTaskRow 
+                        key={task.id} 
+                        task={task} 
+                        onToggle={handleToggle} 
+                        onDelete={actions.deleteTask}
+                        onEdit={() => setEditingTask(task)}
+                        onReschedule={handleReschedule}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
               </div>
             )}
 
@@ -664,18 +680,20 @@ export default function TasksPage() {
                     <span className="font-mono text-[10px] ml-1 text-primary">{completedCount}/{tasks.length}</span>
                   </button>
                   {!isCollapsed && (
-                    <div className="space-y-2 pl-1 border-l-2 border-primary/20 ml-1">
-                      {tasks.map(task => (
-                        <TaskRow
-                          key={task.id}
-                          task={task}
-                          onToggle={handleToggle}
-                          onDelete={actions.deleteTask}
-                          onEdit={() => setEditingTask(task)}
-                          onReschedule={handleReschedule}
-                        />
-                      ))}
-                    </div>
+                    <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                      <div className="space-y-2 pl-1 border-l-2 border-primary/20 ml-1">
+                        {tasks.map(task => (
+                          <SortableTaskRow
+                            key={task.id}
+                            task={task}
+                            onToggle={handleToggle}
+                            onDelete={actions.deleteTask}
+                            onEdit={() => setEditingTask(task)}
+                            onReschedule={handleReschedule}
+                          />
+                        ))}
+                      </div>
+                    </SortableContext>
                   )}
                 </div>
               );
@@ -688,6 +706,7 @@ export default function TasksPage() {
                 <p className="text-xs text-muted-foreground mt-1">{t.tasks.noTasksDesc}</p>
               </Card>
             )}
+            </DndContext>
           </TabsContent>
 
           <TabsContent value="routine" className="mt-4 space-y-3 animate-slide-in-up">
@@ -723,7 +742,7 @@ export default function TasksPage() {
                             <DndContext 
                 sensors={sensors}
                 collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
+                onDragEnd={handleRoutineDragEnd}
               >
                 <div className="space-y-2">
                   <SortableContext 
@@ -783,12 +802,13 @@ export default function TasksPage() {
   );
 }
 
-function TaskRow({ task, onToggle, onDelete, onEdit, onReschedule }: {
+function TaskRow({ task, onToggle, onDelete, onEdit, onReschedule, dragHandleProps }: {
   task: TodayTask & { wasRescheduled?: boolean };
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
   onEdit: () => void;
   onReschedule?: (id: string, newDate: string) => void;
+  dragHandleProps?: any;
 }) {
   const { state } = useStore();
   const { t } = useI18n();
@@ -804,25 +824,27 @@ function TaskRow({ task, onToggle, onDelete, onEdit, onReschedule }: {
   };
 
   return (
-    <Card
-          className={`p-3 cursor-pointer transition-all hover-elevate group relative overflow-hidden ${
-            task.completed ? "opacity-60 border-card-border" : ""
-          } ${isHighPriority ? "border-orange-400/80 shadow-[0_0_16px_3px_rgba(251,146,60,0.4)]" : "border-card-border"}`}
-          style={isHighPriority ? { animation: "neon-pulse 2s ease-in-out infinite" } : {}}
-      onClick={() => onToggle(task.id)}
-      data-testid={`task-row-${task.id}`}
-    >
-     {isHighPriority && (
-        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-orange-400 to-transparent" />
+    <Card className={`p-3 border-card-border hover-elevate bg-card relative ${task.completed ? "opacity-60 bg-muted/20" : ""}`} data-testid={`task-${task.id}`}>
+      {isHighPriority && (
+        <div className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]" />
       )}
       <div className="flex items-center gap-3">
-        <div className="flex-shrink-0">
+        {dragHandleProps && (
+          <div {...dragHandleProps} className="cursor-grab hover:text-primary text-muted-foreground opacity-50 flex-shrink-0 touch-none">
+            <GripVertical className="w-4 h-4" />
+          </div>
+        )}
+        <button 
+          className="flex-shrink-0" 
+          onClick={() => onToggle(task.id)}
+          data-testid={`task-toggle-${task.id}`}
+        >
           {task.completed ? (
             <CheckCircle className="w-5 h-5 text-primary" />
           ) : (
             <Circle className={`w-5 h-5 ${isHighPriority ? "text-orange-400" : "text-muted-foreground"}`} />
           )}
-        </div>
+        </button>
         <div className="flex-1 min-w-0">
           <div className={`font-display text-sm ${task.completed ? "line-through text-muted-foreground" : isHighPriority ? "text-orange-300" : "text-foreground"}`}>
             {isHighPriority && <span className="text-orange-400 mr-1.5 text-xs">⚡</span>}
@@ -939,5 +961,26 @@ function TaskRow({ task, onToggle, onDelete, onEdit, onReschedule }: {
         </div>
       </div>
     </Card>
+  );
+}
+
+function SortableTaskRow(props: any) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: props.task.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <TaskRow {...props} dragHandleProps={{ ...attributes, ...listeners }} />
+    </div>
   );
 }

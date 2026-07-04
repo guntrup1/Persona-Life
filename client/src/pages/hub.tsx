@@ -10,9 +10,25 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { CheckCircle, Circle, Trash2, RefreshCw, Flame, Zap, Target, Clock, FileText, TrendingUp, ChevronDown, Star } from "lucide-react";
+import { CheckCircle, Circle, Trash2, RefreshCw, Flame, Zap, Target, Clock, FileText, TrendingUp, ChevronDown, Star, GripVertical } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/lib/i18n";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 // ─── Character emoji ─────────────────────────────────────────────────────────
 
@@ -161,6 +177,22 @@ export default function HubPage() {
   const [editingText, setEditingText] = useState("");
   const { toast } = useToast();
   const prevCompleted = useRef(completedToday);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = state.todayTasks.findIndex((t) => t.id === active.id);
+      const newIndex = state.todayTasks.findIndex((t) => t.id === over.id);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        actions.reorderTodayTasks(oldIndex, newIndex);
+      }
+    }
+  };
 
   useEffect(() => {
     if (completedToday > prevCompleted.current) {
@@ -394,36 +426,15 @@ export default function HubPage() {
                   <p className="text-xs mt-1 opacity-70">{t.hub.emptyTasksDesc}</p>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {todayTasks.map(task => (
-                    <div
-                      key={task.id}
-                      className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer hover-elevate ${
-                        task.completed ? "bg-muted/50 border-border opacity-60" : "bg-card border-card-border"
-                      }`}
-                      onClick={() => handleToggle(task.id)}
-                      data-testid={`task-item-${task.id}`}
-                    >
-                      <button className="flex-shrink-0" data-testid={`task-toggle-${task.id}`}>
-                        {task.completed
-                          ? <CheckCircle className="w-5 h-5 text-primary" />
-                          : <Circle className="w-5 h-5 text-muted-foreground" />}
-                      </button>
-                      <div className="flex-1 min-w-0">
-                        <div className={`font-display text-sm ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
-                          {task.name}
-                        </div>
-                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                          <span className={`text-xs ${LIFE_AREA_COLORS[task.category]}`}>{task.category}</span>
-                          {task.type === "routine" && <Badge variant="secondary" className="text-xs py-0 h-4 rounded-full">{t.hub.routine}</Badge>}
-                        </div>
-                      </div>
-                      <span className={`font-mono text-xs font-bold flex-shrink-0 ${task.completed ? "text-muted-foreground" : "text-primary"}`}>
-                        +{task.xp} XP
-                      </span>
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext items={todayTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-2">
+                      {todayTasks.map(task => (
+                        <SortableHubTask key={task.id} task={task} onToggle={handleToggle} />
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </SortableContext>
+                </DndContext>
               )}
             </CollapsibleBlock>
           </div>
@@ -525,6 +536,44 @@ export default function HubPage() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function SortableHubTask({ task, onToggle }: { task: any, onToggle: (id: string) => void }) {
+  const { t } = useI18n();
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: task.id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-3 p-3 rounded-xl border transition-all hover-elevate ${
+        task.completed ? "bg-muted/50 border-border opacity-60" : "bg-card border-card-border"
+      }`}
+      data-testid={`task-item-${task.id}`}
+    >
+      <div {...attributes} {...listeners} className="cursor-grab hover:text-primary text-muted-foreground opacity-50 flex-shrink-0 touch-none">
+        <GripVertical className="w-4 h-4" />
+      </div>
+      <button className="flex-shrink-0" onClick={() => onToggle(task.id)} data-testid={`task-toggle-${task.id}`}>
+        {task.completed
+          ? <CheckCircle className="w-5 h-5 text-primary" />
+          : <Circle className="w-5 h-5 text-muted-foreground" />}
+      </button>
+      <div className="flex-1 min-w-0">
+        <div className={`font-display text-sm ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+          {task.name}
+        </div>
+        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+          <span className={`text-xs ${LIFE_AREA_COLORS[task.category as keyof typeof LIFE_AREA_COLORS]}`}>{task.category}</span>
+          {task.type === "routine" && <Badge variant="secondary" className="text-xs py-0 h-4 rounded-full">{t.hub.routine}</Badge>}
+        </div>
+      </div>
+      <span className={`font-mono text-xs font-bold flex-shrink-0 ${task.completed ? "text-muted-foreground" : "text-primary"}`}>
+        +{task.xp} XP
+      </span>
     </div>
   );
 }

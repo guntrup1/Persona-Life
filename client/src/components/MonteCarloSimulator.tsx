@@ -869,12 +869,12 @@ export function MonteCarloSimulator() {
               </div>
             </div>
             
-            <div className="flex gap-4 pt-6 border-t border-white/5">
-              <Button onClick={handleRun} size="lg" className="flex-1 bg-red-600 hover:bg-red-700 text-white font-black tracking-widest text-lg shadow-[0_0_20px_rgba(220,38,38,0.3)]">
+            <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-white/5">
+              <Button onClick={handleRun} size="lg" className="w-full sm:flex-1 bg-red-600 hover:bg-red-700 text-white font-black tracking-widest text-lg shadow-[0_0_20px_rgba(220,38,38,0.3)]">
                 {t.simulator.runSim}
               </Button>
               {currentResult && (
-                <Button onClick={handleSave} size="lg" variant="outline" className="flex-1 border-emerald-500/50 hover:bg-emerald-500/10 text-emerald-400 font-bold">
+                <Button onClick={handleSave} size="lg" variant="outline" className="w-full sm:flex-1 border-emerald-500/50 hover:bg-emerald-500/10 text-emerald-400 font-bold">
                   <Save className="w-5 h-5 mr-2" /> {t.simulator.saveSim}
                 </Button>
               )}
@@ -891,7 +891,7 @@ export function MonteCarloSimulator() {
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 
-                <div className="lg:col-span-1 border-r border-white/10 pr-4 space-y-3 max-h-[800px] overflow-y-auto custom-scrollbar">
+                <div className="lg:col-span-1 lg:border-r border-b lg:border-b-0 border-white/10 pr-0 lg:pr-4 pb-6 lg:pb-0 space-y-3 max-h-[800px] overflow-y-auto custom-scrollbar">
                   <h4 className="font-bold mb-4 text-zinc-300">Сохраненные сессии</h4>
                   {state.simulations.map(sim => (
                     <div 
@@ -917,7 +917,7 @@ export function MonteCarloSimulator() {
                 <div className="lg:col-span-3">
                   {viewingSim ? (
                     <div className="animate-in fade-in duration-300 h-full">
-                      <div className="flex justify-between items-center bg-black/40 p-5 rounded-2xl border border-white/5 mb-4 shadow-xl">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-black/40 p-4 sm:p-5 rounded-2xl border border-white/5 mb-4 shadow-xl gap-4">
                         <div>
                           <h2 className="text-2xl font-black text-white mb-1 flex items-center gap-2">
                             <Eye className="w-5 h-5 text-red-500" />
@@ -949,7 +949,7 @@ export function MonteCarloSimulator() {
                           </Button>
 
                           <Select value={comp2Id} onValueChange={setComp2Id}>
-                            <SelectTrigger className="bg-black/60 w-[160px] sm:w-[200px] border-white/10 rounded-xl">
+                            <SelectTrigger className="bg-black/60 w-full sm:w-[200px] border-white/10 rounded-xl">
                               <SelectValue placeholder="Сравнить с..." />
                             </SelectTrigger>
                             <SelectContent>
