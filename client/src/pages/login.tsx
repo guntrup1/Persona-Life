@@ -11,10 +11,82 @@ import {
   TrendingUp, Activity, BarChart3, Newspaper, 
   Calendar, ShieldAlert, Award, FileText, 
   CheckCircle2, ChevronRight, LayoutDashboard, 
-  Target, Timer, Lightbulb, Settings, Lock
+  Target, Timer, Lightbulb, Settings, Lock, X
 } from "lucide-react";
 
-// ── Synthwave Warp Grid & Particles Canvas ─────────────────────────────────
+// ── P5 Royal Styled Logo ────────────────────────────────────────────────────
+function P5Logo() {
+  return (
+    <div className="flex items-center gap-1 font-black select-none scale-90 md:scale-100 origin-left">
+      <span className="bg-red-650 text-white px-2.5 py-1.5 transform -rotate-3 skew-x-[-6deg] font-display text-xl shadow-[3px_3px_0_#fff] border border-black font-black">P</span>
+      <span className="bg-zinc-950 text-white px-2.5 py-1.5 transform rotate-3 skew-x-[4deg] font-display text-xl shadow-[-2px_3px_0_#ef4444] border border-black font-black">E</span>
+      <span className="bg-white text-black px-2.5 py-1.5 transform -rotate-6 skew-x-[-8deg] font-display text-xl shadow-[3px_-2px_0_#000] border border-black font-black">R</span>
+      <span className="bg-red-600 text-white px-2.5 py-1.5 transform rotate-2 skew-x-[6deg] font-display text-xl shadow-[2px_3px_0_#fff] border border-black font-black">S</span>
+      <span className="bg-zinc-950 text-white px-2.5 py-1.5 transform -rotate-2 skew-x-[-2deg] font-display text-xl shadow-[-3px_-2px_0_#ef4444] border border-black font-black">O</span>
+      <span className="bg-white text-black px-2.5 py-1.5 transform rotate-6 skew-x-[8deg] font-display text-xl shadow-[3px_3px_0_#000] border border-black font-black">N</span>
+      <span className="bg-red-600 text-white px-2.5 py-1.5 transform -rotate-3 skew-x-[-5deg] font-display text-xl shadow-[-2px_3px_0_#fff] border border-black font-black">A</span>
+      <span className="text-red-500 font-mono text-xs ml-3 tracking-[0.2em] font-black uppercase skew-x-[-12deg] drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]">Life OS</span>
+    </div>
+  );
+}
+
+// ── Barcode Scanner Text Component ──────────────────────────────────────────
+function BarcodeScannerText({ lang }: { lang: "ru" | "en" }) {
+  const words = lang === "ru" 
+    ? ["ТОРГУЙ", "АНАЛИЗИРУЙ", "ДЕЙСТВУЙ", "ФИЛЬТРУЙ", "ТИЛЬТУЙ", "СТАНОВИСЬ ЛУЧШЕ", "СОБИРАЙ СТАТИСТИКУ"]
+    : ["TRADE", "ANALYZE", "EXECUTE", "FILTER", "TILT", "EVOLVE", "TRACK STATS"];
+  
+  const [index, setIndex] = useState(0);
+  const [sweep, setSweep] = useState(false);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setSweep(true);
+      setTimeout(() => {
+        setIndex((prev) => (prev + 1) % words.length);
+        setSweep(false);
+      }, 500); // Change word mid-sweep
+    }, 2500);
+    return () => clearInterval(id);
+  }, [words]);
+
+  return (
+    <div className="relative border border-white/10 rounded-2xl bg-zinc-950/60 p-6 flex flex-col items-center justify-center min-h-[140px] overflow-hidden shadow-2xl">
+      {/* Background Barcode lines */}
+      <div className="absolute inset-x-0 bottom-2 top-2 flex justify-between opacity-5 select-none pointer-events-none px-4">
+        {[...Array(24)].map((_, i) => (
+          <div 
+            key={i} 
+            className="bg-white h-full" 
+            style={{ width: `${(i % 3) + 1}px` }} 
+          />
+        ))}
+      </div>
+
+      {/* Sweeping Laser Line */}
+      <div 
+        className={`absolute inset-y-0 w-0.5 bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.9)] transition-all ease-in-out duration-1000 ${
+          sweep ? "left-[95%]" : "left-[5%]"
+        }`} 
+      />
+
+      <div className="text-zinc-500 font-mono text-[9px] tracking-widest mb-2 select-none uppercase">
+        {lang === 'ru' ? 'СКАНИРОВАНИЕ РАЗУМА' : 'BEHAVIOR SCANNER'}
+      </div>
+
+      <div 
+        className={`font-display text-2xl sm:text-3xl font-black text-white tracking-widest text-center transition-all duration-300 ${
+          sweep ? "blur-sm opacity-50 scale-95" : "blur-0 opacity-100 scale-100"
+        }`}
+        style={{ textShadow: "0 0 10px rgba(255,255,255,0.1)" }}
+      >
+        {words[index]}
+      </div>
+    </div>
+  );
+}
+
+// ── Synthwave Warp Grid & Particles Canvas (Bulges Outward) ─────────────────
 function SynthwaveCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mouseRef = useRef({ x: -1000, y: -1000 });
@@ -50,17 +122,17 @@ function SynthwaveCanvas() {
     document.addEventListener("mouseleave", handleMouseLeave);
 
     const gridSize = 45;
-    const warpRadius = 200; // Wider deformation reach
-    const warpStrength = 28; // Subtle inward gravity well
+    const warpRadius = 200;
+    const warpStrength = 28; // Push outward strength
 
     const particles: { x: number; y: number; size: number; speed: number; opacity: number }[] = [];
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < 40; i++) {
       particles.push({
         x: Math.random() * width,
         y: Math.random() * height,
-        size: Math.random() * 1.5 + 0.6,
-        speed: Math.random() * 0.3 + 0.1,
-        opacity: Math.random() * 0.3 + 0.1,
+        size: Math.random() * 1.5 + 0.5,
+        speed: Math.random() * 0.2 + 0.1,
+        opacity: Math.random() * 0.2 + 0.1,
       });
     }
 
@@ -69,7 +141,6 @@ function SynthwaveCanvas() {
     const render = () => {
       ctx.clearRect(0, 0, width, height);
 
-      // Deep dark synthwave backdrop
       const horizonY = height * 0.65;
       const grad = ctx.createLinearGradient(0, horizonY - 200, 0, horizonY + 250);
       grad.addColorStop(0, "rgba(220, 38, 38, 0)");
@@ -79,19 +150,18 @@ function SynthwaveCanvas() {
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, width, height);
 
-      // Grid stroke styling
-      ctx.strokeStyle = "rgba(220, 38, 38, 0.08)";
+      ctx.strokeStyle = "rgba(220, 38, 38, 0.09)";
       ctx.lineWidth = 1;
 
-      offset = (offset + 0.2) % gridSize;
+      offset = (offset + 0.15) % gridSize;
 
-      // Draw horizontal lines (inward gravity deformation)
+      // Draw horizontal lines (Deform/Bulge outward away from cursor)
       const numLines = Math.ceil(height / gridSize) + 2;
       for (let i = -2; i < numLines; i++) {
         const yBase = i * gridSize + offset;
         ctx.beginPath();
 
-        const steps = 50;
+        const steps = 40;
         for (let s = 0; s <= steps; s++) {
           const xBase = (s / steps) * width;
           let currentX = xBase;
@@ -105,9 +175,9 @@ function SynthwaveCanvas() {
             const force = (warpRadius - dist) / warpRadius;
             const dirX = dx / (dist || 1);
             const dirY = dy / (dist || 1);
-            // Subtract to bend/pull inward towards the cursor position
-            currentX -= dirX * force * warpStrength;
-            currentY -= dirY * force * warpStrength;
+            // Add (push outward/expand) grid nodes under cursor
+            currentX += dirX * force * warpStrength;
+            currentY += dirY * force * warpStrength;
           }
 
           if (s === 0) {
@@ -119,13 +189,13 @@ function SynthwaveCanvas() {
         ctx.stroke();
       }
 
-      // Draw vertical lines (inward gravity deformation)
+      // Draw vertical lines (Deform/Bulge outward)
       const cols = Math.ceil(width / gridSize) + 2;
       for (let i = -1; i < cols; i++) {
         const xBase = i * gridSize;
         ctx.beginPath();
 
-        const steps = 40;
+        const steps = 30;
         for (let s = 0; s <= steps; s++) {
           const yBase = (s / steps) * height;
           let currentX = xBase;
@@ -139,8 +209,8 @@ function SynthwaveCanvas() {
             const force = (warpRadius - dist) / warpRadius;
             const dirX = dx / (dist || 1);
             const dirY = dy / (dist || 1);
-            currentX -= dirX * force * warpStrength;
-            currentY -= dirY * force * warpStrength;
+            currentX += dirX * force * warpStrength;
+            currentY += dirY * force * warpStrength;
           }
 
           if (s === 0) {
@@ -152,15 +222,13 @@ function SynthwaveCanvas() {
         ctx.stroke();
       }
 
-      // Drift particles upward
+      // Render Drift Particles
       particles.forEach((p) => {
         p.y -= p.speed;
         if (p.y < 0) {
           p.y = height;
           p.x = Math.random() * width;
         }
-        p.x += Math.sin(p.y / 50) * 0.1;
-
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(220, 38, 38, ${p.opacity})`;
@@ -183,7 +251,7 @@ function SynthwaveCanvas() {
   return <canvas ref={canvasRef} className="fixed inset-0 w-screen h-screen pointer-events-none z-0" />;
 }
 
-// ── Custom Dot to Circle Inverting Cursor ───────────────────────────────────
+// ── Inverting Dot to Circle Custom Cursor ───────────────────────────────────
 function CustomCursor() {
   const lensRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
@@ -198,7 +266,6 @@ function CustomCursor() {
       lens.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0) translate(-50%, -50%)`;
     };
 
-    // Expand cursor on hovering targets
     const handleMouseOver = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (target && (
@@ -334,6 +401,7 @@ function TradingSimulatorMockup({ lang }: { lang: "ru" | "en" }) {
   );
 }
 
+// ── News Correlation Mockup ─────────────────────────────────────────────────
 function NewsCorrelationMockup({ lang }: { lang: "ru" | "en" }) {
   return (
     <div className="bg-[#0b0b0d]/90 border border-white/10 rounded-3xl p-6 font-mono text-xs text-zinc-300 space-y-4 shadow-2xl relative overflow-hidden backdrop-blur-md">
@@ -375,10 +443,253 @@ function NewsCorrelationMockup({ lang }: { lang: "ru" | "en" }) {
   );
 }
 
-export default function LoginPage() {
-  const { t, lang } = useI18n();
+// ── Interactive Modules Slider (Architecture of Consistency) ────────────────
+interface ModuleTab {
+  id: string;
+  icon: any;
+  titleRu: string;
+  titleEn: string;
+  descRu: string;
+  descEn: string;
+  renderMockup: () => React.ReactNode;
+}
+
+function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
+  const [activeTab, setActiveTab] = useState(0);
+  const isRu = lang === "ru";
+
+  const tabs: ModuleTab[] = [
+    {
+      id: "hub",
+      icon: LayoutDashboard,
+      titleRu: "Главный Хаб",
+      titleEn: "Main Hub",
+      descRu: "Панель мониторинга дня. Выводит активные сессии, сессии фокуса, задачи дисциплины и динамические круги прогресса.",
+      descEn: "Cockpit of your day. Displays active trading sessions, focus minutes, discipline checklists, and progress metrics.",
+      renderMockup: () => (
+        <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center items-center h-full min-h-[220px] font-mono text-xs">
+          <div className="relative w-32 h-32 flex items-center justify-center border-4 border-dashed border-red-500/35 rounded-full animate-spin duration-10000">
+            <div className="absolute inset-2 border-2 border-emerald-500/30 rounded-full" />
+            <div className="absolute font-sans text-lg font-black text-white select-none">82%</div>
+          </div>
+          <p className="text-[10px] text-zinc-500 mt-4 uppercase tracking-widest">{isRu ? "СТАБИЛЬНОСТЬ ДИСЦИПЛИНЫ" : "DISCIPLINE STABILITY INDEX"}</p>
+        </div>
+      )
+    },
+    {
+      id: "tasks",
+      icon: CheckCircle2,
+      titleRu: "Задачи и Рутина",
+      titleEn: "Tasks & Routines",
+      descRu: "Создавайте шаблоны повторяющихся действий (чек-листы подготовки к сессии, медитации) для жесткого следования торговому плану.",
+      descEn: "Build routine templates (session preparation checklists, meditation) to secure disciplined, structural executions.",
+      renderMockup: () => (
+        <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center space-y-3 h-full min-h-[220px] font-mono text-xs text-zinc-400">
+          <div className="flex items-center gap-3 bg-white/5 p-2.5 rounded-xl border border-white/5">
+            <input type="checkbox" checked readOnly className="accent-red-500 h-4 w-4" />
+            <span className="line-through text-zinc-500">{isRu ? "Анализ новостного фона" : "Check Forex Factory Calendar"}</span>
+          </div>
+          <div className="flex items-center gap-3 bg-white/5 p-2.5 rounded-xl border border-white/5">
+            <input type="checkbox" checked readOnly className="accent-red-500 h-4 w-4" />
+            <span className="line-through text-zinc-500">{isRu ? "Разметка HTF структуры" : "Mark HTF Market Structure"}</span>
+          </div>
+          <div className="flex items-center gap-3 bg-white/5 p-2.5 rounded-xl border border-white/5 animate-pulse">
+            <input type="checkbox" readOnly className="h-4 w-4 border-zinc-500" />
+            <span className="text-white">{isRu ? "Фокусировка и вход (1% риска)" : "Execute trade according to setup"}</span>
+          </div>
+        </div>
+      )
+    },
+    {
+      id: "goals",
+      icon: Target,
+      titleRu: "Декомпозиция целей",
+      titleEn: "Goals Decomposition",
+      descRu: "Связывайте годовые финансовые цели с месячными лимитами просадки и недельными шагами. Дисциплина подчиняется целям.",
+      descEn: "Chain yearly financial goals to monthly drawdown budgets and weekly steps. Operational discipline meets target goals.",
+      renderMockup: () => (
+        <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center space-y-4 h-full min-h-[220px] font-mono text-xs">
+          <div className="border border-red-500/20 bg-red-500/5 p-3 rounded-xl text-center">
+            <span className="text-[10px] text-zinc-500 block uppercase">{isRu ? "ЦЕЛЬ ГОДА" : "YEAR GOAL"}</span>
+            <span className="font-bold text-white text-sm">{isRu ? "Funded-счет $100,000" : "Get $100K Funded Account"}</span>
+          </div>
+          <div className="text-center text-zinc-600">↓</div>
+          <div className="border border-white/5 bg-white/5 p-2.5 rounded-xl text-center">
+            <span className="text-[10px] text-zinc-500 block uppercase">{isRu ? "ШАГ МЕСЯЦА" : "MONTH STEP"}</span>
+            <span className="font-bold text-white text-xs">{isRu ? "Бэктест Gold 300+ дней" : "Backtest Gold 300+ days"}</span>
+          </div>
+        </div>
+      )
+    },
+    {
+      id: "timer",
+      icon: Timer,
+      titleRu: "Таймер Фокуса",
+      titleEn: "Focus Timer",
+      descRu: "Помодоро-таймер фиксирует время чистой концентрации на анализе графиков. Защищает от переутомления и спонтанных трейдов.",
+      descEn: "Pomodoro Focus Timer logs chart concentration sessions, keeping you alert and preventing spontaneous trading entries.",
+      renderMockup: () => {
+        const [time, setTime] = useState(25 * 60);
+        useEffect(() => {
+          const id = setInterval(() => {
+            setTime(t => (t > 0 ? t - 1 : 25 * 60));
+          }, 1000);
+          return () => clearInterval(id);
+        }, []);
+
+        const m = Math.floor(time / 60).toString().padStart(2, '0');
+        const s = (time % 60).toString().padStart(2, '0');
+
+        return (
+          <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center items-center h-full min-h-[220px] font-mono text-xs">
+            <div className="text-3xl font-black text-red-500 tracking-widest drop-shadow-[0_0_10px_rgba(239,68,68,0.4)] animate-pulse">
+              {m}:{s}
+            </div>
+            <p className="text-[10px] text-zinc-500 mt-4 uppercase tracking-widest">{isRu ? "АКТИВНАЯ ФОКУС-СЕССИЯ" : "FOCUS BLOCK RUNNING"}</p>
+          </div>
+        );
+      }
+    },
+    {
+      id: "trading",
+      icon: TrendingUp,
+      titleRu: "Журнал и Симулятор",
+      titleEn: "Journal & Simulator",
+      descRu: "Загружайте статистику бэктеста и симулируйте 1000 путей эквити по методу Монте-Карло, вычисляя точный шанс прохождения проп-челленджей.",
+      descEn: "Upload backtest metrics and run a 1000-path Monte Carlo simulator. Calculate exact odds of passing prop evaluations.",
+      renderMockup: () => <TradingSimulatorMockup lang={lang} />
+    },
+    {
+      id: "ideas",
+      icon: Lightbulb,
+      titleRu: "Банк Торговых Идей",
+      titleEn: "Ideas Vault",
+      descRu: "Отделяйте мгновенные идеи и сетапы от реального исполнения. Сохраняйте торговые модели вне терминала для будущих тестов.",
+      descEn: "Isolate immediate setup hypotheses from execution. File potential patterns outside the terminal for future validation.",
+      renderMockup: () => (
+        <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center space-y-3 h-full min-h-[220px] font-mono text-xs text-zinc-300">
+          <div className="border border-white/10 p-3 rounded-xl bg-white/5 relative">
+            <span className="text-[9px] text-zinc-500 block uppercase font-bold">{isRu ? "Идея #12" : "Idea #12"}</span>
+            <span className="text-white font-bold">{isRu ? "Разворотный FVG на XAU" : "Gold HTF FVG Reversal model"}</span>
+            <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-yellow-500" />
+          </div>
+        </div>
+      )
+    },
+    {
+      id: "calendar",
+      icon: Calendar,
+      titleRu: "Календарь Биасов",
+      titleEn: "Bias Calendar",
+      descRu: "Визуальная сетка истории вашего понимания рынка. Показывает точность утренних предвзятостей (Bias) и сделок по дням недели.",
+      descEn: "A structural calendar tracking daily bias accuracy. Analyze weekly performance patterns and refine market contexts.",
+      renderMockup: () => (
+        <div className="bg-black/60 border border-white/5 rounded-2xl p-4 flex flex-col justify-center h-full min-h-[220px] font-mono text-xs">
+          <div className="grid grid-cols-7 gap-1">
+            {[...Array(28)].map((_, i) => {
+              const isWin = i % 5 === 0;
+              const isLoss = i % 7 === 0;
+              return (
+                <div 
+                  key={i} 
+                  className={`aspect-square rounded border flex items-center justify-center text-[8px] font-bold ${
+                    isWin ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400' :
+                    isLoss ? 'bg-red-500/20 border-red-500/40 text-red-400' :
+                    'bg-white/5 border-white/10 text-zinc-600'
+                  }`}
+                >
+                  {i + 1}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )
+    },
+    {
+      id: "settings",
+      icon: Settings,
+      titleRu: "Калибровка Сессий",
+      titleEn: "Session Calibration",
+      descRu: "Настройка личного торгового времени и часового пояса. Запрещает торговлю вне интервалов вашей сессии.",
+      descEn: "Adjust trading hours and timezones. Block out chart execution settings outside your optimal session times.",
+      renderMockup: () => (
+        <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center space-y-3 h-full min-h-[220px] font-mono text-xs">
+          <div className="flex justify-between">
+            <span>NY session:</span>
+            <span className="text-red-400 font-bold">13:00 - 17:00 UTC</span>
+          </div>
+          <div className="flex justify-between">
+            <span>London session:</span>
+            <span className="text-red-400 font-bold">08:00 - 11:00 UTC</span>
+          </div>
+        </div>
+      )
+    }
+  ];
+
+  const currentTab = tabs[activeTab];
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.8fr] gap-8 border border-white/5 rounded-3xl p-6 bg-zinc-950/20 backdrop-blur-md">
+      
+      {/* Sidebar selection */}
+      <div className="flex flex-row lg:flex-col overflow-x-auto lg:overflow-x-visible gap-2 pb-4 lg:pb-0 border-b lg:border-b-0 lg:border-r border-white/5 pr-0 lg:pr-4">
+        {tabs.map((tab, idx) => {
+          const Icon = tab.icon;
+          const isActive = idx === activeTab;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(idx)}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 shrink-0 text-left cursor-none ${
+                isActive 
+                  ? "bg-red-600/10 text-red-400 border border-red-500/20 font-bold" 
+                  : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
+              }`}
+            >
+              <Icon className="w-4 h-4 shrink-0" />
+              <span className="text-xs uppercase tracking-wider font-display">
+                {isRu ? tab.titleRu : tab.titleEn}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Main active detail preview */}
+      <div className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr] gap-6 items-center">
+        <div className="space-y-4">
+          <h3 className="text-xl font-black text-white uppercase tracking-wider font-display">
+            {isRu ? currentTab.titleRu : currentTab.titleEn}
+          </h3>
+          <p className="text-zinc-400 text-sm leading-relaxed">
+            {isRu ? currentTab.descRu : currentTab.descEn}
+          </p>
+        </div>
+        <div className="h-full flex items-center justify-center">
+          <div className="w-full h-full max-w-[320px]">
+            {currentTab.renderMockup()}
+          </div>
+        </div>
+      </div>
+
+    </div>
+  );
+}
+
+// ── Auth Modal (Separate from main Landing view) ───────────────────────────
+interface AuthModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  lang: "ru" | "en";
+}
+
+function AuthModal({ isOpen, onClose, lang }: AuthModalProps) {
+  const { t } = useI18n();
   const { login, register } = useAuth();
   const { toast } = useToast();
+  
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -387,6 +698,16 @@ export default function LoginPage() {
   const [showResend, setShowResend] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendDone, setResendDone] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    if (isOpen) window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
 
   const handleResend = async () => {
     if (!email.trim()) {
@@ -424,6 +745,7 @@ export default function LoginPage() {
         toast({ title: t.auth.errLogin, description: result.error, variant: "destructive" });
       } else {
         toast({ title: t.auth.welcomeBack });
+        onClose();
       }
     } else {
       const result = await register(email, password, lang);
@@ -437,6 +759,137 @@ export default function LoginPage() {
     setLoading(false);
   };
 
+  return (
+    <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
+      <div 
+        className="absolute inset-0 bg-black/80 backdrop-blur-md cursor-none" 
+        onClick={onClose} 
+      />
+      
+      <div 
+        className="w-full max-w-md border border-white/10 rounded-3xl p-8 bg-[#0c0c0e]/95 shadow-2xl relative z-10 animate-in zoom-in-95 duration-200"
+        style={{ transform: "rotate(-1deg)" }}
+      >
+        <div className="absolute top-0 right-0 w-6 h-6 bg-red-650 rounded-tr-3xl shadow-[0_0_15px_rgba(220,38,38,0.6)]" style={{ clipPath: "polygon(0 0, 100% 0, 100% 100%)" }} />
+        
+        <button 
+          onClick={onClose}
+          className="absolute top-4 right-4 text-zinc-500 hover:text-white cursor-none"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        <div className="flex rounded-xl overflow-hidden border border-white/5 mb-6 bg-black/60 p-1 mt-4">
+          <button
+            className={`flex-1 py-2 text-xs font-display font-bold uppercase tracking-wider transition-all rounded-lg cursor-none ${
+              mode === "login" ? "bg-white/10 text-white font-black" : "text-zinc-500 hover:text-zinc-300"
+            }`}
+            onClick={() => { setMode("login"); setShowResend(false); setResendDone(false); }}
+          >
+            {t.auth.loginTab}
+          </button>
+          <button
+            className={`flex-1 py-2 text-xs font-display font-bold uppercase tracking-wider transition-all rounded-lg cursor-none ${
+              mode === "register" ? "bg-white/10 text-white font-black" : "text-zinc-500 hover:text-zinc-300"
+            }`}
+            onClick={() => { setMode("register"); setShowResend(false); setResendDone(false); }}
+          >
+            {t.auth.registerTab}
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label className="font-display text-xs uppercase tracking-wider text-zinc-500">
+              Email
+            </Label>
+            <Input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="your@email.com"
+              required
+              autoComplete="email"
+              className="bg-black/60 border-white/5 focus-visible:ring-red-500/50 rounded-xl text-sm h-10 cursor-none"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex justify-between items-center">
+              <Label className="font-display text-xs uppercase tracking-wider text-zinc-500">
+                {t.auth.password}
+              </Label>
+              {mode === "login" && (
+                <Link href="/forgot-password">
+                  <span className="text-[10px] text-zinc-500 hover:text-red-400 cursor-none transition-colors uppercase tracking-wider font-display">
+                    {t.auth.forgotPassword}
+                  </span>
+                </Link>
+              )}
+            </div>
+            <Input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder={mode === "register" ? t.auth.min6 : "••••••••"}
+              required
+              autoComplete={mode === "login" ? "current-password" : "new-password"}
+              className="bg-black/60 border-white/5 focus-visible:ring-red-500/50 rounded-xl text-sm h-10 cursor-none"
+            />
+          </div>
+
+          <Button
+            type="submit"
+            disabled={loading || !email.trim() || !password.trim()}
+            className="w-full bg-red-600 hover:bg-red-700 text-white font-display uppercase tracking-[0.25em] text-xs h-11 rounded-xl mt-4 shadow-[0_0_20px_rgba(220,38,38,0.3)] font-bold cursor-none"
+          >
+            {loading ? "..." : mode === "login" ? t.auth.loginBtn : t.auth.registerBtn}
+          </Button>
+        </form>
+
+        {showResend && (
+          <div className="mt-4 p-4 border border-yellow-500/20 rounded-2xl bg-yellow-500/5 space-y-3">
+            {resendDone ? (
+              <p className="text-xs text-primary font-mono text-center">
+                {t.auth.sent}
+              </p>
+            ) : (
+              <>
+                <p className="text-xs text-yellow-400/80 font-mono text-center">
+                  {t.auth.notVerified}
+                </p>
+                <Button
+                  onClick={handleResend}
+                  disabled={resendLoading}
+                  variant="outline"
+                  className="w-full text-xs font-display uppercase tracking-wider border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10 rounded-xl cursor-none"
+                >
+                  {resendLoading ? t.auth.sending : t.auth.resend}
+                </Button>
+              </>
+            )}
+          </div>
+        )}
+
+        <p className="text-center text-xs text-zinc-500 mt-4">
+          {mode === "login" ? t.auth.noAccount : t.auth.hasAccount}{" "}
+          <button
+            onClick={() => { setMode(mode === "login" ? "register" : "login"); setShowResend(false); setResendDone(false); }}
+            className="text-red-500 font-bold hover:underline cursor-none"
+          >
+            {mode === "login" ? t.auth.registerTab : t.auth.loginTab}
+          </button>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Page Component ─────────────────────────────────────────────────────
+export default function LoginPage() {
+  const { t, lang } = useI18n();
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [hoverReady, setHoverReady] = useState(false);
   const isRu = lang === "ru";
 
   return (
@@ -444,7 +897,7 @@ export default function LoginPage() {
       
       {/* Global CSS settings for custom cursor and font load */}
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&family=Press+Start+2P&family=JetBrains+Mono:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;850;900&family=Press+Start+2P&family=JetBrains+Mono:wght@400;700&display=swap');
         
         body {
           font-family: 'Outfit', sans-serif !important;
@@ -506,6 +959,57 @@ export default function LoginPage() {
           0%, 100% { opacity: 0.95; }
           50% { opacity: 0.25; }
         }
+
+        /* P5 styled background lines */
+        .accent-bar {
+          clip-path: polygon(0 0, 100% 15%, 100% 85%, 0 100%);
+        }
+
+        /* Glitch text effect */
+        .glitch-text {
+          position: relative;
+          text-shadow: 0.05em 0 0 rgba(255, 0, 0, 0.75),
+            -0.025em -0.05em 0 rgba(0, 255, 0, 0.75),
+            0.025em 0.05em 0 rgba(0, 0, 255, 0.75);
+          animation: glitch-anim 500ms infinite;
+        }
+        @keyframes glitch-anim {
+          0% {
+            text-shadow: 0.05em 0 0 rgba(255, 0, 0, 0.75),
+              -0.025em -0.05em 0 rgba(0, 255, 0, 0.75),
+              0.025em 0.05em 0 rgba(0, 0, 255, 0.75);
+          }
+          14% {
+            text-shadow: 0.05em 0 0 rgba(255, 0, 0, 0.75),
+              -0.025em -0.05em 0 rgba(0, 255, 0, 0.75),
+              0.025em 0.05em 0 rgba(0, 0, 255, 0.75);
+          }
+          15% {
+            text-shadow: -0.05em -0.025em 0 rgba(255, 0, 0, 0.75),
+              0.025em 0.025em 0 rgba(0, 255, 0, 0.75),
+              -0.05em -0.05em 0 rgba(0, 0, 255, 0.75);
+          }
+          49% {
+            text-shadow: -0.05em -0.025em 0 rgba(255, 0, 0, 0.75),
+              0.025em 0.025em 0 rgba(0, 255, 0, 0.75),
+              -0.05em -0.05em 0 rgba(0, 0, 255, 0.75);
+          }
+          50% {
+            text-shadow: 0.025em 0.05em 0 rgba(255, 0, 0, 0.75),
+              0.05em 0 0 rgba(0, 255, 0, 0.75),
+              0 -0.05em 0 rgba(0, 0, 255, 0.75);
+          }
+          99% {
+            text-shadow: 0.025em 0.05em 0 rgba(255, 0, 0, 0.75),
+              0.05em 0 0 rgba(0, 255, 0, 0.75),
+              0 -0.05em 0 rgba(0, 0, 255, 0.75);
+          }
+          100% {
+            text-shadow: -0.025em 0 0 rgba(255, 0, 0, 0.75),
+              -0.025em -0.025em 0 rgba(0, 255, 0, 0.75),
+              -0.025em -0.05em 0 rgba(0, 0, 255, 0.75);
+          }
+        }
       `}</style>
 
       {/* Warping grid canvas and particle engine */}
@@ -516,50 +1020,53 @@ export default function LoginPage() {
 
       {/* Background Chalk Trading Easter Eggs */}
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden select-none">
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-2 rounded rotate-[-4deg] absolute top-[22%] left-[10%] cursor-none">
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-2 rounded rotate-[-4deg] absolute top-[22%] left-[10%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/25 transition-all">
           [ORDER BLOCK - 15m]
         </div>
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-2 rounded rotate-[6deg] absolute top-[30%] left-[82%] cursor-none">
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-2 rounded rotate-[6deg] absolute top-[30%] left-[82%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/25 transition-all">
           [Liq Pool ⬇]
         </div>
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-2 rounded rotate-[-8deg] absolute top-[55%] left-[5%] cursor-none">
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-2 rounded rotate-[-8deg] absolute top-[55%] left-[5%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/25 transition-all">
           [FVG / Fair Value Gap]
         </div>
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-2 rounded rotate-[3deg] absolute top-[70%] left-[75%] cursor-none">
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-2 rounded rotate-[3deg] absolute top-[70%] left-[75%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/25 transition-all">
           [BOS / CHoCH]
         </div>
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-2 rounded rotate-[-3deg] absolute bottom-[22%] left-[15%] cursor-none">
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-2 rounded rotate-[-3deg] absolute bottom-[22%] left-[15%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/25 transition-all">
           [Risk : Reward = 1 : 3.5]
         </div>
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-2 rounded rotate-[5deg] absolute bottom-[10%] left-[78%] cursor-none">
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-2 rounded rotate-[5deg] absolute bottom-[10%] left-[78%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/25 transition-all">
           [Premium / Discount]
         </div>
       </div>
 
       {/* Header */}
       <header className="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between border-b border-white/5 relative z-10">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded bg-red-600 flex items-center justify-center font-black text-sm text-white shadow-[0_0_15px_rgba(220,38,38,0.5)]">P</div>
-          <span className="font-bold tracking-[0.25em] text-sm text-white font-display uppercase">Persona Life OS</span>
-        </div>
+        <P5Logo />
         <div className="flex items-center gap-4">
+          <button 
+            onClick={() => setIsAuthOpen(true)}
+            className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-display text-xs uppercase tracking-widest rounded-xl transition-all hover:scale-105 active:scale-95 cursor-none shadow-[0_0_15px_rgba(220,38,38,0.3)] font-bold"
+          >
+            {isRu ? "Войти в систему" : "Log In"}
+          </button>
           <LangToggle />
         </div>
       </header>
 
       {/* Hero Section */}
-      <main className="max-w-7xl mx-auto px-6 py-12 md:py-20 grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-12 lg:gap-20 items-center relative z-10">
+      <main className="max-w-7xl mx-auto px-6 py-12 md:py-24 grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-12 lg:gap-20 items-center relative z-10">
         
         {/* Left Side: Copy */}
         <div className="space-y-6">
           <Badge className="bg-red-500/10 hover:bg-red-500/10 text-red-400 border-red-500/20 px-3 py-1 text-xs uppercase tracking-widest rounded-full font-mono reveal-text">
-            {isRu ? "Оцифровка Системности и Результатов" : "Discipline & Stats Operating System"}
+            {isRu ? "Операционная Система Трейдера" : "Discipline & Stats Operating System"}
           </Badge>
           
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight leading-none text-white font-display uppercase cursor-default reveal-text delay-1">
             {isRu ? (
               <>
-                Прекратите сливать из-за тильта. Начните анализировать себя.
+                Прекратите сливать из-за тильта. Оцифруйте дисциплину.
               </>
             ) : (
               <>
@@ -570,142 +1077,42 @@ export default function LoginPage() {
           
           <p className="text-zinc-400 text-base md:text-lg leading-relaxed max-w-xl reveal-text delay-2">
             {isRu ? (
-              "Persona Life OS — это система анализа личной эффективности и дисциплины, созданная специально для трейдеров. Мы убрали геймификацию и сфокусировались на жестких цифрах вашего поведения: времени чистого фокуса на графиках, торговых сессиях, декомпозиции целей и симуляции Монте-Карло."
+              "Persona Life OS — это система декомпозиции целей и анализа личной эффективности, разработанная трейдерами для трейдеров. Мы убрали геймификацию и сфокусировались на жестких цифрах вашего поведения: времени чистого фокуса на графиках, торговых сессиях, выполнении рутинных привычек и чистый расчет матожидания."
             ) : (
-              "Persona Life OS is a discipline workbench designed by a trader, for traders. We skipped standard game achievements to focus strictly on raw behavioral numbers: screen focus time, sessions calendar, goal execution, and path-dependent Monte Carlo simulation."
+              "Persona Life OS is an OKR decomposition and behavioral analytics engine crafted by a trader, for traders. We stripped gaming fluff to focus strictly on raw performance data: screen concentration, sessions log, routines execution, and Expected Value math."
             )}
           </p>
           
-          {/* Quick Stats Grid */}
-          <div className="grid grid-cols-3 gap-4 pt-4 border-t border-white/10 max-w-md reveal-text delay-3">
-            <div>
-              <p className="text-2xl font-black text-white font-mono">0.0%</p>
-              <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">{isRu ? "Иллюзий" : "Subjectivity"}</p>
-            </div>
-            <div>
-              <p className="text-2xl font-black text-emerald-400 font-mono">100%</p>
-              <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">{isRu ? "Чистая логика" : "Hard Data"}</p>
-            </div>
-            <div>
-              <p className="text-2xl font-black text-red-500 font-mono">&lt;2.0%</p>
-              <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">{isRu ? "Риск слива" : "Ruin probability"}</p>
+          {/* CTA + Quick Stats Grid */}
+          <div className="space-y-6 reveal-text delay-3">
+            <button 
+              onClick={() => setIsAuthOpen(true)}
+              className="px-8 py-4 bg-white text-black font-display font-black text-sm uppercase tracking-widest rounded-2xl hover:bg-red-600 hover:text-white transition-all hover:scale-105 active:scale-95 cursor-none shadow-2xl flex items-center gap-2 group"
+            >
+              <span>{isRu ? "ОЦИФРОВАТЬ ДИСЦИПЛИНУ" : "DIGITIZE CONSISTENCY"}</span>
+              <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+            </button>
+
+            <div className="grid grid-cols-3 gap-4 pt-6 border-t border-white/10 max-w-md">
+              <div>
+                <p className="text-2xl font-black text-white font-mono">0.0%</p>
+                <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">{isRu ? "Иллюзий" : "Subjectivity"}</p>
+              </div>
+              <div>
+                <p className="text-2xl font-black text-emerald-400 font-mono">100%</p>
+                <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">{isRu ? "Чистая логика" : "Hard Data"}</p>
+              </div>
+              <div>
+                <p className="text-2xl font-black text-red-500 font-mono">&lt;2.0%</p>
+                <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">{isRu ? "Риск слива" : "Ruin probability"}</p>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Right Side: Auth Card */}
-        <div className="flex justify-center reveal-text delay-2">
-          <div className="w-full max-w-md border border-white/10 rounded-3xl p-8 bg-zinc-950/40 backdrop-blur-xl shadow-2xl relative">
-            <div className="absolute top-0 right-0 w-6 h-6 bg-red-600 rounded-tr-3xl shadow-[0_0_10px_rgba(220,38,38,0.5)]" style={{ clipPath: "polygon(0 0, 100% 0, 100% 100%)" }} />
-            
-            <div className="flex rounded-xl overflow-hidden border border-white/5 mb-6 bg-black/60 p-1">
-              <button
-                className={`flex-1 py-2.5 text-xs font-display font-bold uppercase tracking-wider transition-all rounded-lg ${
-                  mode === "login" ? "bg-white/10 text-white shadow-inner font-black" : "text-zinc-500 hover:text-zinc-300"
-                }`}
-                onClick={() => { setMode("login"); setShowResend(false); setResendDone(false); }}
-                data-testid="tab-login"
-              >
-                {t.auth.loginTab}
-              </button>
-              <button
-                className={`flex-1 py-2.5 text-xs font-display font-bold uppercase tracking-wider transition-all rounded-lg ${
-                  mode === "register" ? "bg-white/10 text-white shadow-inner font-black" : "text-zinc-500 hover:text-zinc-300"
-                }`}
-                onClick={() => { setMode("register"); setShowResend(false); setResendDone(false); }}
-                data-testid="tab-register"
-              >
-                {t.auth.registerTab}
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-1.5">
-                <Label className="font-display text-xs uppercase tracking-wider text-zinc-500">
-                  Email
-                </Label>
-                <Input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="your@email.com"
-                  required
-                  autoComplete="email"
-                  className="bg-black/60 border-white/5 focus-visible:ring-red-500/50 rounded-xl text-sm h-10"
-                  data-testid="input-email"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <div className="flex justify-between items-center">
-                  <Label className="font-display text-xs uppercase tracking-wider text-zinc-500">
-                    {t.auth.password}
-                  </Label>
-                  {mode === "login" && (
-                    <Link href="/forgot-password">
-                      <span className="text-[10px] text-zinc-500 hover:text-red-400 cursor-pointer transition-colors uppercase tracking-wider font-display">
-                        {t.auth.forgotPassword}
-                      </span>
-                    </Link>
-                  )}
-                </div>
-                <Input
-                  type="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder={mode === "register" ? t.auth.min6 : "••••••••"}
-                  required
-                  autoComplete={mode === "login" ? "current-password" : "new-password"}
-                  className="bg-black/60 border-white/5 focus-visible:ring-red-500/50 rounded-xl text-sm h-10"
-                  data-testid="input-password"
-                />
-              </div>
-
-              <Button
-                type="submit"
-                disabled={loading || !email.trim() || !password.trim()}
-                className="w-full bg-red-600 hover:bg-red-700 text-white font-display uppercase tracking-[0.25em] text-xs h-11 rounded-xl mt-4 shadow-[0_0_20px_rgba(220,38,38,0.2)] font-bold"
-                data-testid="button-auth-submit"
-              >
-                {loading ? "..." : mode === "login" ? t.auth.loginBtn : t.auth.registerBtn}
-              </Button>
-            </form>
-
-            {showResend && (
-              <div className="mt-4 p-4 border border-yellow-500/20 rounded-2xl bg-yellow-500/5 space-y-3">
-                {resendDone ? (
-                  <p className="text-xs text-primary font-mono text-center">
-                    {t.auth.sent}
-                  </p>
-                ) : (
-                  <>
-                    <p className="text-xs text-yellow-400/80 font-mono text-center">
-                      {t.auth.notVerified}
-                    </p>
-                    <Button
-                      onClick={handleResend}
-                      disabled={resendLoading}
-                      variant="outline"
-                      className="w-full text-xs font-display uppercase tracking-wider border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10 rounded-xl"
-                    >
-                      {resendLoading ? t.auth.sending : t.auth.resend}
-                    </Button>
-                  </>
-                )}
-              </div>
-            )}
-
-            <p className="text-center text-xs text-zinc-500 mt-4">
-              {mode === "login" ? t.auth.noAccount : t.auth.hasAccount}{" "}
-              <button
-                onClick={() => { setMode(mode === "login" ? "register" : "login"); setShowResend(false); setResendDone(false); }}
-                className="text-red-500 font-bold hover:underline"
-                data-testid="button-switch-mode"
-              >
-                {mode === "login" ? t.auth.registerTab : t.auth.loginTab}
-              </button>
-            </p>
-          </div>
+        {/* Right Side: Interactive Barcode Reveal Component */}
+        <div className="reveal-text delay-2 w-full max-w-md mx-auto">
+          <BarcodeScannerText lang={lang} />
         </div>
       </main>
 
@@ -743,119 +1150,18 @@ export default function LoginPage() {
         </div>
       </section>
 
-      {/* Feature Grid: Descriptions of all 8 sections */}
-      <section className="max-w-7xl mx-auto px-6 py-20">
-        <h2 className="text-3xl font-black text-white text-center mb-16 uppercase tracking-wider font-display cursor-default">
-          {isRu ? "Архитектура Системности" : "Systems Architecture"}
-        </h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          
-          {/* Card 1: Hub */}
-          <div className="border border-white/5 rounded-3xl p-6 bg-zinc-950/20 space-y-4 hover-glow-card">
-            <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400">
-              <LayoutDashboard className="w-5 h-5" />
-            </div>
-            <h3 className="text-base font-bold text-white uppercase font-display">{isRu ? "Главный Хаб" : "Main Hub"}</h3>
-            <p className="text-xs text-zinc-400 leading-relaxed">
-              {isRu 
-                ? "Ваша стартовая панель. Отображает активные торговые сессии (London/New York/Asia), текущий прогресс дня, помодоро-таймер и динамические графики стабильности. Никаких отвлекающих факторов — только фокус на текущих задачах и дисциплине."
-                : "Cockpit of your day. Displays active trading sessions, focus minutes, and daily operational discipline tasks. Zero distractions — pure focus on execution."}
-            </p>
-          </div>
-
-          {/* Card 2: Tasks */}
-          <div className="border border-white/5 rounded-3xl p-6 bg-zinc-950/20 space-y-4 hover-glow-card">
-            <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400">
-              <CheckCircle2 className="w-5 h-5" />
-            </div>
-            <h3 className="text-base font-bold text-white uppercase font-display">{isRu ? "Задачи и Рутина" : "Tasks & Routines"}</h3>
-            <p className="text-xs text-zinc-400 leading-relaxed">
-              {isRu 
-                ? "Разделение задач на рутинные чек-листы перед началом торгов и дневные операционные задачи. Позволяет автоматизировать подготовку (медитация, проверка новостей, анализ графиков HTF) и исключить вход в рынок без предварительного чек-листа."
-                : "Operational checklist. Build repeating templates for your pre-market routine and checklist executions. Prevents impulsive market entries."}
-            </p>
-          </div>
-
-          {/* Card 3: Goals */}
-          <div className="border border-white/5 rounded-3xl p-6 bg-zinc-950/20 space-y-4 hover-glow-card">
-            <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400">
-              <Target className="w-5 h-5" />
-            </div>
-            <h3 className="text-base font-bold text-white uppercase font-display">{isRu ? "Декомпозиция целей" : "Goals Breakdown"}</h3>
-            <p className="text-xs text-zinc-400 leading-relaxed">
-              {isRu 
-                ? "Древовидная структура целей. Связывайте годовые финансовые цели с месячными вехами просадки/профита и недельными задачами. Каждое действие на рынке должно быть обосновано глобальной целью."
-                : "Goal cascading. Break down long-term yearly and monthly milestones into actionable weekly targets. Tie physical goals to trading performance."}
-            </p>
-          </div>
-
-          {/* Card 4: Focus Timer */}
-          <div className="border border-white/5 rounded-3xl p-6 bg-zinc-950/20 space-y-4 hover-glow-card">
-            <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400">
-              <Timer className="w-5 h-5" />
-            </div>
-            <h3 className="text-base font-bold text-white uppercase font-display">{isRu ? "Таймер Фокуса" : "Focus Timer"}</h3>
-            <p className="text-xs text-zinc-400 leading-relaxed">
-              {isRu 
-                ? "Инструмент контроля времени нахождения перед графиками. Помодоро-таймер с фиксированием чистой фокусировки. Помогает предотвратить овертрейдинг, отслеживая минуты внимания и связывая их с вашим эмоциональным состоянием."
-                : "Tilt prevention. Tracks deep concentration chart blocks, restricting aimless screen watching and FOMO. Matches focus time with trading results."}
-            </p>
-          </div>
-
-          {/* Card 5: Trading bias */}
-          <div className="border border-white/5 rounded-3xl p-6 bg-zinc-950/20 space-y-4 hover-glow-card">
-            <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400">
-              <TrendingUp className="w-5 h-5" />
-            </div>
-            <h3 className="text-base font-bold text-white uppercase font-display">{isRu ? "Дневник Bias" : "Daily Bias Log"}</h3>
-            <p className="text-xs text-zinc-400 leading-relaxed">
-              {isRu 
-                ? "Журнал контекста старших таймфреймов. Определение направления дня (Bias), взвешивание факторов за и против (Pros/Cons), скриншоты разметки HTF. Накапливает статистическую выборку точности вашего рыночного контекста."
-                : "Context tracking. Formulate your morning Bias, list pros/cons arguments, and save chart screenshots. Builds a record of your structural understanding."}
-            </p>
-          </div>
-
-          {/* Card 6: Ideas */}
-          <div className="border border-white/5 rounded-3xl p-6 bg-zinc-950/20 space-y-4 hover-glow-card">
-            <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400">
-              <Lightbulb className="w-5 h-5" />
-            </div>
-            <h3 className="text-base font-bold text-white uppercase font-display">{isRu ? "Банк Идей" : "Ideas Repository"}</h3>
-            <p className="text-xs text-zinc-400 leading-relaxed">
-              {isRu 
-                ? "Банк для хранения торговых моделей и гипотез. Позволяет зафиксировать сетап вне рынка, описать условия входа и правила сопровождения для последующей проверки в тестере."
-                : "Hypothesis collector. Capture insights and new setup patterns instantly for future backtest validations. Separate ideas from execution."}
-            </p>
-          </div>
-
-          {/* Card 7: Calendar */}
-          <div className="border border-white/5 rounded-3xl p-6 bg-zinc-950/20 space-y-4 hover-glow-card">
-            <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400">
-              <Calendar className="w-5 h-5" />
-            </div>
-            <h3 className="text-base font-bold text-white uppercase font-display">{isRu ? "Календарь Биасов" : "Bias Calendar"}</h3>
-            <p className="text-xs text-zinc-400 leading-relaxed">
-              {isRu 
-                ? "Сетка истории вашего торгового мышления. Календарь позволяет проанализировать, в какие дни недели у вас наибольшая точность определения Bias, и скорректировать торговую активность."
-                : "Historical overview. Browse your daily bias archives and journal remarks day by day in calendar layout. Spot weekdays with poor discipline."}
-            </p>
-          </div>
-
-          {/* Card 8: Settings */}
-          <div className="border border-white/5 rounded-3xl p-6 bg-zinc-950/20 space-y-4 hover-glow-card">
-            <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400">
-              <Settings className="w-5 h-5" />
-            </div>
-            <h3 className="text-base font-bold text-white uppercase font-display">{isRu ? "Настройки сессий" : "Session Settings"}</h3>
-            <p className="text-xs text-zinc-400 leading-relaxed">
-              {isRu 
-                ? "Настройка вашего торгового времени. Задавайте точные интервалы сессий (UTC) для автоматического сопоставления времени сделок и выявления периодов наибольшей убыточности."
-                : "Calibration. Custom fit your timezone and session frames to align statistics with your execution. Restrict trading outside defined hours."}
-            </p>
-          </div>
-
+      {/* Feature Slider: Architecture of Consistency (Архитектура Системности) */}
+      <section className="max-w-7xl mx-auto px-6 py-20 space-y-12">
+        <div className="text-center space-y-3">
+          <h2 className="text-3xl font-black text-white uppercase tracking-wider font-display cursor-default">
+            {isRu ? "Архитектура Системности" : "Systems Architecture"}
+          </h2>
+          <p className="text-zinc-500 max-w-xl mx-auto text-sm">
+            {isRu ? "Интерактивная демонстрация работы каждого отдельного модуля нашей операционной системы трейдера." : "Interactive showcase explaining the mechanics of each individual Trader OS module."}
+          </p>
         </div>
+
+        <ModulesShowcaseSlider lang={lang} />
       </section>
 
       {/* News Teaser with locked pixel COMING SOON overlay */}
@@ -878,18 +1184,25 @@ export default function LoginPage() {
             </div>
 
             {/* News Teaser Container with overlay lock */}
-            <div className="relative border border-white/10 rounded-3xl overflow-hidden shadow-2xl">
+            <div 
+              className="relative border border-white/10 rounded-3xl overflow-hidden shadow-2xl hover-target"
+              onMouseEnter={() => setHoverReady(true)}
+              onMouseLeave={() => setHoverReady(false)}
+            >
               {/* Actual mockup blurred */}
               <div className="blur-[5px] select-none pointer-events-none opacity-45">
                 <NewsCorrelationMockup lang={lang} />
               </div>
 
               {/* Retro Pixel Coming Soon Overlay */}
-              <div className="absolute inset-0 flex flex-col justify-center items-center bg-black/75 z-20 p-6 text-center border border-red-500/30 rounded-3xl">
+              <div className="absolute inset-0 flex flex-col justify-center items-center bg-black/85 z-20 p-6 text-center border border-red-500/35 rounded-3xl">
                 <div className="scanlines" />
                 <Lock className="w-12 h-12 text-red-500 animate-pulse mb-4 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
-                <h3 className="font-mono text-base font-bold text-red-500 tracking-[0.2em] crt-blink uppercase animate-pulse" style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '11px', textShadow: '0 0 5px rgba(239, 68, 68, 0.8)' }}>
-                  COMING SOON
+                <h3 
+                  className="font-mono text-base font-bold text-red-500 tracking-[0.2em] uppercase transition-all duration-300 glitch-text" 
+                  style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '11px' }}
+                >
+                  {hoverReady ? (isRu ? "ВЫ ЕЩЕ НЕ ГОТОВЫ" : "YOU ARE NOT READY") : "COMING SOON"}
                 </h3>
                 <p className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest mt-3 max-w-[280px] leading-relaxed">
                   {isRu 
@@ -902,6 +1215,9 @@ export default function LoginPage() {
           </div>
         </div>
       </section>
+
+      {/* Auth Modal Overlay */}
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} lang={lang} />
 
       {/* Footer */}
       <footer className="border-t border-white/5 py-8 text-center text-xs text-zinc-600 relative z-10 font-mono">
