@@ -75,24 +75,28 @@ function CountUpStat({ value, suffix = "", duration = 1200 }: { value: number; s
   return <span>{isFloat ? count.toFixed(1) : Math.floor(count)}{suffix}</span>;
 }
 
-// ── Opposite Warning Hover Mask Component (No Layout Shifting) ──────────────
+// ── Opposite Warning Hover Mask (Direct DOM, Buttery Smooth 60fps) ──────────
 function OppositeText({ normal, opposite, className = "" }: { normal: string; opposite: string; className?: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [mouse, setMouse] = useState({ x: 0, y: 0, active: false });
+  const oppositeRef = useRef<HTMLDivElement>(null);
 
   const handleMouseMove = (e: React.MouseEvent) => {
     const container = containerRef.current;
-    if (!container) return;
+    const oppositeEl = oppositeRef.current;
+    if (!container || !oppositeEl) return;
+    
     const rect = container.getBoundingClientRect();
-    setMouse({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-      active: true,
-    });
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    // Direct DOM styling completely avoids React state re-renders (zero lags)
+    oppositeEl.style.clipPath = `circle(64px at ${x}px ${y}px)`;
   };
 
   const handleMouseLeave = () => {
-    setMouse(prev => ({ ...prev, active: false }));
+    const oppositeEl = oppositeRef.current;
+    if (!oppositeEl) return;
+    oppositeEl.style.clipPath = `circle(0px at 0px 0px)`;
   };
 
   return (
@@ -100,21 +104,21 @@ function OppositeText({ normal, opposite, className = "" }: { normal: string; op
       ref={containerRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      className={`relative select-none hover-target cursor-none ${className}`}
+      className={`relative select-none hover-target cursor-none overflow-hidden inline-block ${className}`}
+      style={{ verticalAlign: "top" }}
     >
       {/* Layer 1: Normal text */}
       <div className="text-zinc-400">
         {normal}
       </div>
 
-      {/* Layer 2: Inverted opposite text, visible ONLY inside the circle mask */}
+      {/* Layer 2: Opposite warning. text-white inverts to text-black inside difference lens */}
       <div 
-        className="absolute inset-0 text-red-500 font-bold pointer-events-none select-none flex items-center justify-center text-center"
+        ref={oppositeRef}
+        className="absolute inset-0 text-white font-black bg-[#030304] flex items-center justify-center text-center select-none pointer-events-none"
         style={{
-          clipPath: mouse.active 
-            ? `circle(64px at ${mouse.x}px ${mouse.y}px)` 
-            : `circle(0px at 0px 0px)`,
-          transition: "clip-path 0.05s ease-out",
+          clipPath: `circle(0px at 0px 0px)`,
+          willChange: "clip-path",
         }}
       >
         <span className="w-full">{opposite}</span>
@@ -386,7 +390,6 @@ function SynthwaveCanvas() {
 // ── Inverting Dot to Circle Custom Cursor ───────────────────────────────────
 function CustomCursor() {
   const lensRef = useRef<HTMLDivElement>(null);
-  const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
     const lens = lensRef.current;
@@ -398,20 +401,24 @@ function CustomCursor() {
       lens.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0) translate(-50%, -50%)`;
     };
 
+    // Expand cursor on hovering targets (including H1, H2, H3, P, SPAN, LI, A, BUTTON)
     const handleMouseOver = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (target && (
         target.tagName === "H1" || 
         target.tagName === "H2" || 
         target.tagName === "H3" || 
+        target.tagName === "P" || 
+        target.tagName === "SPAN" || 
+        target.tagName === "LI" || 
         target.tagName === "A" || 
         target.tagName === "BUTTON" || 
         target.classList.contains("hover-target") ||
         target.closest(".hover-target")
       )) {
-        setIsHovered(true);
+        lens.classList.add("lens-active");
       } else {
-        setIsHovered(false);
+        lens.classList.remove("lens-active");
       }
     };
 
@@ -428,12 +435,7 @@ function CustomCursor() {
   return (
     <div 
       ref={lensRef} 
-      className={`fixed top-0 left-0 rounded-full pointer-events-none z-[9999] transition-all duration-300 ease-out hidden md:block ${
-        isHovered 
-          ? "w-32 h-32 bg-white border border-red-500/40 mix-blend-difference" 
-          : "w-2.5 h-2.5 bg-white shadow-[0_0_12px_rgba(255,255,255,0.9)]"
-      }`}
-      style={{ willChange: "transform" }}
+      className="custom-lens hidden md:block"
     />
   );
 }
@@ -442,7 +444,7 @@ function CustomCursor() {
 function HubMockup({ lang }: { lang: "ru" | "en" }) {
   const isRu = lang === "ru";
   return (
-    <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center items-center h-full min-h-[220px] font-mono text-xs w-full">
+    <div className="bg-[#0b0b0d] border border-white/5 rounded-2xl p-6 flex flex-col justify-center items-center h-full min-h-[220px] font-mono text-xs w-full">
       <div className="relative w-32 h-32 flex items-center justify-center border-4 border-dashed border-red-500/35 rounded-full animate-spin duration-10000">
         <div className="absolute inset-2 border-2 border-emerald-500/30 rounded-full" />
         <div className="absolute font-sans text-lg font-black text-white select-none">82%</div>
@@ -469,7 +471,7 @@ function TasksMockup({ lang }: { lang: "ru" | "en" }) {
   }, []);
 
   return (
-    <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center space-y-3 h-full min-h-[220px] font-mono text-xs text-zinc-400 w-full">
+    <div className="bg-[#0b0b0d] border border-white/5 rounded-2xl p-6 flex flex-col justify-center space-y-3 h-full min-h-[220px] font-mono text-xs text-zinc-400 w-full">
       <div className="flex items-center gap-3 bg-white/5 p-2.5 rounded-xl border border-white/5">
         <input type="checkbox" checked={checked[0]} readOnly className="accent-red-500 h-4 w-4" />
         <span className={checked[0] ? "line-through text-zinc-500" : "text-white"}>
@@ -495,7 +497,7 @@ function TasksMockup({ lang }: { lang: "ru" | "en" }) {
 function GoalsMockup({ lang }: { lang: "ru" | "en" }) {
   const isRu = lang === "ru";
   return (
-    <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center space-y-4 h-full min-h-[220px] font-mono text-xs w-full">
+    <div className="bg-[#0b0b0d] border border-white/5 rounded-2xl p-6 flex flex-col justify-center space-y-4 h-full min-h-[220px] font-mono text-xs w-full">
       <div className="border border-red-500/20 bg-red-500/5 p-3 rounded-xl text-center">
         <span className="text-[10px] text-zinc-500 block uppercase">{isRu ? "ЦЕЛЬ ГОДА" : "YEAR GOAL"}</span>
         <span className="font-bold text-white text-sm">{isRu ? "Funded-счет $100,000" : "Get $100K Funded Account"}</span>
@@ -524,7 +526,7 @@ function TimerMockup({ lang }: { lang: "ru" | "en" }) {
   const s = (time % 60).toString().padStart(2, '0');
 
   return (
-    <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center items-center h-full min-h-[220px] font-mono text-xs w-full">
+    <div className="bg-[#0b0b0d] border border-white/5 rounded-2xl p-6 flex flex-col justify-center items-center h-full min-h-[220px] font-mono text-xs w-full">
       <div className="text-3xl font-black text-red-500 tracking-widest drop-shadow-[0_0_10px_rgba(239,68,68,0.4)] animate-pulse">
         {m}:{s}
       </div>
@@ -579,7 +581,7 @@ function TradingSimulatorMockup({ lang }: { lang: "ru" | "en" }) {
   }, [balance, failed, passed]);
 
   return (
-    <div className="bg-[#0b0b0d]/90 border border-white/10 rounded-3xl p-6 font-mono text-xs text-zinc-300 space-y-4 shadow-2xl relative overflow-hidden backdrop-blur-md w-full">
+    <div className="bg-[#0b0b0d] border border-white/10 rounded-3xl p-6 font-mono text-xs text-zinc-300 space-y-4 shadow-2xl relative overflow-hidden w-full">
       <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 blur-xl rounded-full" />
       <div className="flex justify-between items-center border-b border-white/5 pb-3">
         <span className="text-zinc-500 font-bold uppercase tracking-wider font-display">MONTE-CARLO SIMULATOR</span>
@@ -630,7 +632,7 @@ function TradingSimulatorMockup({ lang }: { lang: "ru" | "en" }) {
 function IdeasMockup({ lang }: { lang: "ru" | "en" }) {
   const isRu = lang === "ru";
   return (
-    <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center space-y-3 h-full min-h-[220px] font-mono text-xs text-zinc-300 w-full">
+    <div className="bg-[#0b0b0d] border border-white/5 rounded-2xl p-6 flex flex-col justify-center space-y-3 h-full min-h-[220px] font-mono text-xs text-zinc-300 w-full">
       <div className="border border-white/10 p-3 rounded-xl bg-white/5 relative">
         <span className="text-[9px] text-zinc-500 block uppercase font-bold">{isRu ? "Идея #12" : "Idea #12"}</span>
         <span className="text-white font-bold">{isRu ? "Разворотный FVG на XAU" : "Gold HTF FVG Reversal model"}</span>
@@ -642,7 +644,7 @@ function IdeasMockup({ lang }: { lang: "ru" | "en" }) {
 
 function CalendarMockup({ lang }: { lang: "ru" | "en" }) {
   return (
-    <div className="bg-black/60 border border-white/5 rounded-2xl p-4 flex flex-col justify-center h-full min-h-[220px] font-mono text-xs w-full">
+    <div className="bg-[#0b0b0d] border border-white/5 rounded-2xl p-4 flex flex-col justify-center h-full min-h-[220px] font-mono text-xs w-full">
       <div className="grid grid-cols-7 gap-1">
         {[...Array(28)].map((_, i) => {
           const isWin = i % 5 === 0;
@@ -667,7 +669,7 @@ function CalendarMockup({ lang }: { lang: "ru" | "en" }) {
 
 function SettingsMockup({ lang }: { lang: "ru" | "en" }) {
   return (
-    <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center space-y-3 h-full min-h-[220px] font-mono text-xs w-full">
+    <div className="bg-[#0b0b0d] border border-white/5 rounded-2xl p-6 flex flex-col justify-center space-y-3 h-full min-h-[220px] font-mono text-xs w-full">
       <div className="flex justify-between">
         <span>NY session:</span>
         <span className="text-red-400 font-bold">13:00 - 17:00 UTC</span>
@@ -683,7 +685,7 @@ function SettingsMockup({ lang }: { lang: "ru" | "en" }) {
 // ── News Correlation Mockup ─────────────────────────────────────────────────
 function NewsCorrelationMockup({ lang }: { lang: "ru" | "en" }) {
   return (
-    <div className="bg-[#0b0b0d]/90 border border-white/10 rounded-3xl p-6 font-mono text-xs text-zinc-300 space-y-4 shadow-2xl relative overflow-hidden backdrop-blur-md">
+    <div className="bg-[#0b0b0d] border border-white/10 rounded-3xl p-6 font-mono text-xs text-zinc-300 space-y-4 shadow-2xl relative overflow-hidden w-full">
       <div className="flex justify-between items-center border-b border-white/5 pb-3">
         <span className="text-zinc-500 font-bold uppercase tracking-wider font-display">NEWS CORRELATION ENGINE</span>
         <span className="text-[10px] text-zinc-500">USD / High Impact</span>
@@ -815,7 +817,7 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
   const currentTab = tabs[activeTab];
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.8fr] gap-8 border border-white/5 rounded-3xl p-6 bg-zinc-950/20 backdrop-blur-md">
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.8fr] gap-8 border border-white/5 rounded-3xl p-6 bg-zinc-900/40">
       
       {/* Sidebar selection */}
       <div className="flex flex-row lg:flex-col overflow-x-auto lg:overflow-x-visible gap-2 pb-4 lg:pb-0 border-b lg:border-b-0 lg:border-r border-white/5 pr-0 lg:pr-4">
@@ -1096,6 +1098,33 @@ export default function LoginPage() {
         body.landing-cursor textarea {
           cursor: none !important;
         }
+
+        /* Pure CSS Custom lens cursor that scales smoothly and inverts color */
+        .custom-lens {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          background-color: white;
+          box-shadow: 0 0 12px rgba(255,255,255,0.9);
+          pointer-events: none;
+          z-index: 9999;
+          transform: translate(-50%, -50%);
+          will-change: transform, width, height;
+          transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), height 0.25s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.25s;
+        }
+
+        /* Active circle state - mix-blend-mode difference allows inversion */
+        .custom-lens.lens-active {
+          width: 128px;
+          height: 128px;
+          background-color: white;
+          mix-blend-mode: difference;
+          border: 1px solid rgba(220, 38, 38, 0.3);
+          box-shadow: none;
+        }
         
         /* Reveal animation on page load */
         .reveal-text {
@@ -1142,11 +1171,6 @@ export default function LoginPage() {
         @keyframes crt-blink-anim {
           0%, 100% { opacity: 0.95; }
           50% { opacity: 0.25; }
-        }
-
-        /* P5 styled background lines */
-        .accent-bar {
-          clip-path: polygon(0 0, 100% 15%, 100% 85%, 0 100%);
         }
 
         /* Glitch text effect */
@@ -1256,7 +1280,7 @@ export default function LoginPage() {
           {isRu ? (
             "Persona Life OS — это система декомпозиции целей и анализа личной эффективности, разработанная трейдерами для трейдеров. Мы убрали геймификацию и сфокусировались на жестких цифрах вашего поведения: времени чистого фокуса на графиках, торговых сессиях, выполнении рутинных привычек и чистый расчет матожидания."
           ) : (
-            "Persona Life OS is an OKR decomposition and behavioral analytics engine crafted by a trader, for traders. We stripped gaming fluff to focus strictly on raw performance data: screen concentration, sessions log, routines execution, and Expected Value math."
+            "Persona Life OS is an OKR decomposition and behavioral analytics engine crafted by a trader, for traders. We skipped gaming fluff to focus strictly on raw performance data: screen concentration, sessions log, routines execution, and Expected Value math."
           )}
         </p>
         
@@ -1269,7 +1293,7 @@ export default function LoginPage() {
         <div className="space-y-6 reveal-text delay-3 w-full flex flex-col items-center pt-2">
           <button 
             onClick={() => setIsAuthOpen(true)}
-            className="px-8 py-4 bg-white text-black font-display font-black text-sm uppercase tracking-widest rounded-2xl hover:bg-red-600 hover:text-white transition-all hover:scale-105 active:scale-95 cursor-none shadow-2xl flex items-center gap-2 group"
+            className="px-8 py-4 bg-white text-black font-display font-black text-sm uppercase tracking-widest rounded-2xl hover:bg-red-600 hover:text-white transition-all hover:scale-105 active:scale-95 cursor-none shadow-2xl flex items-center gap-2 group animate-bounce"
           >
             <OppositeText 
               normal={isRu ? "ОЦИФРОВАТЬ ДИСЦИПЛИНУ" : "DIGITIZE CONSISTENCY"}
