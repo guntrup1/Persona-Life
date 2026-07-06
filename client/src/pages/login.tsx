@@ -112,16 +112,17 @@ function OppositeText({ normal, opposite, className = "" }: { normal: string; op
         {normal}
       </div>
 
-      {/* Layer 2: Opposite warning. text-white inverts to text-black inside difference lens. Styled slightly larger (1.12em) */}
+      {/* Layer 2: Opposite warning. text-white inverts to text-black inside difference lens. 
+          No flex layout or centering to guarantee text lines align perfectly over Layer 1 without overlaps. */}
       <div 
         ref={oppositeRef}
-        className="absolute inset-0 text-white font-black bg-[#030304] flex items-center justify-center text-center select-none pointer-events-none text-[1.12em] tracking-wide"
+        className="absolute inset-0 text-white font-black bg-[#030304] select-none pointer-events-none text-[1.04em] tracking-wide text-left"
         style={{
           clipPath: `circle(0px at 0px 0px)`,
           willChange: "clip-path",
         }}
       >
-        <span className="w-full">{opposite}</span>
+        <span className="w-full block">{opposite}</span>
       </div>
     </div>
   );
@@ -268,9 +269,10 @@ function SynthwaveCanvas() {
         x: Math.random() * width,
         y: Math.random() * height,
         size: Math.random() * 1.5 + 0.5,
+        sizeMax: 2, // custom property representation
         speed: Math.random() * 0.2 + 0.1,
         opacity: Math.random() * 0.2 + 0.1,
-      });
+      } as any);
     }
 
     let offset = 0;
@@ -682,7 +684,7 @@ function SettingsMockup({ lang }: { lang: "ru" | "en" }) {
   );
 }
 
-// ── News Correlation Mockup ─────────────────────────────────────────────────
+// ── News Aggregator Mockup ──────────────────────────────────────────────────
 function NewsCorrelationMockup({ lang }: { lang: "ru" | "en" }) {
   return (
     <div className="bg-[#0b0b0d] border border-white/10 rounded-3xl p-6 font-mono text-xs text-zinc-300 space-y-4 shadow-2xl relative overflow-hidden w-full">
@@ -1245,44 +1247,70 @@ export default function LoginPage() {
 
       {/* Background Chalk Trading Easter Eggs (Scattered & Layered) */}
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden select-none">
-        {/* Original Easter Eggs */}
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-4deg] absolute top-[20%] left-[5%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
+        {/* Row 1 */}
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-4deg] absolute top-[8%] left-[5%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
           [ORDER BLOCK - 15m]
-        </div>
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[6deg] absolute top-[16%] left-[82%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
-          [Liq Pool ⬇]
-        </div>
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-8deg] absolute top-[52%] left-[3%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
-          [FVG / Fair Value Gap]
-        </div>
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[3deg] absolute top-[68%] left-[85%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
-          [BOS / CHoCH]
-        </div>
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-3deg] absolute bottom-[24%] left-[8%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
-          [Risk : Reward = 1 : 3.5]
-        </div>
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[5deg] absolute bottom-[10%] left-[80%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
-          [Premium / Discount]
-        </div>
-
-        {/* Scattered Trading Easter Eggs */}
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-6deg] absolute top-[38%] left-[88%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
-          [Asia Session High Sweep]
-        </div>
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[8deg] absolute top-[44%] left-[7%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
-          [Premium Array: 78.6% Fib]
         </div>
         <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-12deg] absolute top-[8%] left-[45%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
           [Discipline &gt; Talent]
         </div>
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[4deg] absolute bottom-[40%] left-[86%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
-          [Volatility Warning: NFP]
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[6deg] absolute top-[8%] left-[82%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
+          [Liq Pool ⬇]
         </div>
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-5deg] absolute bottom-[35%] left-[3%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
+
+        {/* Row 2 */}
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[8deg] absolute top-[28%] left-[3%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
+          [Premium Array: 78.6% Fib]
+        </div>
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-3deg] absolute top-[24%] left-[42%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
+          [HTF Daily Bias: Bullish]
+        </div>
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-6deg] absolute top-[28%] left-[84%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
+          [Asia Session High Sweep]
+        </div>
+
+        {/* Row 3 */}
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-8deg] absolute top-[48%] left-[5%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
+          [FVG / Fair Value Gap]
+        </div>
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[9deg] absolute top-[44%] left-[40%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
+          [Optimal Trade Entry: 70.5%]
+        </div>
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[3deg] absolute top-[48%] left-[85%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
+          [BOS / CHoCH]
+        </div>
+
+        {/* Row 4 */}
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-5deg] absolute top-[68%] left-[6%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
           [No FOMO Allowed]
         </div>
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[7deg] absolute bottom-[4%] left-[45%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-9deg] absolute top-[64%] left-[44%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
+          [Expected Value: E(X) &gt; 0]
+        </div>
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[4deg] absolute top-[68%] left-[82%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
+          [Volatility Warning: NFP]
+        </div>
+
+        {/* Row 5 */}
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-3deg] absolute top-[86%] left-[8%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
+          [Risk : Reward = 1 : 3.5]
+        </div>
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[11deg] absolute top-[82%] left-[41%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
+          [Standard Deviation: 2.5 Sigma]
+        </div>
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[5deg] absolute top-[86%] left-[80%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
+          [Premium / Discount]
+        </div>
+
+        {/* Extra scattered background indicators */}
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[4deg] absolute top-[94%] left-[2%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
+          [Drawdown Limit: -5% Daily]
+        </div>
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-7deg] absolute top-[92%] left-[46%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
           [Plan the Trade. Trade the Plan.]
+        </div>
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-6deg] absolute top-[94%] left-[85%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
+          [London Session Open: Killzone]
         </div>
       </div>
 
@@ -1310,7 +1338,7 @@ export default function LoginPage() {
         <h1 className="text-4xl md:text-5xl lg:text-7.5xl font-black tracking-tight leading-none text-white font-display uppercase cursor-default reveal-text delay-1 max-w-3xl">
           <OppositeText 
             normal={isRu ? "Прекратите сливать из-за тильта. Оцифруйте дисциплину." : "Stop blowing accounts to tilt. Track your stats."}
-            opposite={isRu ? "ХВАТИТ НАДЕЯТЬСЯ НА УДАЧУ — ОЦИФРУЙ СВОЙ РАЗУМ!" : "STOP HOPING FOR LUCK — DIGITIZE YOUR SYSTEM!"}
+            opposite={isRu ? "Перестаньте сливать из-за эмоций. Тренируйте дисциплину." : "Stop blowing accounts to emotions. Maximize your consistency."}
           />
         </h1>
         
@@ -1382,7 +1410,7 @@ export default function LoginPage() {
               <h2 className="text-3xl sm:text-4xl font-black text-white leading-tight uppercase font-display cursor-default">
                 <OppositeText 
                   normal={isRu ? "Раздел Трейдинг — оцифровка вашего математического ожидания" : "Trading Section — Digitizing Your Expected Value"}
-                  opposite={isRu ? "ИСКЛЮЧИ СВОИ ЭМОЦИИ — СЧИТАЙ МАТЕМАТИЧЕСКОЕ ОЖИДАНИЕ!" : "ELIMINATE EMOTIONS — VERIFY EXPECTED VALUE!"}
+                  opposite={isRu ? "Контроль сделок — оцифровка вашего математического ожидания" : "Validate setups — digitize your structural edge analytics"}
                   className="text-3xl sm:text-4xl font-black text-white leading-tight uppercase font-display"
                 />
               </h2>
@@ -1411,7 +1439,7 @@ export default function LoginPage() {
           <h2 className="text-3xl font-black text-white uppercase tracking-wider font-display cursor-default">
             <OppositeText 
               normal={isRu ? "Архитектура Системности" : "Systems Architecture"}
-              opposite={isRu ? "ПОДЧИНИ СЕБЯ ПРАВИЛАМ" : "SUBMIT TO STRUCTURAL RULES"}
+              opposite={isRu ? "Дисциплина Системности" : "Structural Discipline"}
               className="text-3xl font-black text-white uppercase tracking-wider font-display"
             />
           </h2>
@@ -1433,7 +1461,7 @@ export default function LoginPage() {
               <h2 className="text-3xl sm:text-4xl font-black text-white leading-tight uppercase font-display cursor-default">
                 <OppositeText 
                   normal={isRu ? "Мониторинг и исторический анализ новостного влияния" : "Smart News Aggregator & Probability Forecasting"}
-                  opposite={isRu ? "ХВАТИТ СЛИВАТЬ НА НОВОСТЯХ — АНАЛИЗИРУЙ РИСКИ!" : "STOP BLOWING ON NEWS — ANALYZE TAIL RISK!"}
+                  opposite={isRu ? "Мониторинг и исторический анализ новостного безумия" : "Macro aggregator and risk model validation alerts"}
                   className="text-3xl sm:text-4xl font-black text-white leading-tight uppercase font-display"
                 />
               </h2>
