@@ -75,19 +75,51 @@ function CountUpStat({ value, suffix = "", duration = 1200 }: { value: number; s
   return <span>{isFloat ? count.toFixed(1) : Math.floor(count)}{suffix}</span>;
 }
 
-// ── Opposite Warning Hover Text ─────────────────────────────────────────────
+// ── Opposite Warning Hover Mask Component (No Layout Shifting) ──────────────
 function OppositeText({ normal, opposite, className = "" }: { normal: string; opposite: string; className?: string }) {
-  const [hovered, setHovered] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [mouse, setMouse] = useState({ x: 0, y: 0, active: false });
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const container = containerRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    setMouse({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+      active: true,
+    });
+  };
+
+  const handleMouseLeave = () => {
+    setMouse(prev => ({ ...prev, active: false }));
+  };
+
   return (
-    <span 
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className={`hover-target inline-block transition-all duration-200 cursor-none select-none ${className} ${
-        hovered ? "text-red-500 font-bold" : ""
-      }`}
+    <div 
+      ref={containerRef}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      className={`relative select-none hover-target cursor-none ${className}`}
     >
-      {hovered ? opposite : normal}
-    </span>
+      {/* Layer 1: Normal text */}
+      <div className="text-zinc-400">
+        {normal}
+      </div>
+
+      {/* Layer 2: Inverted opposite text, visible ONLY inside the circle mask */}
+      <div 
+        className="absolute inset-0 text-red-500 font-bold pointer-events-none select-none flex items-center justify-center text-center"
+        style={{
+          clipPath: mouse.active 
+            ? `circle(64px at ${mouse.x}px ${mouse.y}px)` 
+            : `circle(0px at 0px 0px)`,
+          transition: "clip-path 0.05s ease-out",
+        }}
+      >
+        <span className="w-full">{opposite}</span>
+      </div>
+    </div>
   );
 }
 
@@ -152,7 +184,7 @@ function BarcodeScannerText({ lang }: { lang: "ru" | "en" }) {
   }, [words]);
 
   return (
-    <div className="relative border border-white/10 rounded-2xl bg-zinc-950/60 p-6 flex flex-col items-center justify-center min-h-[140px] overflow-hidden shadow-2xl max-w-sm mx-auto">
+    <div className="relative border border-white/10 rounded-2xl bg-zinc-950/60 p-5 flex flex-col items-center justify-center min-h-[120px] overflow-hidden shadow-2xl max-w-sm mx-auto">
       {/* Background Barcode lines */}
       <div className="absolute inset-x-0 bottom-2 top-2 flex justify-between opacity-5 select-none pointer-events-none px-4">
         {[...Array(24)].map((_, i) => (
@@ -171,7 +203,7 @@ function BarcodeScannerText({ lang }: { lang: "ru" | "en" }) {
         }`} 
       />
 
-      <div className="text-zinc-500 font-mono text-[9px] tracking-widest mb-2 select-none uppercase">
+      <div className="text-zinc-500 font-mono text-[9px] tracking-widest mb-1.5 select-none uppercase">
         {lang === 'ru' ? 'СКАНИРОВАНИЕ РАЗУМА' : 'BEHAVIOR SCANNER'}
       </div>
 
@@ -410,7 +442,7 @@ function CustomCursor() {
 function HubMockup({ lang }: { lang: "ru" | "en" }) {
   const isRu = lang === "ru";
   return (
-    <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center items-center h-full min-h-[220px] font-mono text-xs">
+    <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center items-center h-full min-h-[220px] font-mono text-xs w-full">
       <div className="relative w-32 h-32 flex items-center justify-center border-4 border-dashed border-red-500/35 rounded-full animate-spin duration-10000">
         <div className="absolute inset-2 border-2 border-emerald-500/30 rounded-full" />
         <div className="absolute font-sans text-lg font-black text-white select-none">82%</div>
@@ -437,7 +469,7 @@ function TasksMockup({ lang }: { lang: "ru" | "en" }) {
   }, []);
 
   return (
-    <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center space-y-3 h-full min-h-[220px] font-mono text-xs text-zinc-400">
+    <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center space-y-3 h-full min-h-[220px] font-mono text-xs text-zinc-400 w-full">
       <div className="flex items-center gap-3 bg-white/5 p-2.5 rounded-xl border border-white/5">
         <input type="checkbox" checked={checked[0]} readOnly className="accent-red-500 h-4 w-4" />
         <span className={checked[0] ? "line-through text-zinc-500" : "text-white"}>
@@ -463,7 +495,7 @@ function TasksMockup({ lang }: { lang: "ru" | "en" }) {
 function GoalsMockup({ lang }: { lang: "ru" | "en" }) {
   const isRu = lang === "ru";
   return (
-    <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center space-y-4 h-full min-h-[220px] font-mono text-xs">
+    <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center space-y-4 h-full min-h-[220px] font-mono text-xs w-full">
       <div className="border border-red-500/20 bg-red-500/5 p-3 rounded-xl text-center">
         <span className="text-[10px] text-zinc-500 block uppercase">{isRu ? "ЦЕЛЬ ГОДА" : "YEAR GOAL"}</span>
         <span className="font-bold text-white text-sm">{isRu ? "Funded-счет $100,000" : "Get $100K Funded Account"}</span>
@@ -492,7 +524,7 @@ function TimerMockup({ lang }: { lang: "ru" | "en" }) {
   const s = (time % 60).toString().padStart(2, '0');
 
   return (
-    <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center items-center h-full min-h-[220px] font-mono text-xs">
+    <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center items-center h-full min-h-[220px] font-mono text-xs w-full">
       <div className="text-3xl font-black text-red-500 tracking-widest drop-shadow-[0_0_10px_rgba(239,68,68,0.4)] animate-pulse">
         {m}:{s}
       </div>
@@ -598,7 +630,7 @@ function TradingSimulatorMockup({ lang }: { lang: "ru" | "en" }) {
 function IdeasMockup({ lang }: { lang: "ru" | "en" }) {
   const isRu = lang === "ru";
   return (
-    <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center space-y-3 h-full min-h-[220px] font-mono text-xs text-zinc-300">
+    <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center space-y-3 h-full min-h-[220px] font-mono text-xs text-zinc-300 w-full">
       <div className="border border-white/10 p-3 rounded-xl bg-white/5 relative">
         <span className="text-[9px] text-zinc-500 block uppercase font-bold">{isRu ? "Идея #12" : "Idea #12"}</span>
         <span className="text-white font-bold">{isRu ? "Разворотный FVG на XAU" : "Gold HTF FVG Reversal model"}</span>
@@ -610,7 +642,7 @@ function IdeasMockup({ lang }: { lang: "ru" | "en" }) {
 
 function CalendarMockup({ lang }: { lang: "ru" | "en" }) {
   return (
-    <div className="bg-black/60 border border-white/5 rounded-2xl p-4 flex flex-col justify-center h-full min-h-[220px] font-mono text-xs">
+    <div className="bg-black/60 border border-white/5 rounded-2xl p-4 flex flex-col justify-center h-full min-h-[220px] font-mono text-xs w-full">
       <div className="grid grid-cols-7 gap-1">
         {[...Array(28)].map((_, i) => {
           const isWin = i % 5 === 0;
@@ -635,7 +667,7 @@ function CalendarMockup({ lang }: { lang: "ru" | "en" }) {
 
 function SettingsMockup({ lang }: { lang: "ru" | "en" }) {
   return (
-    <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center space-y-3 h-full min-h-[220px] font-mono text-xs">
+    <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center space-y-3 h-full min-h-[220px] font-mono text-xs w-full">
       <div className="flex justify-between">
         <span>NY session:</span>
         <span className="text-red-400 font-bold">13:00 - 17:00 UTC</span>
@@ -1069,7 +1101,7 @@ export default function LoginPage() {
         .reveal-text {
           animation: reveal-anim 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
           opacity: 0;
-          transform: translateY(20px);
+          transform: translateY(12px);
         }
         .delay-1 { animation-delay: 150ms; }
         .delay-2 { animation-delay: 300ms; }
@@ -1206,8 +1238,8 @@ export default function LoginPage() {
         </div>
       </header>
 
-      {/* Centered Hero Section */}
-      <main className="max-w-4xl mx-auto px-6 py-16 md:py-32 text-center relative z-10 flex flex-col items-center justify-center space-y-8">
+      {/* Centered Hero Section (Compact Offsets) */}
+      <main className="max-w-4xl mx-auto px-6 py-8 md:py-16 text-center relative z-10 flex flex-col items-center justify-center space-y-6">
         
         <Badge className="bg-red-500/10 hover:bg-red-500/10 text-red-400 border-red-500/20 px-3 py-1 text-xs uppercase tracking-widest rounded-full font-mono reveal-text">
           {isRu ? "Операционная Система Трейдера" : "Discipline & Stats Operating System"}
@@ -1220,7 +1252,7 @@ export default function LoginPage() {
           />
         </h1>
         
-        <p className="text-zinc-400 text-base md:text-lg leading-relaxed max-w-2xl reveal-text delay-2">
+        <p className="text-zinc-400 text-sm md:text-base leading-relaxed max-w-xl reveal-text delay-2">
           {isRu ? (
             "Persona Life OS — это система декомпозиции целей и анализа личной эффективности, разработанная трейдерами для трейдеров. Мы убрали геймификацию и сфокусировались на жестких цифрах вашего поведения: времени чистого фокуса на графиках, торговых сессиях, выполнении рутинных привычек и чистый расчет матожидания."
           ) : (
@@ -1229,12 +1261,12 @@ export default function LoginPage() {
         </p>
         
         {/* Center Barcode Scanner Switcher */}
-        <div className="reveal-text delay-2 w-full max-w-sm">
+        <div className="reveal-text delay-2 w-full max-w-sm pt-2">
           <BarcodeScannerText lang={lang} />
         </div>
 
         {/* CTA + Quick Stats Grid */}
-        <div className="space-y-8 reveal-text delay-3 w-full flex flex-col items-center">
+        <div className="space-y-6 reveal-text delay-3 w-full flex flex-col items-center pt-2">
           <button 
             onClick={() => setIsAuthOpen(true)}
             className="px-8 py-4 bg-white text-black font-display font-black text-sm uppercase tracking-widest rounded-2xl hover:bg-red-600 hover:text-white transition-all hover:scale-105 active:scale-95 cursor-none shadow-2xl flex items-center gap-2 group"
@@ -1246,7 +1278,7 @@ export default function LoginPage() {
             <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
           </button>
 
-          <div className="grid grid-cols-3 gap-6 pt-8 border-t border-white/10 w-full max-w-md">
+          <div className="grid grid-cols-3 gap-6 pt-6 border-t border-white/10 w-full max-w-md">
             <div>
               <p className="text-2xl font-black text-white font-mono">
                 <CountUpStat value={0.0} suffix="%" />
