@@ -40,20 +40,18 @@ function TypewriterHeading({ text, className = "" }: { text: string; className?:
   return <span className={className}>{displayedText}</span>;
 }
 
-// ── Count-up Odometer Stat ──────────────────────────────────────────────────
+// ── Count-up Odometer Stat (Hover-Restartable) ──────────────────────────────
 function CountUpStat({ value, suffix = "", duration = 1200 }: { value: number; suffix?: string; duration?: number }) {
   const [count, setCount] = useState(0);
+  const [trigger, setTrigger] = useState(0);
   
   useEffect(() => {
-    const hasAnimated = sessionStorage.getItem(`countup-${value}`);
-    if (hasAnimated) {
-      setCount(value);
-      return;
-    }
-
     let start = 0;
     const end = value;
-    if (start === end) return;
+    if (start === end) {
+      setCount(0);
+      return;
+    }
     
     const increment = end / (duration / 16); 
     let current = start;
@@ -63,16 +61,72 @@ function CountUpStat({ value, suffix = "", duration = 1200 }: { value: number; s
       if (current >= end) {
         setCount(end);
         clearInterval(timer);
-        sessionStorage.setItem(`countup-${value}`, "true");
       } else {
         setCount(current);
       }
     }, 16);
     return () => clearInterval(timer);
-  }, [value, duration]);
+  }, [value, duration, trigger]);
 
   const isFloat = value % 1 !== 0;
-  return <span>{isFloat ? count.toFixed(1) : Math.floor(count)}{suffix}</span>;
+  return (
+    <span 
+      onMouseEnter={() => setTrigger(t => t + 1)}
+      className="cursor-none hover-target inline-block select-none"
+    >
+      {isFloat ? count.toFixed(1) : Math.floor(count)}{suffix}
+    </span>
+  );
+}
+
+// ── MirrorWord Component (Highlighted secret opposite words) ────────────────
+function MirrorWord({ normal, opposite, className = "" }: { normal: string; opposite: string; className?: string }) {
+  const containerRef = useRef<HTMLSpanElement>(null);
+  const oppositeRef = useRef<HTMLSpanElement>(null);
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const container = containerRef.current;
+    const oppositeEl = oppositeRef.current;
+    if (!container || !oppositeEl) return;
+    
+    const rect = container.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    oppositeEl.style.clipPath = `circle(64px at ${x}px ${y}px)`;
+  };
+
+  const handleMouseLeave = () => {
+    const oppositeEl = oppositeRef.current;
+    if (!oppositeEl) return;
+    oppositeEl.style.clipPath = `circle(0px at 0px 0px)`;
+  };
+
+  return (
+    <span 
+      ref={containerRef}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      className={`relative select-none hover-target cursor-none overflow-hidden inline-block text-red-500 font-bold border-b border-dashed border-red-500/60 pb-0.5 px-1 hover:text-red-400 transition-colors ${className}`}
+      style={{ verticalAlign: "baseline" }}
+    >
+      {/* Layer 1: Normal Word */}
+      <span>
+        {normal}
+      </span>
+
+      {/* Layer 2: Opposite Word (inverted by difference cursor to black-on-white) */}
+      <span 
+        ref={oppositeRef}
+        className="absolute inset-0 text-white font-black bg-[#030304] flex items-center justify-center text-center select-none pointer-events-none"
+        style={{
+          clipPath: `circle(0px at 0px 0px)`,
+          willChange: "clip-path",
+        }}
+      >
+        <span className="w-full block text-white font-black text-center">{opposite}</span>
+      </span>
+    </span>
+  );
 }
 
 // ── Opposite Warning Hover Mask (Direct DOM, Buttery Smooth 60fps) ──────────
@@ -89,7 +143,6 @@ function OppositeText({ normal, opposite, className = "" }: { normal: string; op
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     
-    // Direct DOM styling completely avoids React state re-renders (zero lags)
     oppositeEl.style.clipPath = `circle(64px at ${x}px ${y}px)`;
   };
 
@@ -107,13 +160,12 @@ function OppositeText({ normal, opposite, className = "" }: { normal: string; op
       className={`relative select-none hover-target cursor-none overflow-hidden inline-block ${className}`}
       style={{ verticalAlign: "top" }}
     >
-      {/* Layer 1: Normal text */}
-      <div className="text-zinc-200">
+      {/* Layer 1: Normal text - inherits parent color to avoid light gray on white button bug */}
+      <div className="text-inherit">
         {normal}
       </div>
 
-      {/* Layer 2: Opposite warning. text-white inverts to text-black inside difference lens. 
-          No flex layout or centering to guarantee text lines align perfectly over Layer 1 without overlaps. */}
+      {/* Layer 2: Opposite warning. text-white inverts to text-black inside difference lens */}
       <div 
         ref={oppositeRef}
         className="absolute inset-0 text-white font-black bg-[#030304] select-none pointer-events-none text-[1.04em] tracking-wide text-left"
@@ -269,10 +321,9 @@ function SynthwaveCanvas() {
         x: Math.random() * width,
         y: Math.random() * height,
         size: Math.random() * 1.5 + 0.5,
-        sizeMax: 2, // custom property representation
         speed: Math.random() * 0.2 + 0.1,
         opacity: Math.random() * 0.2 + 0.1,
-      } as any);
+      });
     }
 
     let offset = 0;
@@ -1336,10 +1387,15 @@ export default function LoginPage() {
         </Badge>
         
         <h1 className="text-4xl md:text-5xl lg:text-7.5xl font-black tracking-tight leading-none text-white font-display uppercase cursor-default reveal-text delay-1 max-w-3xl">
-          <OppositeText 
-            normal={isRu ? "Прекратите сливать из-за тильта. Оцифруйте дисциплину." : "Stop blowing accounts to tilt. Track your stats."}
-            opposite={isRu ? "Перестаньте сливать из-за эмоций. Тренируйте дисциплину." : "Stop blowing accounts to emotions. Maximize your consistency."}
-          />
+          {isRu ? (
+            <>
+              Прекратите сливать из-за <MirrorWord normal="тильта" opposite="ЭМОЦИЙ" />. Оцифруйте <MirrorWord normal="дисциплину" opposite="СЕБЯ" />.
+            </>
+          ) : (
+            <>
+              Stop blowing accounts to <MirrorWord normal="tilt" opposite="EMOTIONS" />. Track your <MirrorWord normal="discipline" opposite="EDGE" />.
+            </>
+          )}
         </h1>
         
         <p className="text-zinc-200 text-sm md:text-base leading-relaxed max-w-xl reveal-text delay-2 hover-target">
@@ -1359,7 +1415,7 @@ export default function LoginPage() {
         <div className="space-y-6 reveal-text delay-3 w-full flex flex-col items-center pt-2">
           <button 
             onClick={() => setIsAuthOpen(true)}
-            className="px-8 py-4 bg-white text-black font-display font-black text-sm uppercase tracking-widest rounded-2xl hover:bg-red-600 hover:text-white transition-all hover:scale-105 active:scale-95 cursor-none shadow-2xl flex items-center gap-2 group animate-bounce hover-target"
+            className="px-8 py-4 bg-white text-zinc-950 font-display font-black text-sm uppercase tracking-widest rounded-2xl hover:bg-red-600 hover:text-white transition-all hover:scale-105 active:scale-95 cursor-none shadow-2xl flex items-center gap-2 group animate-bounce hover-target"
           >
             <OppositeText 
               normal={isRu ? "ОЦИФРОВАТЬ ДИСЦИПЛИНУ" : "DIGITIZE CONSISTENCY"}
@@ -1374,7 +1430,15 @@ export default function LoginPage() {
                 <CountUpStat value={0.0} suffix="%" />
               </p>
               <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
-                <OppositeText normal={isRu ? "Иллюзий" : "Subjectivity"} opposite={isRu ? "ХЛАМ" : "TRASH"} />
+                {isRu ? (
+                  <>
+                    <MirrorWord normal="иллюзий" opposite="ХЛАМА" />
+                  </>
+                ) : (
+                  <>
+                    <MirrorWord normal="illusions" opposite="TRASH" />
+                  </>
+                )}
               </p>
             </div>
             <div>
@@ -1382,7 +1446,15 @@ export default function LoginPage() {
                 <CountUpStat value={100} suffix="%" />
               </p>
               <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
-                <OppositeText normal={isRu ? "Чистая логика" : "Hard Data"} opposite={isRu ? "ГАРМОНИЯ" : "HARMONY"} />
+                {isRu ? (
+                  <>
+                    <MirrorWord normal="чистая логика" opposite="БЕЗУПРЕЧНОСТЬ" />
+                  </>
+                ) : (
+                  <>
+                    <MirrorWord normal="hard logic" opposite="PERFECTION" />
+                  </>
+                )}
               </p>
             </div>
             <div>
@@ -1390,7 +1462,15 @@ export default function LoginPage() {
                 &lt;<CountUpStat value={2.0} suffix="%" />
               </p>
               <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
-                <OppositeText normal={isRu ? "Риск слива" : "Ruin probability"} opposite={isRu ? "СМЕРТЬ" : "RUIN"} />
+                {isRu ? (
+                  <>
+                    <MirrorWord normal="риск слива" opposite="КАПИТУЛЯЦИЯ" />
+                  </>
+                ) : (
+                  <>
+                    <MirrorWord normal="ruin risk" opposite="DEATH" />
+                  </>
+                )}
               </p>
             </div>
           </div>
@@ -1408,11 +1488,15 @@ export default function LoginPage() {
                 <span className="text-xs font-bold uppercase tracking-widest font-display">{isRu ? "Основа платформы" : "Platform core"}</span>
               </div>
               <h2 className="text-3xl sm:text-4xl font-black text-white leading-tight uppercase font-display cursor-default">
-                <OppositeText 
-                  normal={isRu ? "Раздел Трейдинг — оцифровка вашего математического ожидания" : "Trading Section — Digitizing Your Expected Value"}
-                  opposite={isRu ? "Контроль сделок — оцифровка вашего математического ожидания" : "Validate setups — digitize your structural edge analytics"}
-                  className="text-3xl sm:text-4xl font-black text-white leading-tight uppercase font-display"
-                />
+                {isRu ? (
+                  <>
+                    Раздел Трейдинг — оцифровка вашего <MirrorWord normal="математического ожидания" opposite="РЕАЛЬНОГО РИСКА" />
+                  </>
+                ) : (
+                  <>
+                    Trading Section — Digitizing Your <MirrorWord normal="expected value math" opposite="REAL SLIPPAGE RISK" />
+                  </>
+                )}
               </h2>
               <p className="text-zinc-200 leading-relaxed text-sm hover-target">
                 {isRu 
@@ -1437,11 +1521,15 @@ export default function LoginPage() {
       <section className="max-w-7xl mx-auto px-6 py-20 space-y-12">
         <div className="text-center space-y-3">
           <h2 className="text-3xl font-black text-white uppercase tracking-wider font-display cursor-default">
-            <OppositeText 
-              normal={isRu ? "Архитектура Системности" : "Systems Architecture"}
-              opposite={isRu ? "Дисциплина Системности" : "Structural Discipline"}
-              className="text-3xl font-black text-white uppercase tracking-wider font-display"
-            />
+            {isRu ? (
+              <>
+                Архитектура <MirrorWord normal="Системности" opposite="ДИСЦИПЛИНЫ" />
+              </>
+            ) : (
+              <>
+                Architecture of <MirrorWord normal="Consistency" opposite="DISCIPLINE" />
+              </>
+            )}
           </h2>
           <p className="text-zinc-200 max-w-xl mx-auto text-sm hover-target">
             {isRu ? "Интерактивная демонстрация работы каждого отдельного модуля нашей операционной системы трейдера." : "Interactive showcase explaining the mechanics of each individual Trader OS module."}
@@ -1459,11 +1547,15 @@ export default function LoginPage() {
             <div className="space-y-6">
               <Badge className="bg-red-500/10 text-red-400 border-red-500/20 font-mono text-xs hover-target">{isRu ? "В разработке" : "In Development"}</Badge>
               <h2 className="text-3xl sm:text-4xl font-black text-white leading-tight uppercase font-display cursor-default">
-                <OppositeText 
-                  normal={isRu ? "Мониторинг и исторический анализ новостного влияния" : "Smart News Aggregator & Probability Forecasting"}
-                  opposite={isRu ? "Мониторинг и исторический анализ новостного безумия" : "Macro aggregator and risk model validation alerts"}
-                  className="text-3xl sm:text-4xl font-black text-white leading-tight uppercase font-display"
-                />
+                {isRu ? (
+                  <>
+                    Мониторинг и исторический анализ новостного <MirrorWord normal="влияния" opposite="БЕЗУМИЯ" />
+                  </>
+                ) : (
+                  <>
+                    Monitoring and historical analysis of news <MirrorWord normal="impact factors" opposite="MADNESS OUTLETS" />
+                  </>
+                )}
               </h2>
               <p className="text-zinc-200 leading-relaxed text-sm hover-target">
                 {isRu 
