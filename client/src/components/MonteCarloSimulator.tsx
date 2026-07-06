@@ -439,14 +439,56 @@ export function MonteCarloSimulator() {
   };
 
   const handleDownloadJson = (sim: SimulationSession) => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(sim, null, 2));
+    const enrichedSession = {
+      ...sim,
+      algorithmSpecification: {
+        description: "Полная техническая и математическая спецификация алгоритма мультивалютного портфельного симулятора Монте-Карло для анализа ИИ / нейросетей.",
+        step1_FrequencyCalculation: {
+          concept: "Превращение исторических бэктестов разной длительности в единую ежедневную частоту торговой активности.",
+          formula: "Daily Frequency (freq) = Total Trades / Backtest Days",
+          notes: "Определяет вероятность того, что в любой случайный симуляционный день по данному активу произойдет хотя бы одна сделка."
+        },
+        step2_DailyTradeGeneration: {
+          concept: "Пошаговый генератор торговых дней (Time-Series) для одновременного моделирования нескольких активов.",
+          logic: "Для каждого дня симуляции (от 1 до MaxDays) для каждого актива генерируется количество сделок. Целая часть freq гарантирует сделки (integerTrades), дробная часть freq проверяется случайным числом: Math.random() < fractionalTrade.",
+          shuffling: "Если в один день сгенерировано несколько сделок по разным активам, массив сделок дня случайно перемешивается: todayTrades.sort(() => Math.random() - 0.5)."
+        },
+        step3_DailyLimitsExecution: {
+          concept: "Применение дневных фильтров и лимитов торговой активности.",
+          maxTradesPerDay: "Если сгенерированных сделок больше, чем maxTradesPerDay, массив обрезается до лимита.",
+          maxWinsPerDay: "Сделки дня выполняются последовательно. Если количество прибыльных сделок в этот день достигает maxWinsPerDay, торговля на сегодня прекращается, остальные сделки дня аннулируются.",
+          balanceReference: "Каждая сделка рассчитывает риск в долларах от текущего баланса (если выбран динамический риск) или от баланса на начало текущей фазы (если выбран фиксированный риск)."
+        },
+        step4_PropAccountRules: {
+          concept: "Эмуляция прохождения челленджей проп-компаний (например, FTMO).",
+          dailyDrawdownLimit: "Потеря более 5% от баланса на начало дня (dayStartBalance * 0.95) переводит статус прохождения в FAILED.",
+          maxDrawdownLimit: "Потеря более 10% от стартового депозита текущей фазы (phaseStartBalance * 0.90) переводит статус в FAILED.",
+          phase1Transition: "При достижении прибыли +8% от фазового баланса (Phase 1 Target), баланс сбрасывается на стартовый, начинается Phase 2.",
+          phase2Transition: "При достижении прибыли +5% во 2-й фазе, аккаунт переходит в статус LIVE (прохождение подтверждено)."
+        },
+        step5_StatisticalMetricsCalculation: {
+          concept: "Сбор и валидация итоговых статистических параметров портфеля.",
+          formulas: {
+            profitFactor: "Profit Factor = Total Gross Win / Total Gross Loss (Сумма всей чистой прибыли делится на сумму всех чистых убытков)",
+            effectiveWinRate: "Effective Win Rate = (Total Wins / Total Executed Trades) * 100",
+            avgIncomePerTrade: "Average Income Per Trade (EV на сделку) = Total Profit / Total Executed Trades",
+            evPerDay: "EV Per Trading Day = Total Profit / Total Active Days",
+            effectiveTradesPerDay: "Effective Trades Per Day = Total Executed Trades / Total Active Days",
+            riskOfRuin: "Для SELF: процент симуляций, где баланс упал < 10% стартового. Для PROP: процент симуляций со статусом FAILED.",
+            projections: "Месячный доход = EV Per Trading Day * 21 торговый день. Квартальный = * 3, Полугодовой = * 6, Годовой = * 12."
+          }
+        }
+      }
+    };
+
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(enrichedSession, null, 2));
     const downloadAnchorNode = document.createElement('a');
     downloadAnchorNode.setAttribute("href", dataStr);
     downloadAnchorNode.setAttribute("download", `simulation_${sim.name.replace(/\s+/g, '_')}_${new Date(sim.createdAt).toISOString().split('T')[0]}.json`);
     document.body.appendChild(downloadAnchorNode);
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
-    toast({ title: "Файл JSON скачан!" });
+    toast({ title: "JSON файл с полной спецификацией алгоритма успешно скачан!" });
   };
 
   const handleShareImage = async () => {
