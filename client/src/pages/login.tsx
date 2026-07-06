@@ -140,7 +140,7 @@ function P5Logo() {
   }, []);
 
   return (
-    <div className="flex items-center gap-1 font-black select-none scale-90 md:scale-100 origin-left">
+    <div className="flex items-center gap-1 font-black select-none scale-90 md:scale-100 origin-left hover-target">
       <span className={`bg-red-600 text-white px-2.5 py-1.5 font-display text-xl shadow-[3px_3px_0_#fff] border border-black font-black transition-all ${
         jitter ? "transform -rotate-12 skew-x-[-12deg]" : "transform -rotate-3 skew-x-[-6deg]"
       }`}>P</span>
@@ -447,7 +447,7 @@ function HubMockup({ lang }: { lang: "ru" | "en" }) {
     <div className="bg-[#0b0b0d] border border-white/5 rounded-2xl p-6 flex flex-col justify-center items-center h-full min-h-[220px] font-mono text-xs w-full">
       <div className="relative w-32 h-32 flex items-center justify-center border-4 border-dashed border-red-500/35 rounded-full animate-spin duration-10000">
         <div className="absolute inset-2 border-2 border-emerald-500/30 rounded-full" />
-        <div className="absolute font-sans text-lg font-black text-white select-none">82%</div>
+        <div className="absolute font-sans text-lg font-black text-white select-none animate-pulse">82%</div>
       </div>
       <p className="text-[10px] text-zinc-500 mt-4 uppercase tracking-widest">{isRu ? "СТАБИЛЬНОСТЬ ДИСЦИПЛИНЫ" : "DISCIPLINE STABILITY INDEX"}</p>
     </div>
@@ -1125,6 +1125,23 @@ export default function LoginPage() {
           border: 1px solid rgba(220, 38, 38, 0.3);
           box-shadow: none;
         }
+
+        /* Hitbox expansion pseudo-element to trigger cursor scale-up early */
+        .hover-target {
+          position: relative;
+          display: inline-block;
+        }
+        
+        /* Hitbox expansions extend 35px in all directions. 
+           Calculated: 35px gap + 64px lens radius = 29px overlap at trigger start! */
+        .hover-target::before {
+          content: '';
+          position: absolute;
+          inset: -35px;
+          background: transparent;
+          pointer-events: auto;
+          z-index: -1;
+        }
         
         /* Reveal animation on page load */
         .reveal-text {
@@ -1205,12 +1222,12 @@ export default function LoginPage() {
           50% {
             text-shadow: 0.025em 0.05em 0 rgba(255, 0, 0, 0.75),
               0.05em 0 0 rgba(0, 255, 0, 0.75),
-              0 -0.05em 0 rgba(0, 0, 255, 0.75);
+              0 -0.05em 0 rgba(0, 255, 0, 0.75);
           }
           99% {
             text-shadow: 0.025em 0.05em 0 rgba(255, 0, 0, 0.75),
               0.05em 0 0 rgba(0, 255, 0, 0.75),
-              0 -0.05em 0 rgba(0, 0, 255, 0.75);
+              0 -0.05em 0 rgba(0, 255, 0, 0.75);
           }
           100% {
             text-shadow: -0.025em 0 0 rgba(255, 0, 0, 0.75),
@@ -1226,8 +1243,9 @@ export default function LoginPage() {
       {/* Trailing Inverting Circle Cursor */}
       <CustomCursor />
 
-      {/* Background Chalk Trading Easter Eggs */}
+      {/* Background Chalk Trading Easter Eggs (Scattered & Layered) */}
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden select-none">
+        {/* Original Easter Eggs */}
         <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-4deg] absolute top-[20%] left-[5%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
           [ORDER BLOCK - 15m]
         </div>
@@ -1245,6 +1263,26 @@ export default function LoginPage() {
         </div>
         <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[5deg] absolute bottom-[10%] left-[80%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
           [Premium / Discount]
+        </div>
+
+        {/* NEW Scattered Trading Easter Eggs */}
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-6deg] absolute top-[38%] left-[88%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
+          [Asia Session High Sweep]
+        </div>
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[8deg] absolute top-[44%] left-[7%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
+          [Premium Array: 78.6% Fib]
+        </div>
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-12deg] absolute top-[8%] left-[45%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
+          [Discipline &gt; Talent]
+        </div>
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[4deg] absolute bottom-[40%] left-[86%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
+          [Volatility Warning: NFP]
+        </div>
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-5deg] absolute bottom-[35%] left-[3%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
+          [No FOMO Allowed]
+        </div>
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[7deg] absolute bottom-[4%] left-[45%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
+          [Plan the Trade. Trade the Plan.]
         </div>
       </div>
 
@@ -1276,11 +1314,11 @@ export default function LoginPage() {
           />
         </h1>
         
-        <p className="text-zinc-400 text-sm md:text-base leading-relaxed max-w-xl reveal-text delay-2">
+        <p className="text-zinc-400 text-sm md:text-base leading-relaxed max-w-xl reveal-text delay-2 hover-target">
           {isRu ? (
             "Persona Life OS — это система декомпозиции целей и анализа личной эффективности, разработанная трейдерами для трейдеров. Мы убрали геймификацию и сфокусировались на жестких цифрах вашего поведения: времени чистого фокуса на графиках, торговых сессиях, выполнении рутинных привычек и чистый расчет матожидания."
           ) : (
-            "Persona Life OS is an OKR decomposition and behavioral analytics engine crafted by a trader, for traders. We skipped gaming fluff to focus strictly on raw performance data: screen concentration, sessions log, routines execution, and Expected Value math."
+            "Persona Life OS is an OKR decomposition and behavioral analytics engine crafted by a trader, for traders. We stripped gaming fluff to focus strictly on raw performance data: screen concentration, sessions log, routines execution, and Expected Value math."
           )}
         </p>
         
@@ -1293,7 +1331,7 @@ export default function LoginPage() {
         <div className="space-y-6 reveal-text delay-3 w-full flex flex-col items-center pt-2">
           <button 
             onClick={() => setIsAuthOpen(true)}
-            className="px-8 py-4 bg-white text-black font-display font-black text-sm uppercase tracking-widest rounded-2xl hover:bg-red-600 hover:text-white transition-all hover:scale-105 active:scale-95 cursor-none shadow-2xl flex items-center gap-2 group animate-bounce"
+            className="px-8 py-4 bg-white text-black font-display font-black text-sm uppercase tracking-widest rounded-2xl hover:bg-red-600 hover:text-white transition-all hover:scale-105 active:scale-95 cursor-none shadow-2xl flex items-center gap-2 group animate-bounce hover-target"
           >
             <OppositeText 
               normal={isRu ? "ОЦИФРОВАТЬ ДИСЦИПЛИНУ" : "DIGITIZE CONSISTENCY"}
@@ -1304,7 +1342,7 @@ export default function LoginPage() {
 
           <div className="grid grid-cols-3 gap-6 pt-6 border-t border-white/10 w-full max-w-md">
             <div>
-              <p className="text-2xl font-black text-white font-mono">
+              <p className="text-2xl font-black text-white font-mono hover-target">
                 <CountUpStat value={0.0} suffix="%" />
               </p>
               <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
@@ -1312,7 +1350,7 @@ export default function LoginPage() {
               </p>
             </div>
             <div>
-              <p className="text-2xl font-black text-emerald-400 font-mono">
+              <p className="text-2xl font-black text-emerald-400 font-mono hover-target">
                 <CountUpStat value={100} suffix="%" />
               </p>
               <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
@@ -1320,7 +1358,7 @@ export default function LoginPage() {
               </p>
             </div>
             <div>
-              <p className="text-2xl font-black text-red-500 font-mono">
+              <p className="text-2xl font-black text-red-500 font-mono hover-target">
                 &lt;<CountUpStat value={2.0} suffix="%" />
               </p>
               <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
@@ -1341,18 +1379,18 @@ export default function LoginPage() {
                 <TrendingUp className="w-5 h-5 animate-pulse" />
                 <span className="text-xs font-bold uppercase tracking-widest font-display">{isRu ? "Основа платформы" : "Platform core"}</span>
               </div>
-              <h2 className="text-3xl sm:text-4xl font-black text-white leading-tight uppercase font-display cursor-default">
+              <h2 className="text-3xl sm:text-4xl font-black text-white leading-tight uppercase font-display cursor-default hover-target">
                 <TypewriterHeading text={isRu ? "Раздел Трейдинг — оцифровка вашего математического ожидания" : "Trading Section — Digitizing Your Expected Value"} />
               </h2>
-              <p className="text-zinc-400 leading-relaxed text-sm">
+              <p className="text-zinc-400 leading-relaxed text-sm hover-target">
                 {isRu 
                   ? "Наша вкладка «Трейдинг» — это не просто таблица сделок, это инструмент валидации вашего торгового плана. Она объединяет подробный торговый журнал с симулятором Монте-Карло. Вместо надежд вы получаете сухие цифры: вероятность уйти в просадку, влияние комиссии брокера и точный шанс пройти обе фазы проп-челленджа при риске 1%."
                   : "Our Trading section is a workbench to validate your statistical edge. It integrates a trade journal with a path-dependent Monte Carlo simulation engine. Instead of blind assumptions, you get verified statistics: maximum drawdown probability, broker slippage impact, and the exact odds of passing prop challenges."}
               </p>
               <div className="space-y-3 font-mono text-xs text-zinc-500">
-                <div className="flex gap-2 items-start"><CheckCircle2 className="w-4 h-4 text-red-500 shrink-0 mt-0.5" /> <p>{isRu ? "Симуляция 1000 эквити-кривых с учетом лимитов (maxWinsPerDay)" : "Simulating 1000 equity paths under strict maxWinsPerDay rules"}</p></div>
-                <div className="flex gap-2 items-start"><CheckCircle2 className="w-4 h-4 text-red-500 shrink-0 mt-0.5" /> <p>{isRu ? "Расчет Profit Factor и чистого EV на сделку" : "Calculates Profit Factor & exact Expected Value per trade"}</p></div>
-                <div className="flex gap-2 items-start"><CheckCircle2 className="w-4 h-4 text-red-500 shrink-0 mt-0.5" /> <p>{isRu ? "Экспорт ИИ-датасетов (JSON) для ваших нейросетей" : "AI-ready dataset exports (JSON) containing full algorithm specs"}</p></div>
+                <div className="flex gap-2 items-start"><CheckCircle2 className="w-4 h-4 text-red-500 shrink-0 mt-0.5" /> <p className="hover-target">{isRu ? "Симуляция 1000 эквити-кривых с учетом лимитов (maxWinsPerDay)" : "Simulating 1000 equity paths under strict maxWinsPerDay rules"}</p></div>
+                <div className="flex gap-2 items-start"><CheckCircle2 className="w-4 h-4 text-red-500 shrink-0 mt-0.5" /> <p className="hover-target">{isRu ? "Расчет Profit Factor и чистого EV на сделку" : "Calculates Profit Factor & exact Expected Value per trade"}</p></div>
+                <div className="flex gap-2 items-start"><CheckCircle2 className="w-4 h-4 text-red-500 shrink-0 mt-0.5" /> <p className="hover-target">{isRu ? "Экспорт ИИ-датасетов (JSON) для ваших нейросетей" : "AI-ready dataset exports (JSON) containing full algorithm specs"}</p></div>
               </div>
             </div>
 
@@ -1366,10 +1404,10 @@ export default function LoginPage() {
       {/* Feature Slider: Architecture of Consistency (Архитектура Системности) */}
       <section className="max-w-7xl mx-auto px-6 py-20 space-y-12">
         <div className="text-center space-y-3">
-          <h2 className="text-3xl font-black text-white uppercase tracking-wider font-display cursor-default">
+          <h2 className="text-3xl font-black text-white uppercase tracking-wider font-display cursor-default hover-target">
             {isRu ? "Архитектура Системности" : "Systems Architecture"}
           </h2>
-          <p className="text-zinc-500 max-w-xl mx-auto text-sm">
+          <p className="text-zinc-500 max-w-xl mx-auto text-sm hover-target">
             {isRu ? "Интерактивная демонстрация работы каждого отдельного модуля нашей операционной системы трейдера." : "Interactive showcase explaining the mechanics of each individual Trader OS module."}
           </p>
         </div>
@@ -1383,13 +1421,13 @@ export default function LoginPage() {
           <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-12 lg:gap-20 items-center">
             
             <div className="space-y-6">
-              <Badge className="bg-red-500/10 text-red-400 border-red-500/20 font-mono text-xs">{isRu ? "В разработке" : "In Development"}</Badge>
-              <h2 className="text-3xl sm:text-4xl font-black text-white leading-tight uppercase font-display cursor-default">
+              <Badge className="bg-red-500/10 text-red-400 border-red-500/20 font-mono text-xs hover-target">{isRu ? "В разработке" : "In Development"}</Badge>
+              <h2 className="text-3xl sm:text-4xl font-black text-white leading-tight uppercase font-display cursor-default hover-target">
                 {isRu 
                   ? "Мониторинг и исторический анализ новостного влияния" 
                   : "Smart News Aggregator & Probability Forecasting"}
               </h2>
-              <p className="text-zinc-400 leading-relaxed text-sm">
+              <p className="text-zinc-400 leading-relaxed text-sm hover-target">
                 {isRu 
                   ? "Экономические новости — главный источник непредвиденной волатильности. Скоро платформа будет автоматически мониторить экономический календарь, собирать данные и рассчитывать вероятность и силу влияния событий (CPI, FOMC, NFP) на выбранные вами активы. Анализ строится на основе исторических реакций цены за последние 5 лет."
                   : "Macroeconomic reports are the prime source of tail risk. Soon, the engine will automatically parse the Forex Factory calendar, gather reaction database tables, and calculate the mathematical probability and expected pip deviation of events (CPI, FOMC, NFP) on majors and Gold, mapped against 5 years of historical tick charts."}
