@@ -29,12 +29,10 @@ function SynthwaveCanvas() {
     let width = (canvas.width = window.innerWidth);
     let height = (canvas.height = window.innerHeight);
 
-    // Track mouse position relative to canvas
     const handleMouseMove = (e: MouseEvent) => {
-      const rect = canvas.getBoundingClientRect();
       mouseRef.current = {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
+        x: e.clientX,
+        y: e.clientY,
       };
     };
 
@@ -51,20 +49,18 @@ function SynthwaveCanvas() {
     window.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mouseleave", handleMouseLeave);
 
-    // Grid config
     const gridSize = 45;
-    const warpRadius = 160;
-    const warpStrength = 45;
+    const warpRadius = 200; // Wider deformation reach
+    const warpStrength = 28; // Subtle inward gravity well
 
-    // Particles config
     const particles: { x: number; y: number; size: number; speed: number; opacity: number }[] = [];
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 50; i++) {
       particles.push({
         x: Math.random() * width,
         y: Math.random() * height,
-        size: Math.random() * 2 + 1,
-        speed: Math.random() * 0.5 + 0.2,
-        opacity: Math.random() * 0.5 + 0.2,
+        size: Math.random() * 1.5 + 0.6,
+        speed: Math.random() * 0.3 + 0.1,
+        opacity: Math.random() * 0.3 + 0.1,
       });
     }
 
@@ -73,72 +69,34 @@ function SynthwaveCanvas() {
     const render = () => {
       ctx.clearRect(0, 0, width, height);
 
-      // Draw synthwave horizon glow
+      // Deep dark synthwave backdrop
       const horizonY = height * 0.65;
-      const grad = ctx.createLinearGradient(0, horizonY - 150, 0, horizonY + 200);
+      const grad = ctx.createLinearGradient(0, horizonY - 200, 0, horizonY + 250);
       grad.addColorStop(0, "rgba(220, 38, 38, 0)");
-      grad.addColorStop(0.4, "rgba(220, 38, 38, 0.08)");
-      grad.addColorStop(0.6, "rgba(147, 51, 234, 0.08)");
-      grad.addColorStop(1, "rgba(5, 5, 5, 1)");
+      grad.addColorStop(0.4, "rgba(220, 38, 38, 0.04)");
+      grad.addColorStop(0.7, "rgba(147, 51, 234, 0.04)");
+      grad.addColorStop(1, "rgba(3, 3, 4, 1)");
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, width, height);
 
-      // Draw Grid
-      ctx.strokeStyle = "rgba(220, 38, 38, 0.15)";
+      // Grid stroke styling
+      ctx.strokeStyle = "rgba(220, 38, 38, 0.08)";
       ctx.lineWidth = 1;
 
-      // Animate grid offset (scrolling down effect)
-      offset = (offset + 0.3) % gridSize;
+      offset = (offset + 0.2) % gridSize;
 
-      // Draw horizontal lines with perspective
+      // Draw horizontal lines (inward gravity deformation)
       const numLines = Math.ceil(height / gridSize) + 2;
       for (let i = -2; i < numLines; i++) {
         const yBase = i * gridSize + offset;
         ctx.beginPath();
 
-        // Sample points along the width to apply mouse warp
-        const steps = 40;
+        const steps = 50;
         for (let s = 0; s <= steps; s++) {
           const xBase = (s / steps) * width;
           let currentX = xBase;
           let currentY = yBase;
 
-          // Warp calculation
-          const dx = currentX - mouseRef.current.x;
-          const dy = currentY - mouseRef.current.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-
-          if (dist < warpRadius) {
-            const force = (warpRadius - dist) / warpRadius; // 0 to 1
-            // Bending/indenting effect (pushing away from cursor)
-            const dirX = dx / (dist || 1);
-            const dirY = dy / (dist || 1);
-            currentX += dirX * force * warpStrength;
-            currentY += dirY * force * warpStrength;
-          }
-
-          if (s === 0) {
-            ctx.moveTo(currentX, currentY);
-          } else {
-            ctx.lineTo(currentX, currentY);
-          }
-        }
-        ctx.stroke();
-      }
-
-      // Draw vertical lines with warp
-      const cols = Math.ceil(width / gridSize) + 2;
-      for (let i = -1; i < cols; i++) {
-        const xBase = i * gridSize;
-        ctx.beginPath();
-
-        const steps = 30;
-        for (let s = 0; s <= steps; s++) {
-          const yBase = (s / steps) * height;
-          let currentX = xBase;
-          let currentY = yBase;
-
-          // Warp calculation
           const dx = currentX - mouseRef.current.x;
           const dy = currentY - mouseRef.current.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
@@ -147,8 +105,9 @@ function SynthwaveCanvas() {
             const force = (warpRadius - dist) / warpRadius;
             const dirX = dx / (dist || 1);
             const dirY = dy / (dist || 1);
-            currentX += dirX * force * warpStrength;
-            currentY += dirY * force * warpStrength;
+            // Subtract to bend/pull inward towards the cursor position
+            currentX -= dirX * force * warpStrength;
+            currentY -= dirY * force * warpStrength;
           }
 
           if (s === 0) {
@@ -160,25 +119,52 @@ function SynthwaveCanvas() {
         ctx.stroke();
       }
 
-      // Render & update particles
-      ctx.fillStyle = "rgba(220, 38, 38, 0.4)";
+      // Draw vertical lines (inward gravity deformation)
+      const cols = Math.ceil(width / gridSize) + 2;
+      for (let i = -1; i < cols; i++) {
+        const xBase = i * gridSize;
+        ctx.beginPath();
+
+        const steps = 40;
+        for (let s = 0; s <= steps; s++) {
+          const yBase = (s / steps) * height;
+          let currentX = xBase;
+          let currentY = yBase;
+
+          const dx = currentX - mouseRef.current.x;
+          const dy = currentY - mouseRef.current.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < warpRadius) {
+            const force = (warpRadius - dist) / warpRadius;
+            const dirX = dx / (dist || 1);
+            const dirY = dy / (dist || 1);
+            currentX -= dirX * force * warpStrength;
+            currentY -= dirY * force * warpStrength;
+          }
+
+          if (s === 0) {
+            ctx.moveTo(currentX, currentY);
+          } else {
+            ctx.lineTo(currentX, currentY);
+          }
+        }
+        ctx.stroke();
+      }
+
+      // Drift particles upward
       particles.forEach((p) => {
         p.y -= p.speed;
         if (p.y < 0) {
           p.y = height;
           p.x = Math.random() * width;
         }
-
-        // Slight drift left/right
-        p.x += Math.sin(p.y / 30) * 0.2;
+        p.x += Math.sin(p.y / 50) * 0.1;
 
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(220, 38, 38, ${p.opacity})`;
-        ctx.shadowBlur = 8;
-        ctx.shadowColor = "rgba(220, 38, 38, 0.8)";
         ctx.fill();
-        ctx.shadowBlur = 0; // Reset
       });
 
       animationFrameId = requestAnimationFrame(render);
@@ -194,30 +180,60 @@ function SynthwaveCanvas() {
     };
   }, []);
 
-  return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none" />;
+  return <canvas ref={canvasRef} className="fixed inset-0 w-screen h-screen pointer-events-none z-0" />;
 }
 
-// ── Interactive Inverting Mouse Follower ────────────────────────────────────
-function MouseFollowerLens() {
+// ── Custom Dot to Circle Inverting Cursor ───────────────────────────────────
+function CustomCursor() {
   const lensRef = useRef<HTMLDivElement>(null);
+  const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
     const lens = lensRef.current;
     if (!lens) return;
 
+    document.body.classList.add("landing-cursor");
+
     const handleMouseMove = (e: MouseEvent) => {
-      // Direct DOM update for smooth lag-free translation
       lens.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0) translate(-50%, -50%)`;
     };
 
+    // Expand cursor on hovering targets
+    const handleMouseOver = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target && (
+        target.tagName === "H1" || 
+        target.tagName === "H2" || 
+        target.tagName === "H3" || 
+        target.tagName === "A" || 
+        target.tagName === "BUTTON" || 
+        target.classList.contains("hover-target") ||
+        target.closest(".hover-target")
+      )) {
+        setIsHovered(true);
+      } else {
+        setIsHovered(false);
+      }
+    };
+
     window.addEventListener("mousemove", handleMouseMove);
-    return () => window.removeEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseover", handleMouseOver);
+
+    return () => {
+      document.body.classList.remove("landing-cursor");
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseover", handleMouseOver);
+    };
   }, []);
 
   return (
     <div 
       ref={lensRef} 
-      className="fixed top-0 left-0 w-24 h-24 rounded-full border border-red-500 bg-white mix-blend-difference pointer-events-none z-[9999] transition-all duration-300 ease-out hidden md:block scale-75 hover:scale-110"
+      className={`fixed top-0 left-0 rounded-full pointer-events-none z-[9999] transition-all duration-300 ease-out hidden md:block ${
+        isHovered 
+          ? "w-32 h-32 bg-white border border-red-500/40 mix-blend-difference" 
+          : "w-2.5 h-2.5 bg-white shadow-[0_0_12px_rgba(255,255,255,0.9)]"
+      }`}
       style={{ willChange: "transform" }}
     />
   );
@@ -270,7 +286,7 @@ function TradingSimulatorMockup({ lang }: { lang: "ru" | "en" }) {
   }, [balance, failed, passed]);
 
   return (
-    <div className="bg-[#0c0c0e]/80 border border-white/10 rounded-3xl p-6 font-mono text-xs text-zinc-300 space-y-4 shadow-2xl relative overflow-hidden backdrop-blur-md">
+    <div className="bg-[#0b0b0d]/90 border border-white/10 rounded-3xl p-6 font-mono text-xs text-zinc-300 space-y-4 shadow-2xl relative overflow-hidden backdrop-blur-md">
       <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 blur-xl rounded-full" />
       <div className="flex justify-between items-center border-b border-white/5 pb-3">
         <span className="text-zinc-500 font-bold uppercase tracking-wider font-display">MONTE-CARLO SIMULATOR</span>
@@ -282,15 +298,15 @@ function TradingSimulatorMockup({ lang }: { lang: "ru" | "en" }) {
       <div className="grid grid-cols-3 gap-2">
         <div className="bg-white/5 p-3 rounded-xl border border-white/5">
           <p className="text-[10px] text-zinc-500 uppercase">{lang === 'ru' ? 'Баланс' : 'Equity'}</p>
-          <p className="text-base font-bold text-white">${balance}</p>
+          <p className="text-base font-bold text-white font-mono">${balance}</p>
         </div>
         <div className="bg-white/5 p-3 rounded-xl border border-white/5">
           <p className="text-[10px] text-zinc-500 uppercase">{lang === 'ru' ? 'Сделки' : 'Trades'}</p>
-          <p className="text-base font-bold text-white">{tradeCount}</p>
+          <p className="text-base font-bold text-white font-mono">{tradeCount}</p>
         </div>
         <div className="bg-white/5 p-3 rounded-xl border border-white/5">
           <p className="text-[10px] text-zinc-500 uppercase">Win Rate</p>
-          <p className="text-base font-bold text-white">{tradeCount > 0 ? Math.round((winCount / tradeCount) * 100) : 54}%</p>
+          <p className="text-base font-bold text-white font-mono">{tradeCount > 0 ? Math.round((winCount / tradeCount) * 100) : 54}%</p>
         </div>
       </div>
 
@@ -320,7 +336,7 @@ function TradingSimulatorMockup({ lang }: { lang: "ru" | "en" }) {
 
 function NewsCorrelationMockup({ lang }: { lang: "ru" | "en" }) {
   return (
-    <div className="bg-[#0c0c0e]/80 border border-white/10 rounded-3xl p-6 font-mono text-xs text-zinc-300 space-y-4 shadow-2xl relative overflow-hidden backdrop-blur-md">
+    <div className="bg-[#0b0b0d]/90 border border-white/10 rounded-3xl p-6 font-mono text-xs text-zinc-300 space-y-4 shadow-2xl relative overflow-hidden backdrop-blur-md">
       <div className="flex justify-between items-center border-b border-white/5 pb-3">
         <span className="text-zinc-500 font-bold uppercase tracking-wider font-display">NEWS CORRELATION ENGINE</span>
         <span className="text-[10px] text-zinc-500">USD / High Impact</span>
@@ -424,53 +440,101 @@ export default function LoginPage() {
   const isRu = lang === "ru";
 
   return (
-    <div className="min-h-screen bg-[#030304] text-zinc-100 font-sans selection:bg-red-500/30 selection:text-red-200 relative overflow-x-hidden">
+    <div className="min-h-screen bg-[#030304] text-zinc-100 font-sans relative overflow-x-hidden">
       
-      {/* Load Retro Fonts for Negative Pixel Hover Effect */}
+      {/* Global CSS settings for custom cursor and font load */}
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Outfit:wght@300;400;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&family=Press+Start+2P&family=JetBrains+Mono:wght@400;700&display=swap');
         
-        .hover-pixel {
-          transition: font-family 0.1s, font-size 0.1s, letter-spacing 0.1s;
+        body {
+          font-family: 'Outfit', sans-serif !important;
         }
-        .hover-pixel:hover {
-          font-family: 'Press Start 2P', monospace !important;
-          letter-spacing: -0.08em !important;
-          font-size: 0.8em !important;
-          text-shadow: 0 0 8px rgba(239, 68, 68, 0.8);
+
+        body.landing-cursor {
+          cursor: none !important;
+        }
+        body.landing-cursor a, 
+        body.landing-cursor button, 
+        body.landing-cursor input, 
+        body.landing-cursor textarea {
+          cursor: none !important;
         }
         
-        /* Pixel Scanline animation for News teaser */
+        /* Reveal animation on page load */
+        .reveal-text {
+          animation: reveal-anim 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        .delay-1 { animation-delay: 150ms; }
+        .delay-2 { animation-delay: 300ms; }
+        .delay-3 { animation-delay: 450ms; }
+
+        @keyframes reveal-anim {
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        /* Hover animations for cards and interactive inputs */
+        .hover-glow-card {
+          transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s, box-shadow 0.3s;
+        }
+        .hover-glow-card:hover {
+          transform: translateY(-4px);
+          border-color: rgba(220, 38, 38, 0.25);
+          box-shadow: 0 10px 30px -10px rgba(220, 38, 38, 0.15);
+        }
+
+        /* Scanlines for News Teaser Overlay */
         .scanlines {
           position: absolute;
           inset: 0;
           background: linear-gradient(
             rgba(18, 16, 16, 0) 50%, 
-            rgba(0, 0, 0, 0.25) 50%
-          ), linear-gradient(
-            90deg,
-            rgba(255, 0, 0, 0.06),
-            rgba(0, 255, 0, 0.02),
-            rgba(0, 0, 255, 0.06)
+            rgba(0, 0, 0, 0.45) 50%
           );
-          background-size: 100% 4px, 3px 100%;
+          background-size: 100% 4px;
           pointer-events: none;
         }
 
         .crt-blink {
-          animation: crt-blink-anim 1.5s infinite;
+          animation: crt-blink-anim 2.5s infinite;
         }
         @keyframes crt-blink-anim {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.4; }
+          0%, 100% { opacity: 0.95; }
+          50% { opacity: 0.25; }
         }
       `}</style>
 
-      {/* Warping perspective grid and particles */}
+      {/* Warping grid canvas and particle engine */}
       <SynthwaveCanvas />
 
-      {/* Cursor negation filter for desktops */}
-      <MouseFollowerLens />
+      {/* Trailing Inverting Circle Cursor */}
+      <CustomCursor />
+
+      {/* Background Chalk Trading Easter Eggs */}
+      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden select-none">
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-2 rounded rotate-[-4deg] absolute top-[22%] left-[10%] cursor-none">
+          [ORDER BLOCK - 15m]
+        </div>
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-2 rounded rotate-[6deg] absolute top-[30%] left-[82%] cursor-none">
+          [Liq Pool ⬇]
+        </div>
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-2 rounded rotate-[-8deg] absolute top-[55%] left-[5%] cursor-none">
+          [FVG / Fair Value Gap]
+        </div>
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-2 rounded rotate-[3deg] absolute top-[70%] left-[75%] cursor-none">
+          [BOS / CHoCH]
+        </div>
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-2 rounded rotate-[-3deg] absolute bottom-[22%] left-[15%] cursor-none">
+          [Risk : Reward = 1 : 3.5]
+        </div>
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-2 rounded rotate-[5deg] absolute bottom-[10%] left-[78%] cursor-none">
+          [Premium / Discount]
+        </div>
+      </div>
 
       {/* Header */}
       <header className="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between border-b border-white/5 relative z-10">
@@ -486,13 +550,13 @@ export default function LoginPage() {
       {/* Hero Section */}
       <main className="max-w-7xl mx-auto px-6 py-12 md:py-20 grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-12 lg:gap-20 items-center relative z-10">
         
-        {/* Left Side: Product Intro Copy */}
+        {/* Left Side: Copy */}
         <div className="space-y-6">
-          <Badge className="bg-red-500/10 hover:bg-red-500/10 text-red-400 border-red-500/20 px-3 py-1 text-xs uppercase tracking-widest rounded-full font-mono">
+          <Badge className="bg-red-500/10 hover:bg-red-500/10 text-red-400 border-red-500/20 px-3 py-1 text-xs uppercase tracking-widest rounded-full font-mono reveal-text">
             {isRu ? "Оцифровка Системности и Результатов" : "Discipline & Stats Operating System"}
           </Badge>
           
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight leading-none text-white font-display uppercase hover-pixel cursor-default">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight leading-none text-white font-display uppercase cursor-default reveal-text delay-1">
             {isRu ? (
               <>
                 Прекратите сливать из-за тильта. Начните анализировать себя.
@@ -504,7 +568,7 @@ export default function LoginPage() {
             )}
           </h1>
           
-          <p className="text-zinc-400 text-base md:text-lg leading-relaxed max-w-xl">
+          <p className="text-zinc-400 text-base md:text-lg leading-relaxed max-w-xl reveal-text delay-2">
             {isRu ? (
               "Persona Life OS — это система анализа личной эффективности и дисциплины, созданная специально для трейдеров. Мы убрали геймификацию и сфокусировались на жестких цифрах вашего поведения: времени чистого фокуса на графиках, торговых сессиях, декомпозиции целей и симуляции Монте-Карло."
             ) : (
@@ -513,7 +577,7 @@ export default function LoginPage() {
           </p>
           
           {/* Quick Stats Grid */}
-          <div className="grid grid-cols-3 gap-4 pt-4 border-t border-white/10 max-w-md">
+          <div className="grid grid-cols-3 gap-4 pt-4 border-t border-white/10 max-w-md reveal-text delay-3">
             <div>
               <p className="text-2xl font-black text-white font-mono">0.0%</p>
               <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">{isRu ? "Иллюзий" : "Subjectivity"}</p>
@@ -530,7 +594,7 @@ export default function LoginPage() {
         </div>
 
         {/* Right Side: Auth Card */}
-        <div className="flex justify-center">
+        <div className="flex justify-center reveal-text delay-2">
           <div className="w-full max-w-md border border-white/10 rounded-3xl p-8 bg-zinc-950/40 backdrop-blur-xl shadow-2xl relative">
             <div className="absolute top-0 right-0 w-6 h-6 bg-red-600 rounded-tr-3xl shadow-[0_0_10px_rgba(220,38,38,0.5)]" style={{ clipPath: "polygon(0 0, 100% 0, 100% 100%)" }} />
             
@@ -567,7 +631,7 @@ export default function LoginPage() {
                   placeholder="your@email.com"
                   required
                   autoComplete="email"
-                  className="bg-black/60 border-white/5 focus-visible:ring-red-500/50 rounded-xl text-sm"
+                  className="bg-black/60 border-white/5 focus-visible:ring-red-500/50 rounded-xl text-sm h-10"
                   data-testid="input-email"
                 />
               </div>
@@ -592,7 +656,7 @@ export default function LoginPage() {
                   placeholder={mode === "register" ? t.auth.min6 : "••••••••"}
                   required
                   autoComplete={mode === "login" ? "current-password" : "new-password"}
-                  className="bg-black/60 border-white/5 focus-visible:ring-red-500/50 rounded-xl text-sm"
+                  className="bg-black/60 border-white/5 focus-visible:ring-red-500/50 rounded-xl text-sm h-10"
                   data-testid="input-password"
                 />
               </div>
@@ -655,7 +719,7 @@ export default function LoginPage() {
                 <TrendingUp className="w-5 h-5 animate-pulse" />
                 <span className="text-xs font-bold uppercase tracking-widest font-display">{isRu ? "Основа платформы" : "Platform core"}</span>
               </div>
-              <h2 className="text-3xl sm:text-4xl font-black text-white leading-tight uppercase font-display hover-pixel cursor-default">
+              <h2 className="text-3xl sm:text-4xl font-black text-white leading-tight uppercase font-display cursor-default">
                 {isRu 
                   ? "Раздел Трейдинг — оцифровка вашего математического ожидания" 
                   : "Trading Section — Digitizing Your Expected Value"}
@@ -681,113 +745,113 @@ export default function LoginPage() {
 
       {/* Feature Grid: Descriptions of all 8 sections */}
       <section className="max-w-7xl mx-auto px-6 py-20">
-        <h2 className="text-3xl font-black text-white text-center mb-16 uppercase tracking-wider font-display hover-pixel cursor-default">
+        <h2 className="text-3xl font-black text-white text-center mb-16 uppercase tracking-wider font-display cursor-default">
           {isRu ? "Архитектура Системности" : "Systems Architecture"}
         </h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           
           {/* Card 1: Hub */}
-          <div className="border border-white/5 rounded-3xl p-6 bg-zinc-950/20 space-y-4 hover:border-red-500/20 transition-all duration-300">
+          <div className="border border-white/5 rounded-3xl p-6 bg-zinc-950/20 space-y-4 hover-glow-card">
             <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400">
               <LayoutDashboard className="w-5 h-5" />
             </div>
             <h3 className="text-base font-bold text-white uppercase font-display">{isRu ? "Главный Хаб" : "Main Hub"}</h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
               {isRu 
-                ? "Дашборд дня. Отображает активные фазы торговли, часы сессий, дневной фокус и список задач дисциплины."
-                : "Cockpit of your day. Displays active trading sessions, focus minutes, and daily operational discipline tasks."}
+                ? "Ваша стартовая панель. Отображает активные торговые сессии (London/New York/Asia), текущий прогресс дня, помодоро-таймер и динамические графики стабильности. Никаких отвлекающих факторов — только фокус на текущих задачах и дисциплине."
+                : "Cockpit of your day. Displays active trading sessions, focus minutes, and daily operational discipline tasks. Zero distractions — pure focus on execution."}
             </p>
           </div>
 
           {/* Card 2: Tasks */}
-          <div className="border border-white/5 rounded-3xl p-6 bg-zinc-950/20 space-y-4 hover:border-red-500/20 transition-all duration-300">
+          <div className="border border-white/5 rounded-3xl p-6 bg-zinc-950/20 space-y-4 hover-glow-card">
             <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400">
               <CheckCircle2 className="w-5 h-5" />
             </div>
             <h3 className="text-base font-bold text-white uppercase font-display">{isRu ? "Задачи и Рутина" : "Tasks & Routines"}</h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
               {isRu 
-                ? "Формирование привычек. Создавайте повторяющиеся шаблоны рутины для системной подготовки к торгам."
-                : "Operational checklist. Build repeating templates for your pre-market routine and checklist executions."}
+                ? "Разделение задач на рутинные чек-листы перед началом торгов и дневные операционные задачи. Позволяет автоматизировать подготовку (медитация, проверка новостей, анализ графиков HTF) и исключить вход в рынок без предварительного чек-листа."
+                : "Operational checklist. Build repeating templates for your pre-market routine and checklist executions. Prevents impulsive market entries."}
             </p>
           </div>
 
           {/* Card 3: Goals */}
-          <div className="border border-white/5 rounded-3xl p-6 bg-zinc-950/20 space-y-4 hover:border-red-500/20 transition-all duration-300">
+          <div className="border border-white/5 rounded-3xl p-6 bg-zinc-950/20 space-y-4 hover-glow-card">
             <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400">
               <Target className="w-5 h-5" />
             </div>
             <h3 className="text-base font-bold text-white uppercase font-display">{isRu ? "Декомпозиция целей" : "Goals Breakdown"}</h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
               {isRu 
-                ? "Каскад целей. Разбивайте масштабные годовые и месячные цели на конкретные еженедельные вехи."
-                : "Goal cascading. Break down long-term yearly and monthly milestones into actionable weekly targets."}
+                ? "Древовидная структура целей. Связывайте годовые финансовые цели с месячными вехами просадки/профита и недельными задачами. Каждое действие на рынке должно быть обосновано глобальной целью."
+                : "Goal cascading. Break down long-term yearly and monthly milestones into actionable weekly targets. Tie physical goals to trading performance."}
             </p>
           </div>
 
           {/* Card 4: Focus Timer */}
-          <div className="border border-white/5 rounded-3xl p-6 bg-zinc-950/20 space-y-4 hover:border-red-500/20 transition-all duration-300">
+          <div className="border border-white/5 rounded-3xl p-6 bg-zinc-950/20 space-y-4 hover-glow-card">
             <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400">
               <Timer className="w-5 h-5" />
             </div>
             <h3 className="text-base font-bold text-white uppercase font-display">{isRu ? "Таймер Фокуса" : "Focus Timer"}</h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
               {isRu 
-                ? "Борьба с FOMO. Помодоро-таймер фиксирует время работы над анализом графиков, исключая хаотичные входы."
-                : "Tilt prevention. Tracks deep concentration chart blocks, restricting aimless screen watching and FOMO."}
+                ? "Инструмент контроля времени нахождения перед графиками. Помодоро-таймер с фиксированием чистой фокусировки. Помогает предотвратить овертрейдинг, отслеживая минуты внимания и связывая их с вашим эмоциональным состоянием."
+                : "Tilt prevention. Tracks deep concentration chart blocks, restricting aimless screen watching and FOMO. Matches focus time with trading results."}
             </p>
           </div>
 
           {/* Card 5: Trading bias */}
-          <div className="border border-white/5 rounded-3xl p-6 bg-zinc-950/20 space-y-4 hover:border-red-500/20 transition-all duration-300">
+          <div className="border border-white/5 rounded-3xl p-6 bg-zinc-950/20 space-y-4 hover-glow-card">
             <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400">
               <TrendingUp className="w-5 h-5" />
             </div>
             <h3 className="text-base font-bold text-white uppercase font-display">{isRu ? "Дневник Bias" : "Daily Bias Log"}</h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
               {isRu 
-                ? "Фиксация контекста. Записывайте дневной Bias, заносите аргументы за и против (Pros/Cons) и скрины."
-                : "Context tracking. Formulate your morning Bias, list pros/cons arguments, and save chart screenshots."}
+                ? "Журнал контекста старших таймфреймов. Определение направления дня (Bias), взвешивание факторов за и против (Pros/Cons), скриншоты разметки HTF. Накапливает статистическую выборку точности вашего рыночного контекста."
+                : "Context tracking. Formulate your morning Bias, list pros/cons arguments, and save chart screenshots. Builds a record of your structural understanding."}
             </p>
           </div>
 
           {/* Card 6: Ideas */}
-          <div className="border border-white/5 rounded-3xl p-6 bg-zinc-950/20 space-y-4 hover:border-red-500/20 transition-all duration-300">
+          <div className="border border-white/5 rounded-3xl p-6 bg-zinc-950/20 space-y-4 hover-glow-card">
             <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400">
               <Lightbulb className="w-5 h-5" />
             </div>
             <h3 className="text-base font-bold text-white uppercase font-display">{isRu ? "Банк Идей" : "Ideas Repository"}</h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
               {isRu 
-                ? "Сбор гипотез. Мгновенно сохраняйте инсайты и новые торговые модели для последующего бэктестинга."
-                : "Hypothesis collector. Capture insights and new setup patterns instantly for future backtest validations."}
+                ? "Банк для хранения торговых моделей и гипотез. Позволяет зафиксировать сетап вне рынка, описать условия входа и правила сопровождения для последующей проверки в тестере."
+                : "Hypothesis collector. Capture insights and new setup patterns instantly for future backtest validations. Separate ideas from execution."}
             </p>
           </div>
 
           {/* Card 7: Calendar */}
-          <div className="border border-white/5 rounded-3xl p-6 bg-zinc-950/20 space-y-4 hover:border-red-500/20 transition-all duration-300">
+          <div className="border border-white/5 rounded-3xl p-6 bg-zinc-950/20 space-y-4 hover-glow-card">
             <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400">
               <Calendar className="w-5 h-5" />
             </div>
             <h3 className="text-base font-bold text-white uppercase font-display">{isRu ? "Календарь Биасов" : "Bias Calendar"}</h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
               {isRu 
-                ? "Исторический срез. Просматривайте архив дневных биасов и торговых заметок по дням."
-                : "Historical overview. Browse your daily bias archives and journal remarks day by day in calendar layout."}
+                ? "Сетка истории вашего торгового мышления. Календарь позволяет проанализировать, в какие дни недели у вас наибольшая точность определения Bias, и скорректировать торговую активность."
+                : "Historical overview. Browse your daily bias archives and journal remarks day by day in calendar layout. Spot weekdays with poor discipline."}
             </p>
           </div>
 
           {/* Card 8: Settings */}
-          <div className="border border-white/5 rounded-3xl p-6 bg-zinc-950/20 space-y-4 hover:border-red-500/20 transition-all duration-300">
+          <div className="border border-white/5 rounded-3xl p-6 bg-zinc-950/20 space-y-4 hover-glow-card">
             <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400">
               <Settings className="w-5 h-5" />
             </div>
             <h3 className="text-base font-bold text-white uppercase font-display">{isRu ? "Настройки сессий" : "Session Settings"}</h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
               {isRu 
-                ? "Калибровка. Настраивайте свои активные торговые сессии для сопоставления с результатами торговли."
-                : "Calibration. Custom fit your timezone and session frames to align statistics with your execution."}
+                ? "Настройка вашего торгового времени. Задавайте точные интервалы сессий (UTC) для автоматического сопоставления времени сделок и выявления периодов наибольшей убыточности."
+                : "Calibration. Custom fit your timezone and session frames to align statistics with your execution. Restrict trading outside defined hours."}
             </p>
           </div>
 
@@ -801,7 +865,7 @@ export default function LoginPage() {
             
             <div className="space-y-6">
               <Badge className="bg-red-500/10 text-red-400 border-red-500/20 font-mono text-xs">{isRu ? "В разработке" : "In Development"}</Badge>
-              <h2 className="text-3xl sm:text-4xl font-black text-white leading-tight uppercase font-display hover-pixel cursor-default">
+              <h2 className="text-3xl sm:text-4xl font-black text-white leading-tight uppercase font-display cursor-default">
                 {isRu 
                   ? "Мониторинг и исторический анализ новостного влияния" 
                   : "Smart News Aggregator & Probability Forecasting"}
@@ -824,7 +888,7 @@ export default function LoginPage() {
               <div className="absolute inset-0 flex flex-col justify-center items-center bg-black/75 z-20 p-6 text-center border border-red-500/30 rounded-3xl">
                 <div className="scanlines" />
                 <Lock className="w-12 h-12 text-red-500 animate-pulse mb-4 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
-                <h3 className="font-mono text-base font-bold text-red-500 tracking-[0.2em] crt-blink uppercase" style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '11px', textShadow: '0 0 5px rgba(239, 68, 68, 0.8)' }}>
+                <h3 className="font-mono text-base font-bold text-red-500 tracking-[0.2em] crt-blink uppercase animate-pulse" style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '11px', textShadow: '0 0 5px rgba(239, 68, 68, 0.8)' }}>
                   COMING SOON
                 </h3>
                 <p className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest mt-3 max-w-[280px] leading-relaxed">
@@ -847,5 +911,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-
