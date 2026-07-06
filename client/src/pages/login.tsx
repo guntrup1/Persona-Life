@@ -14,17 +14,118 @@ import {
   Target, Timer, Lightbulb, Settings, Lock, X
 } from "lucide-react";
 
-// ── P5 Royal Styled Logo ────────────────────────────────────────────────────
+// ── Typewriter Text Effect ──────────────────────────────────────────────────
+function TypewriterHeading({ text, className = "" }: { text: string; className?: string }) {
+  const [displayedText, setDisplayedText] = useState("");
+  
+  useEffect(() => {
+    const hasAnimated = sessionStorage.getItem(`typed-${text}`);
+    if (hasAnimated) {
+      setDisplayedText(text);
+      return;
+    }
+    
+    let i = 0;
+    const interval = setInterval(() => {
+      setDisplayedText(text.slice(0, i + 1));
+      i++;
+      if (i >= text.length) {
+        clearInterval(interval);
+        sessionStorage.setItem(`typed-${text}`, "true");
+      }
+    }, 35);
+    return () => clearInterval(interval);
+  }, [text]);
+
+  return <span className={className}>{displayedText}</span>;
+}
+
+// ── Count-up Odometer Stat ──────────────────────────────────────────────────
+function CountUpStat({ value, suffix = "", duration = 1200 }: { value: number; suffix?: string; duration?: number }) {
+  const [count, setCount] = useState(0);
+  
+  useEffect(() => {
+    const hasAnimated = sessionStorage.getItem(`countup-${value}`);
+    if (hasAnimated) {
+      setCount(value);
+      return;
+    }
+
+    let start = 0;
+    const end = value;
+    if (start === end) return;
+    
+    const increment = end / (duration / 16); 
+    let current = start;
+    
+    const timer = setInterval(() => {
+      current += increment;
+      if (current >= end) {
+        setCount(end);
+        clearInterval(timer);
+        sessionStorage.setItem(`countup-${value}`, "true");
+      } else {
+        setCount(current);
+      }
+    }, 16);
+    return () => clearInterval(timer);
+  }, [value, duration]);
+
+  const isFloat = value % 1 !== 0;
+  return <span>{isFloat ? count.toFixed(1) : Math.floor(count)}{suffix}</span>;
+}
+
+// ── Opposite Warning Hover Text ─────────────────────────────────────────────
+function OppositeText({ normal, opposite, className = "" }: { normal: string; opposite: string; className?: string }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <span 
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className={`hover-target inline-block transition-all duration-200 cursor-none select-none ${className} ${
+        hovered ? "text-red-500 font-bold" : ""
+      }`}
+    >
+      {hovered ? opposite : normal}
+    </span>
+  );
+}
+
+// ── P5 Royal Styled Logo (Animated) ─────────────────────────────────────────
 function P5Logo() {
+  const [jitter, setJitter] = useState(false);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setJitter(true);
+      setTimeout(() => setJitter(false), 200);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="flex items-center gap-1 font-black select-none scale-90 md:scale-100 origin-left">
-      <span className="bg-red-650 text-white px-2.5 py-1.5 transform -rotate-3 skew-x-[-6deg] font-display text-xl shadow-[3px_3px_0_#fff] border border-black font-black">P</span>
-      <span className="bg-zinc-950 text-white px-2.5 py-1.5 transform rotate-3 skew-x-[4deg] font-display text-xl shadow-[-2px_3px_0_#ef4444] border border-black font-black">E</span>
-      <span className="bg-white text-black px-2.5 py-1.5 transform -rotate-6 skew-x-[-8deg] font-display text-xl shadow-[3px_-2px_0_#000] border border-black font-black">R</span>
-      <span className="bg-red-600 text-white px-2.5 py-1.5 transform rotate-2 skew-x-[6deg] font-display text-xl shadow-[2px_3px_0_#fff] border border-black font-black">S</span>
-      <span className="bg-zinc-950 text-white px-2.5 py-1.5 transform -rotate-2 skew-x-[-2deg] font-display text-xl shadow-[-3px_-2px_0_#ef4444] border border-black font-black">O</span>
-      <span className="bg-white text-black px-2.5 py-1.5 transform rotate-6 skew-x-[8deg] font-display text-xl shadow-[3px_3px_0_#000] border border-black font-black">N</span>
-      <span className="bg-red-600 text-white px-2.5 py-1.5 transform -rotate-3 skew-x-[-5deg] font-display text-xl shadow-[-2px_3px_0_#fff] border border-black font-black">A</span>
+      <span className={`bg-red-600 text-white px-2.5 py-1.5 font-display text-xl shadow-[3px_3px_0_#fff] border border-black font-black transition-all ${
+        jitter ? "transform -rotate-12 skew-x-[-12deg]" : "transform -rotate-3 skew-x-[-6deg]"
+      }`}>P</span>
+      <span className={`bg-zinc-950 text-white px-2.5 py-1.5 font-display text-xl shadow-[-2px_3px_0_#ef4444] border border-black font-black transition-all ${
+        jitter ? "transform rotate-12 skew-x-[12deg]" : "transform rotate-3 skew-x-[4deg]"
+      }`}>E</span>
+      <span className={`bg-white text-black px-2.5 py-1.5 font-display text-xl shadow-[3px_-2px_0_#000] border border-black font-black transition-all ${
+        jitter ? "transform -rotate-12 skew-x-[-15deg]" : "transform -rotate-6 skew-x-[-8deg]"
+      }`}>R</span>
+      <span className={`bg-red-600 text-white px-2.5 py-1.5 font-display text-xl shadow-[2px_3px_0_#fff] border border-black font-black transition-all ${
+        jitter ? "transform rotate-6 skew-x-[10deg]" : "transform rotate-2 skew-x-[6deg]"
+      }`}>S</span>
+      <span className={`bg-zinc-950 text-white px-2.5 py-1.5 font-display text-xl shadow-[-3px_-2px_0_#ef4444] border border-black font-black transition-all ${
+        jitter ? "transform -rotate-6 skew-x-[-8deg]" : "transform -rotate-2 skew-x-[-2deg]"
+      }`}>O</span>
+      <span className={`bg-white text-black px-2.5 py-1.5 font-display text-xl shadow-[3px_3px_0_#000] border border-black font-black transition-all ${
+        jitter ? "transform rotate-12 skew-x-[15deg]" : "transform rotate-6 skew-x-[8deg]"
+      }`}>N</span>
+      <span className={`bg-red-600 text-white px-2.5 py-1.5 font-display text-xl shadow-[-2px_3px_0_#fff] border border-black font-black transition-all ${
+        jitter ? "transform -rotate-12 skew-x-[-10deg]" : "transform -rotate-3 skew-x-[-5deg]"
+      }`}>A</span>
       <span className="text-red-500 font-mono text-xs ml-3 tracking-[0.2em] font-black uppercase skew-x-[-12deg] drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]">Life OS</span>
     </div>
   );
@@ -51,7 +152,7 @@ function BarcodeScannerText({ lang }: { lang: "ru" | "en" }) {
   }, [words]);
 
   return (
-    <div className="relative border border-white/10 rounded-2xl bg-zinc-950/60 p-6 flex flex-col items-center justify-center min-h-[140px] overflow-hidden shadow-2xl">
+    <div className="relative border border-white/10 rounded-2xl bg-zinc-950/60 p-6 flex flex-col items-center justify-center min-h-[140px] overflow-hidden shadow-2xl max-w-sm mx-auto">
       {/* Background Barcode lines */}
       <div className="absolute inset-x-0 bottom-2 top-2 flex justify-between opacity-5 select-none pointer-events-none px-4">
         {[...Array(24)].map((_, i) => (
@@ -175,7 +276,6 @@ function SynthwaveCanvas() {
             const force = (warpRadius - dist) / warpRadius;
             const dirX = dx / (dist || 1);
             const dirY = dy / (dist || 1);
-            // Add (push outward/expand) grid nodes under cursor
             currentX += dirX * force * warpStrength;
             currentY += dirY * force * warpStrength;
           }
@@ -306,7 +406,101 @@ function CustomCursor() {
   );
 }
 
-// ── Trading Tab simulation mockup ───────────────────────────────────────────
+// ── Standalone Custom Mockup Components ─────────────────────────────────────
+function HubMockup({ lang }: { lang: "ru" | "en" }) {
+  const isRu = lang === "ru";
+  return (
+    <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center items-center h-full min-h-[220px] font-mono text-xs">
+      <div className="relative w-32 h-32 flex items-center justify-center border-4 border-dashed border-red-500/35 rounded-full animate-spin duration-10000">
+        <div className="absolute inset-2 border-2 border-emerald-500/30 rounded-full" />
+        <div className="absolute font-sans text-lg font-black text-white select-none">82%</div>
+      </div>
+      <p className="text-[10px] text-zinc-500 mt-4 uppercase tracking-widest">{isRu ? "СТАБИЛЬНОСТЬ ДИСЦИПЛИНЫ" : "DISCIPLINE STABILITY INDEX"}</p>
+    </div>
+  );
+}
+
+function TasksMockup({ lang }: { lang: "ru" | "en" }) {
+  const isRu = lang === "ru";
+  const [checked, setChecked] = useState([false, false, false]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setChecked(prev => {
+        if (prev[2]) return [false, false, false];
+        if (prev[1]) return [prev[0], prev[1], true];
+        if (prev[0]) return [prev[0], true, prev[2]];
+        return [true, prev[1], prev[2]];
+      });
+    }, 1500);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center space-y-3 h-full min-h-[220px] font-mono text-xs text-zinc-400">
+      <div className="flex items-center gap-3 bg-white/5 p-2.5 rounded-xl border border-white/5">
+        <input type="checkbox" checked={checked[0]} readOnly className="accent-red-500 h-4 w-4" />
+        <span className={checked[0] ? "line-through text-zinc-500" : "text-white"}>
+          {isRu ? "Анализ новостного фона" : "Check Forex Factory Calendar"}
+        </span>
+      </div>
+      <div className="flex items-center gap-3 bg-white/5 p-2.5 rounded-xl border border-white/5">
+        <input type="checkbox" checked={checked[1]} readOnly className="accent-red-500 h-4 w-4" />
+        <span className={checked[1] ? "line-through text-zinc-500" : "text-white"}>
+          {isRu ? "Разметка HTF структуры" : "Mark HTF Market Structure"}
+        </span>
+      </div>
+      <div className="flex items-center gap-3 bg-white/5 p-2.5 rounded-xl border border-white/5">
+        <input type="checkbox" checked={checked[2]} readOnly className="accent-red-500 h-4 w-4" />
+        <span className={checked[2] ? "line-through text-zinc-500" : "text-white"}>
+          {isRu ? "Фокусировка и вход (1% риска)" : "Execute trade according to setup"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function GoalsMockup({ lang }: { lang: "ru" | "en" }) {
+  const isRu = lang === "ru";
+  return (
+    <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center space-y-4 h-full min-h-[220px] font-mono text-xs">
+      <div className="border border-red-500/20 bg-red-500/5 p-3 rounded-xl text-center">
+        <span className="text-[10px] text-zinc-500 block uppercase">{isRu ? "ЦЕЛЬ ГОДА" : "YEAR GOAL"}</span>
+        <span className="font-bold text-white text-sm">{isRu ? "Funded-счет $100,000" : "Get $100K Funded Account"}</span>
+      </div>
+      <div className="text-center text-zinc-600 animate-bounce">↓</div>
+      <div className="border border-white/5 bg-white/5 p-2.5 rounded-xl text-center">
+        <span className="text-[10px] text-zinc-500 block uppercase">{isRu ? "ШАГ МЕСЯЦА" : "MONTH STEP"}</span>
+        <span className="font-bold text-white text-xs">{isRu ? "Бэктест Gold 300+ дней" : "Backtest Gold 300+ days"}</span>
+      </div>
+    </div>
+  );
+}
+
+function TimerMockup({ lang }: { lang: "ru" | "en" }) {
+  const isRu = lang === "ru";
+  const [time, setTime] = useState(25 * 60);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setTime(t => (t > 0 ? t - 1 : 25 * 60));
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const m = Math.floor(time / 60).toString().padStart(2, '0');
+  const s = (time % 60).toString().padStart(2, '0');
+
+  return (
+    <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center items-center h-full min-h-[220px] font-mono text-xs">
+      <div className="text-3xl font-black text-red-500 tracking-widest drop-shadow-[0_0_10px_rgba(239,68,68,0.4)] animate-pulse">
+        {m}:{s}
+      </div>
+      <p className="text-[10px] text-zinc-500 mt-4 uppercase tracking-widest">{isRu ? "АКТИВНАЯ ФОКУС-СЕССИЯ" : "FOCUS BLOCK RUNNING"}</p>
+    </div>
+  );
+}
+
 function TradingSimulatorMockup({ lang }: { lang: "ru" | "en" }) {
   const [balance, setBalance] = useState(5000);
   const [winCount, setWinCount] = useState(0);
@@ -353,7 +547,7 @@ function TradingSimulatorMockup({ lang }: { lang: "ru" | "en" }) {
   }, [balance, failed, passed]);
 
   return (
-    <div className="bg-[#0b0b0d]/90 border border-white/10 rounded-3xl p-6 font-mono text-xs text-zinc-300 space-y-4 shadow-2xl relative overflow-hidden backdrop-blur-md">
+    <div className="bg-[#0b0b0d]/90 border border-white/10 rounded-3xl p-6 font-mono text-xs text-zinc-300 space-y-4 shadow-2xl relative overflow-hidden backdrop-blur-md w-full">
       <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 blur-xl rounded-full" />
       <div className="flex justify-between items-center border-b border-white/5 pb-3">
         <span className="text-zinc-500 font-bold uppercase tracking-wider font-display">MONTE-CARLO SIMULATOR</span>
@@ -396,6 +590,59 @@ function TradingSimulatorMockup({ lang }: { lang: "ru" | "en" }) {
         {lang === 'ru' 
           ? '* Текущие прогоны: слияние XAU/USD и GER40 при риске 1%. Учитывается лимит maxWinsPerDay = 1.'
           : '* Active paths: XAU/USD & GER40 correlation simulation. 1% Risk. constraint: maxWinsPerDay = 1.'}
+      </div>
+    </div>
+  );
+}
+
+function IdeasMockup({ lang }: { lang: "ru" | "en" }) {
+  const isRu = lang === "ru";
+  return (
+    <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center space-y-3 h-full min-h-[220px] font-mono text-xs text-zinc-300">
+      <div className="border border-white/10 p-3 rounded-xl bg-white/5 relative">
+        <span className="text-[9px] text-zinc-500 block uppercase font-bold">{isRu ? "Идея #12" : "Idea #12"}</span>
+        <span className="text-white font-bold">{isRu ? "Разворотный FVG на XAU" : "Gold HTF FVG Reversal model"}</span>
+        <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+      </div>
+    </div>
+  );
+}
+
+function CalendarMockup({ lang }: { lang: "ru" | "en" }) {
+  return (
+    <div className="bg-black/60 border border-white/5 rounded-2xl p-4 flex flex-col justify-center h-full min-h-[220px] font-mono text-xs">
+      <div className="grid grid-cols-7 gap-1">
+        {[...Array(28)].map((_, i) => {
+          const isWin = i % 5 === 0;
+          const isLoss = i % 7 === 0;
+          return (
+            <div 
+              key={i} 
+              className={`aspect-square rounded border flex items-center justify-center text-[8px] font-bold ${
+                isWin ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400' :
+                isLoss ? 'bg-red-500/20 border-red-500/40 text-red-400' :
+                'bg-white/5 border-white/10 text-zinc-600'
+              }`}
+            >
+              {i + 1}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function SettingsMockup({ lang }: { lang: "ru" | "en" }) {
+  return (
+    <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center space-y-3 h-full min-h-[220px] font-mono text-xs">
+      <div className="flex justify-between">
+        <span>NY session:</span>
+        <span className="text-red-400 font-bold">13:00 - 17:00 UTC</span>
+      </div>
+      <div className="flex justify-between">
+        <span>London session:</span>
+        <span className="text-red-400 font-bold">08:00 - 11:00 UTC</span>
       </div>
     </div>
   );
@@ -466,15 +713,7 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
       titleEn: "Main Hub",
       descRu: "Панель мониторинга дня. Выводит активные сессии, сессии фокуса, задачи дисциплины и динамические круги прогресса.",
       descEn: "Cockpit of your day. Displays active trading sessions, focus minutes, discipline checklists, and progress metrics.",
-      renderMockup: () => (
-        <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center items-center h-full min-h-[220px] font-mono text-xs">
-          <div className="relative w-32 h-32 flex items-center justify-center border-4 border-dashed border-red-500/35 rounded-full animate-spin duration-10000">
-            <div className="absolute inset-2 border-2 border-emerald-500/30 rounded-full" />
-            <div className="absolute font-sans text-lg font-black text-white select-none">82%</div>
-          </div>
-          <p className="text-[10px] text-zinc-500 mt-4 uppercase tracking-widest">{isRu ? "СТАБИЛЬНОСТЬ ДИСЦИПЛИНЫ" : "DISCIPLINE STABILITY INDEX"}</p>
-        </div>
-      )
+      renderMockup: () => <HubMockup lang={lang} />
     },
     {
       id: "tasks",
@@ -483,22 +722,7 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
       titleEn: "Tasks & Routines",
       descRu: "Создавайте шаблоны повторяющихся действий (чек-листы подготовки к сессии, медитации) для жесткого следования торговому плану.",
       descEn: "Build routine templates (session preparation checklists, meditation) to secure disciplined, structural executions.",
-      renderMockup: () => (
-        <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center space-y-3 h-full min-h-[220px] font-mono text-xs text-zinc-400">
-          <div className="flex items-center gap-3 bg-white/5 p-2.5 rounded-xl border border-white/5">
-            <input type="checkbox" checked readOnly className="accent-red-500 h-4 w-4" />
-            <span className="line-through text-zinc-500">{isRu ? "Анализ новостного фона" : "Check Forex Factory Calendar"}</span>
-          </div>
-          <div className="flex items-center gap-3 bg-white/5 p-2.5 rounded-xl border border-white/5">
-            <input type="checkbox" checked readOnly className="accent-red-500 h-4 w-4" />
-            <span className="line-through text-zinc-500">{isRu ? "Разметка HTF структуры" : "Mark HTF Market Structure"}</span>
-          </div>
-          <div className="flex items-center gap-3 bg-white/5 p-2.5 rounded-xl border border-white/5 animate-pulse">
-            <input type="checkbox" readOnly className="h-4 w-4 border-zinc-500" />
-            <span className="text-white">{isRu ? "Фокусировка и вход (1% риска)" : "Execute trade according to setup"}</span>
-          </div>
-        </div>
-      )
+      renderMockup: () => <TasksMockup lang={lang} />
     },
     {
       id: "goals",
@@ -507,19 +731,7 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
       titleEn: "Goals Decomposition",
       descRu: "Связывайте годовые финансовые цели с месячными лимитами просадки и недельными шагами. Дисциплина подчиняется целям.",
       descEn: "Chain yearly financial goals to monthly drawdown budgets and weekly steps. Operational discipline meets target goals.",
-      renderMockup: () => (
-        <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center space-y-4 h-full min-h-[220px] font-mono text-xs">
-          <div className="border border-red-500/20 bg-red-500/5 p-3 rounded-xl text-center">
-            <span className="text-[10px] text-zinc-500 block uppercase">{isRu ? "ЦЕЛЬ ГОДА" : "YEAR GOAL"}</span>
-            <span className="font-bold text-white text-sm">{isRu ? "Funded-счет $100,000" : "Get $100K Funded Account"}</span>
-          </div>
-          <div className="text-center text-zinc-600">↓</div>
-          <div className="border border-white/5 bg-white/5 p-2.5 rounded-xl text-center">
-            <span className="text-[10px] text-zinc-500 block uppercase">{isRu ? "ШАГ МЕСЯЦА" : "MONTH STEP"}</span>
-            <span className="font-bold text-white text-xs">{isRu ? "Бэктест Gold 300+ дней" : "Backtest Gold 300+ days"}</span>
-          </div>
-        </div>
-      )
+      renderMockup: () => <GoalsMockup lang={lang} />
     },
     {
       id: "timer",
@@ -528,27 +740,7 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
       titleEn: "Focus Timer",
       descRu: "Помодоро-таймер фиксирует время чистой концентрации на анализе графиков. Защищает от переутомления и спонтанных трейдов.",
       descEn: "Pomodoro Focus Timer logs chart concentration sessions, keeping you alert and preventing spontaneous trading entries.",
-      renderMockup: () => {
-        const [time, setTime] = useState(25 * 60);
-        useEffect(() => {
-          const id = setInterval(() => {
-            setTime(t => (t > 0 ? t - 1 : 25 * 60));
-          }, 1000);
-          return () => clearInterval(id);
-        }, []);
-
-        const m = Math.floor(time / 60).toString().padStart(2, '0');
-        const s = (time % 60).toString().padStart(2, '0');
-
-        return (
-          <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center items-center h-full min-h-[220px] font-mono text-xs">
-            <div className="text-3xl font-black text-red-500 tracking-widest drop-shadow-[0_0_10px_rgba(239,68,68,0.4)] animate-pulse">
-              {m}:{s}
-            </div>
-            <p className="text-[10px] text-zinc-500 mt-4 uppercase tracking-widest">{isRu ? "АКТИВНАЯ ФОКУС-СЕССИЯ" : "FOCUS BLOCK RUNNING"}</p>
-          </div>
-        );
-      }
+      renderMockup: () => <TimerMockup lang={lang} />
     },
     {
       id: "trading",
@@ -566,15 +758,7 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
       titleEn: "Ideas Vault",
       descRu: "Отделяйте мгновенные идеи и сетапы от реального исполнения. Сохраняйте торговые модели вне терминала для будущих тестов.",
       descEn: "Isolate immediate setup hypotheses from execution. File potential patterns outside the terminal for future validation.",
-      renderMockup: () => (
-        <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center space-y-3 h-full min-h-[220px] font-mono text-xs text-zinc-300">
-          <div className="border border-white/10 p-3 rounded-xl bg-white/5 relative">
-            <span className="text-[9px] text-zinc-500 block uppercase font-bold">{isRu ? "Идея #12" : "Idea #12"}</span>
-            <span className="text-white font-bold">{isRu ? "Разворотный FVG на XAU" : "Gold HTF FVG Reversal model"}</span>
-            <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-yellow-500" />
-          </div>
-        </div>
-      )
+      renderMockup: () => <IdeasMockup lang={lang} />
     },
     {
       id: "calendar",
@@ -583,28 +767,7 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
       titleEn: "Bias Calendar",
       descRu: "Визуальная сетка истории вашего понимания рынка. Показывает точность утренних предвзятостей (Bias) и сделок по дням недели.",
       descEn: "A structural calendar tracking daily bias accuracy. Analyze weekly performance patterns and refine market contexts.",
-      renderMockup: () => (
-        <div className="bg-black/60 border border-white/5 rounded-2xl p-4 flex flex-col justify-center h-full min-h-[220px] font-mono text-xs">
-          <div className="grid grid-cols-7 gap-1">
-            {[...Array(28)].map((_, i) => {
-              const isWin = i % 5 === 0;
-              const isLoss = i % 7 === 0;
-              return (
-                <div 
-                  key={i} 
-                  className={`aspect-square rounded border flex items-center justify-center text-[8px] font-bold ${
-                    isWin ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400' :
-                    isLoss ? 'bg-red-500/20 border-red-500/40 text-red-400' :
-                    'bg-white/5 border-white/10 text-zinc-600'
-                  }`}
-                >
-                  {i + 1}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )
+      renderMockup: () => <CalendarMockup lang={lang} />
     },
     {
       id: "settings",
@@ -613,18 +776,7 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
       titleEn: "Session Calibration",
       descRu: "Настройка личного торгового времени и часового пояса. Запрещает торговлю вне интервалов вашей сессии.",
       descEn: "Adjust trading hours and timezones. Block out chart execution settings outside your optimal session times.",
-      renderMockup: () => (
-        <div className="bg-black/60 border border-white/5 rounded-2xl p-6 flex flex-col justify-center space-y-3 h-full min-h-[220px] font-mono text-xs">
-          <div className="flex justify-between">
-            <span>NY session:</span>
-            <span className="text-red-400 font-bold">13:00 - 17:00 UTC</span>
-          </div>
-          <div className="flex justify-between">
-            <span>London session:</span>
-            <span className="text-red-400 font-bold">08:00 - 11:00 UTC</span>
-          </div>
-        </div>
-      )
+      renderMockup: () => <SettingsMockup lang={lang} />
     }
   ];
 
@@ -678,7 +830,7 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
   );
 }
 
-// ── Auth Modal (Separate from main Landing view) ───────────────────────────
+// ── Auth Modal Overlay ──────────────────────────────────────────────────────
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -1020,22 +1172,22 @@ export default function LoginPage() {
 
       {/* Background Chalk Trading Easter Eggs */}
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden select-none">
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-2 rounded rotate-[-4deg] absolute top-[22%] left-[10%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/25 transition-all">
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-4deg] absolute top-[20%] left-[5%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
           [ORDER BLOCK - 15m]
         </div>
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-2 rounded rotate-[6deg] absolute top-[30%] left-[82%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/25 transition-all">
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[6deg] absolute top-[16%] left-[82%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
           [Liq Pool ⬇]
         </div>
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-2 rounded rotate-[-8deg] absolute top-[55%] left-[5%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/25 transition-all">
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-8deg] absolute top-[52%] left-[3%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
           [FVG / Fair Value Gap]
         </div>
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-2 rounded rotate-[3deg] absolute top-[70%] left-[75%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/25 transition-all">
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[3deg] absolute top-[68%] left-[85%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
           [BOS / CHoCH]
         </div>
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-2 rounded rotate-[-3deg] absolute bottom-[22%] left-[15%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/25 transition-all">
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-3deg] absolute bottom-[24%] left-[8%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
           [Risk : Reward = 1 : 3.5]
         </div>
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-2 rounded rotate-[5deg] absolute bottom-[10%] left-[78%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/25 transition-all">
+        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[5deg] absolute bottom-[10%] left-[80%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
           [Premium / Discount]
         </div>
       </div>
@@ -1054,65 +1206,72 @@ export default function LoginPage() {
         </div>
       </header>
 
-      {/* Hero Section */}
-      <main className="max-w-7xl mx-auto px-6 py-12 md:py-24 grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-12 lg:gap-20 items-center relative z-10">
+      {/* Centered Hero Section */}
+      <main className="max-w-4xl mx-auto px-6 py-16 md:py-32 text-center relative z-10 flex flex-col items-center justify-center space-y-8">
         
-        {/* Left Side: Copy */}
-        <div className="space-y-6">
-          <Badge className="bg-red-500/10 hover:bg-red-500/10 text-red-400 border-red-500/20 px-3 py-1 text-xs uppercase tracking-widest rounded-full font-mono reveal-text">
-            {isRu ? "Операционная Система Трейдера" : "Discipline & Stats Operating System"}
-          </Badge>
-          
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight leading-none text-white font-display uppercase cursor-default reveal-text delay-1">
-            {isRu ? (
-              <>
-                Прекратите сливать из-за тильта. Оцифруйте дисциплину.
-              </>
-            ) : (
-              <>
-                Stop blowing accounts to tilt. Track your stats.
-              </>
-            )}
-          </h1>
-          
-          <p className="text-zinc-400 text-base md:text-lg leading-relaxed max-w-xl reveal-text delay-2">
-            {isRu ? (
-              "Persona Life OS — это система декомпозиции целей и анализа личной эффективности, разработанная трейдерами для трейдеров. Мы убрали геймификацию и сфокусировались на жестких цифрах вашего поведения: времени чистого фокуса на графиках, торговых сессиях, выполнении рутинных привычек и чистый расчет матожидания."
-            ) : (
-              "Persona Life OS is an OKR decomposition and behavioral analytics engine crafted by a trader, for traders. We stripped gaming fluff to focus strictly on raw performance data: screen concentration, sessions log, routines execution, and Expected Value math."
-            )}
-          </p>
-          
-          {/* CTA + Quick Stats Grid */}
-          <div className="space-y-6 reveal-text delay-3">
-            <button 
-              onClick={() => setIsAuthOpen(true)}
-              className="px-8 py-4 bg-white text-black font-display font-black text-sm uppercase tracking-widest rounded-2xl hover:bg-red-600 hover:text-white transition-all hover:scale-105 active:scale-95 cursor-none shadow-2xl flex items-center gap-2 group"
-            >
-              <span>{isRu ? "ОЦИФРОВАТЬ ДИСЦИПЛИНУ" : "DIGITIZE CONSISTENCY"}</span>
-              <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-            </button>
-
-            <div className="grid grid-cols-3 gap-4 pt-6 border-t border-white/10 max-w-md">
-              <div>
-                <p className="text-2xl font-black text-white font-mono">0.0%</p>
-                <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">{isRu ? "Иллюзий" : "Subjectivity"}</p>
-              </div>
-              <div>
-                <p className="text-2xl font-black text-emerald-400 font-mono">100%</p>
-                <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">{isRu ? "Чистая логика" : "Hard Data"}</p>
-              </div>
-              <div>
-                <p className="text-2xl font-black text-red-500 font-mono">&lt;2.0%</p>
-                <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">{isRu ? "Риск слива" : "Ruin probability"}</p>
-              </div>
-            </div>
-          </div>
+        <Badge className="bg-red-500/10 hover:bg-red-500/10 text-red-400 border-red-500/20 px-3 py-1 text-xs uppercase tracking-widest rounded-full font-mono reveal-text">
+          {isRu ? "Операционная Система Трейдера" : "Discipline & Stats Operating System"}
+        </Badge>
+        
+        <h1 className="text-4xl md:text-5xl lg:text-7.5xl font-black tracking-tight leading-none text-white font-display uppercase cursor-default reveal-text delay-1 max-w-3xl">
+          <OppositeText 
+            normal={isRu ? "Прекратите сливать из-за тильта. Оцифруйте дисциплину." : "Stop blowing accounts to tilt. Track your stats."}
+            opposite={isRu ? "ХВАТИТ НАДЕЯТЬСЯ НА УДАЧУ — ОЦИФРУЙ СЕБЯ" : "STOP HOPING FOR LUCK — DIGITIZE YOUR SYSTEM"}
+          />
+        </h1>
+        
+        <p className="text-zinc-400 text-base md:text-lg leading-relaxed max-w-2xl reveal-text delay-2">
+          {isRu ? (
+            "Persona Life OS — это система декомпозиции целей и анализа личной эффективности, разработанная трейдерами для трейдеров. Мы убрали геймификацию и сфокусировались на жестких цифрах вашего поведения: времени чистого фокуса на графиках, торговых сессиях, выполнении рутинных привычек и чистый расчет матожидания."
+          ) : (
+            "Persona Life OS is an OKR decomposition and behavioral analytics engine crafted by a trader, for traders. We stripped gaming fluff to focus strictly on raw performance data: screen concentration, sessions log, routines execution, and Expected Value math."
+          )}
+        </p>
+        
+        {/* Center Barcode Scanner Switcher */}
+        <div className="reveal-text delay-2 w-full max-w-sm">
+          <BarcodeScannerText lang={lang} />
         </div>
 
-        {/* Right Side: Interactive Barcode Reveal Component */}
-        <div className="reveal-text delay-2 w-full max-w-md mx-auto">
-          <BarcodeScannerText lang={lang} />
+        {/* CTA + Quick Stats Grid */}
+        <div className="space-y-8 reveal-text delay-3 w-full flex flex-col items-center">
+          <button 
+            onClick={() => setIsAuthOpen(true)}
+            className="px-8 py-4 bg-white text-black font-display font-black text-sm uppercase tracking-widest rounded-2xl hover:bg-red-600 hover:text-white transition-all hover:scale-105 active:scale-95 cursor-none shadow-2xl flex items-center gap-2 group"
+          >
+            <OppositeText 
+              normal={isRu ? "ОЦИФРОВАТЬ ДИСЦИПЛИНУ" : "DIGITIZE CONSISTENCY"}
+              opposite={isRu ? "ХВАТИТ СЛИВАТЬ ДЕПОЗИТ" : "STOP BLOWING ACCOUNTS"}
+            />
+            <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+          </button>
+
+          <div className="grid grid-cols-3 gap-6 pt-8 border-t border-white/10 w-full max-w-md">
+            <div>
+              <p className="text-2xl font-black text-white font-mono">
+                <CountUpStat value={0.0} suffix="%" />
+              </p>
+              <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
+                <OppositeText normal={isRu ? "Иллюзий" : "Subjectivity"} opposite={isRu ? "ХЛАМ" : "TRASH"} />
+              </p>
+            </div>
+            <div>
+              <p className="text-2xl font-black text-emerald-400 font-mono">
+                <CountUpStat value={100} suffix="%" />
+              </p>
+              <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
+                <OppositeText normal={isRu ? "Чистая логика" : "Hard Data"} opposite={isRu ? "ГАРМОНИЯ" : "HARMONY"} />
+              </p>
+            </div>
+            <div>
+              <p className="text-2xl font-black text-red-500 font-mono">
+                &lt;<CountUpStat value={2.0} suffix="%" />
+              </p>
+              <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
+                <OppositeText normal={isRu ? "Риск слива" : "Ruin probability"} opposite={isRu ? "СМЕРТЬ" : "RUIN"} />
+              </p>
+            </div>
+          </div>
         </div>
       </main>
 
@@ -1127,9 +1286,7 @@ export default function LoginPage() {
                 <span className="text-xs font-bold uppercase tracking-widest font-display">{isRu ? "Основа платформы" : "Platform core"}</span>
               </div>
               <h2 className="text-3xl sm:text-4xl font-black text-white leading-tight uppercase font-display cursor-default">
-                {isRu 
-                  ? "Раздел Трейдинг — оцифровка вашего математического ожидания" 
-                  : "Trading Section — Digitizing Your Expected Value"}
+                <TypewriterHeading text={isRu ? "Раздел Трейдинг — оцифровка вашего математического ожидания" : "Trading Section — Digitizing Your Expected Value"} />
               </h2>
               <p className="text-zinc-400 leading-relaxed text-sm">
                 {isRu 
@@ -1164,7 +1321,7 @@ export default function LoginPage() {
         <ModulesShowcaseSlider lang={lang} />
       </section>
 
-      {/* News Teaser with locked pixel COMING SOON overlay */}
+      {/* News Teaser with locked economic news forecast card */}
       <section className="border-t border-white/5 bg-zinc-950/20 py-20 relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-12 lg:gap-20 items-center">
