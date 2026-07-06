@@ -108,14 +108,14 @@ function OppositeText({ normal, opposite, className = "" }: { normal: string; op
       style={{ verticalAlign: "top" }}
     >
       {/* Layer 1: Normal text */}
-      <div className="text-zinc-400">
+      <div className="text-zinc-200">
         {normal}
       </div>
 
-      {/* Layer 2: Opposite warning. text-white inverts to text-black inside difference lens */}
+      {/* Layer 2: Opposite warning. text-white inverts to text-black inside difference lens. Styled slightly larger (1.12em) */}
       <div 
         ref={oppositeRef}
-        className="absolute inset-0 text-white font-black bg-[#030304] flex items-center justify-center text-center select-none pointer-events-none"
+        className="absolute inset-0 text-white font-black bg-[#030304] flex items-center justify-center text-center select-none pointer-events-none text-[1.12em] tracking-wide"
         style={{
           clipPath: `circle(0px at 0px 0px)`,
           willChange: "clip-path",
@@ -1265,7 +1265,7 @@ export default function LoginPage() {
           [Premium / Discount]
         </div>
 
-        {/* NEW Scattered Trading Easter Eggs */}
+        {/* Scattered Trading Easter Eggs */}
         <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-6deg] absolute top-[38%] left-[88%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
           [Asia Session High Sweep]
         </div>
@@ -1310,11 +1310,11 @@ export default function LoginPage() {
         <h1 className="text-4xl md:text-5xl lg:text-7.5xl font-black tracking-tight leading-none text-white font-display uppercase cursor-default reveal-text delay-1 max-w-3xl">
           <OppositeText 
             normal={isRu ? "Прекратите сливать из-за тильта. Оцифруйте дисциплину." : "Stop blowing accounts to tilt. Track your stats."}
-            opposite={isRu ? "ХВАТИТ НАДЕЯТЬСЯ НА УДАЧУ — ОЦИФРУЙ СЕБЯ" : "STOP HOPING FOR LUCK — DIGITIZE YOUR SYSTEM"}
+            opposite={isRu ? "ХВАТИТ НАДЕЯТЬСЯ НА УДАЧУ — ОЦИФРУЙ СВОЙ РАЗУМ!" : "STOP HOPING FOR LUCK — DIGITIZE YOUR SYSTEM!"}
           />
         </h1>
         
-        <p className="text-zinc-400 text-sm md:text-base leading-relaxed max-w-xl reveal-text delay-2 hover-target">
+        <p className="text-zinc-200 text-sm md:text-base leading-relaxed max-w-xl reveal-text delay-2 hover-target">
           {isRu ? (
             "Persona Life OS — это система декомпозиции целей и анализа личной эффективности, разработанная трейдерами для трейдеров. Мы убрали геймификацию и сфокусировались на жестких цифрах вашего поведения: времени чистого фокуса на графиках, торговых сессиях, выполнении рутинных привычек и чистый расчет матожидания."
           ) : (
@@ -1379,15 +1379,19 @@ export default function LoginPage() {
                 <TrendingUp className="w-5 h-5 animate-pulse" />
                 <span className="text-xs font-bold uppercase tracking-widest font-display">{isRu ? "Основа платформы" : "Platform core"}</span>
               </div>
-              <h2 className="text-3xl sm:text-4xl font-black text-white leading-tight uppercase font-display cursor-default hover-target">
-                <TypewriterHeading text={isRu ? "Раздел Трейдинг — оцифровка вашего математического ожидания" : "Trading Section — Digitizing Your Expected Value"} />
+              <h2 className="text-3xl sm:text-4xl font-black text-white leading-tight uppercase font-display cursor-default">
+                <OppositeText 
+                  normal={isRu ? "Раздел Трейдинг — оцифровка вашего математического ожидания" : "Trading Section — Digitizing Your Expected Value"}
+                  opposite={isRu ? "ИСКЛЮЧИ СВОИ ЭМОЦИИ — СЧИТАЙ МАТЕМАТИЧЕСКОЕ ОЖИДАНИЕ!" : "ELIMINATE EMOTIONS — VERIFY EXPECTED VALUE!"}
+                  className="text-3xl sm:text-4xl font-black text-white leading-tight uppercase font-display"
+                />
               </h2>
-              <p className="text-zinc-400 leading-relaxed text-sm hover-target">
+              <p className="text-zinc-200 leading-relaxed text-sm hover-target">
                 {isRu 
                   ? "Наша вкладка «Трейдинг» — это не просто таблица сделок, это инструмент валидации вашего торгового плана. Она объединяет подробный торговый журнал с симулятором Монте-Карло. Вместо надежд вы получаете сухие цифры: вероятность уйти в просадку, влияние комиссии брокера и точный шанс пройти обе фазы проп-челленджа при риске 1%."
                   : "Our Trading section is a workbench to validate your statistical edge. It integrates a trade journal with a path-dependent Monte Carlo simulation engine. Instead of blind assumptions, you get verified statistics: maximum drawdown probability, broker slippage impact, and the exact odds of passing prop challenges."}
               </p>
-              <div className="space-y-3 font-mono text-xs text-zinc-500">
+              <div className="space-y-3 font-mono text-xs text-zinc-300">
                 <div className="flex gap-2 items-start"><CheckCircle2 className="w-4 h-4 text-red-500 shrink-0 mt-0.5" /> <p className="hover-target">{isRu ? "Симуляция 1000 эквити-кривых с учетом лимитов (maxWinsPerDay)" : "Simulating 1000 equity paths under strict maxWinsPerDay rules"}</p></div>
                 <div className="flex gap-2 items-start"><CheckCircle2 className="w-4 h-4 text-red-500 shrink-0 mt-0.5" /> <p className="hover-target">{isRu ? "Расчет Profit Factor и чистого EV на сделку" : "Calculates Profit Factor & exact Expected Value per trade"}</p></div>
                 <div className="flex gap-2 items-start"><CheckCircle2 className="w-4 h-4 text-red-500 shrink-0 mt-0.5" /> <p className="hover-target">{isRu ? "Экспорт ИИ-датасетов (JSON) для ваших нейросетей" : "AI-ready dataset exports (JSON) containing full algorithm specs"}</p></div>
@@ -1404,10 +1408,14 @@ export default function LoginPage() {
       {/* Feature Slider: Architecture of Consistency (Архитектура Системности) */}
       <section className="max-w-7xl mx-auto px-6 py-20 space-y-12">
         <div className="text-center space-y-3">
-          <h2 className="text-3xl font-black text-white uppercase tracking-wider font-display cursor-default hover-target">
-            {isRu ? "Архитектура Системности" : "Systems Architecture"}
+          <h2 className="text-3xl font-black text-white uppercase tracking-wider font-display cursor-default">
+            <OppositeText 
+              normal={isRu ? "Архитектура Системности" : "Systems Architecture"}
+              opposite={isRu ? "ПОДЧИНИ СЕБЯ ПРАВИЛАМ" : "SUBMIT TO STRUCTURAL RULES"}
+              className="text-3xl font-black text-white uppercase tracking-wider font-display"
+            />
           </h2>
-          <p className="text-zinc-500 max-w-xl mx-auto text-sm hover-target">
+          <p className="text-zinc-200 max-w-xl mx-auto text-sm hover-target">
             {isRu ? "Интерактивная демонстрация работы каждого отдельного модуля нашей операционной системы трейдера." : "Interactive showcase explaining the mechanics of each individual Trader OS module."}
           </p>
         </div>
@@ -1422,12 +1430,14 @@ export default function LoginPage() {
             
             <div className="space-y-6">
               <Badge className="bg-red-500/10 text-red-400 border-red-500/20 font-mono text-xs hover-target">{isRu ? "В разработке" : "In Development"}</Badge>
-              <h2 className="text-3xl sm:text-4xl font-black text-white leading-tight uppercase font-display cursor-default hover-target">
-                {isRu 
-                  ? "Мониторинг и исторический анализ новостного влияния" 
-                  : "Smart News Aggregator & Probability Forecasting"}
+              <h2 className="text-3xl sm:text-4xl font-black text-white leading-tight uppercase font-display cursor-default">
+                <OppositeText 
+                  normal={isRu ? "Мониторинг и исторический анализ новостного влияния" : "Smart News Aggregator & Probability Forecasting"}
+                  opposite={isRu ? "ХВАТИТ СЛИВАТЬ НА НОВОСТЯХ — АНАЛИЗИРУЙ РИСКИ!" : "STOP BLOWING ON NEWS — ANALYZE TAIL RISK!"}
+                  className="text-3xl sm:text-4xl font-black text-white leading-tight uppercase font-display"
+                />
               </h2>
-              <p className="text-zinc-400 leading-relaxed text-sm hover-target">
+              <p className="text-zinc-200 leading-relaxed text-sm hover-target">
                 {isRu 
                   ? "Экономические новости — главный источник непредвиденной волатильности. Скоро платформа будет автоматически мониторить экономический календарь, собирать данные и рассчитывать вероятность и силу влияния событий (CPI, FOMC, NFP) на выбранные вами активы. Анализ строится на основе исторических реакций цены за последние 5 лет."
                   : "Macroeconomic reports are the prime source of tail risk. Soon, the engine will automatically parse the Forex Factory calendar, gather reaction database tables, and calculate the mathematical probability and expected pip deviation of events (CPI, FOMC, NFP) on majors and Gold, mapped against 5 years of historical tick charts."}
