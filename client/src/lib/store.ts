@@ -45,7 +45,10 @@ export interface SimulationResult {
   probSL: number;
   probTP: number;
   profitFactor: number;
-  mathExpectation: number;
+  mathExpectation: number;       // Analytical EV per trade ($)
+  evPerDay: number;              // Empirical EV per trading day ($)
+  effectiveTradesPerDay: number; // Actual trades/day after limits
+  effectiveWinRate: number;      // Actual WR after maxWins cutoff
   streak3: number;
   streak5: number;
   streak10: number;

@@ -27,15 +27,19 @@ function runMonteCarloPortfolio(
   
   let totalDrawdowns = 0;
   let ruinCount = 0;
+  let propFailedCount = 0;
   let phase1Pass = 0;
   let phase2Pass = 0;
   let livePass = 0;
   let totalDaysToLive = 0;
   
-  let totalEmpiricalProfit = 0;
+  // ── Empirical trackers (shadow fixed risk for pure math edge) ──
+  let totalEmpiricalGrossWin = 0;
+  let totalEmpiricalGrossLoss = 0;
   let totalEmpiricalWins = 0;
   let totalEmpiricalLosses = 0;
   let totalActiveDays = 0;
+  let totalTradesExecuted = 0;
   
   // Calculate frequencies and metrics per asset
   const assetConfigs = assets.map(a => {
@@ -44,7 +48,20 @@ function runMonteCarloPortfolio(
   });
 
   const maxDays = Math.max(...assets.map(a => a.backtestDays), 1);
-  const avgTradesPerDay = assets.reduce((acc, a) => acc + (a.trades / (a.backtestDays || 1)), 0);
+
+  // ── Analytical EV per trade (weighted across all assets) ──
+  let analyticalEVPerTrade = 0;
+  let totalWeight = 0;
+  for (const a of assets) {
+    const risk$ = startingBalance * (a.riskPercent / 100);
+    const comm$ = risk$ * (commission / 100);
+    const wr = a.winRate / 100;
+    const evTrade = wr * (risk$ * a.rr - comm$) - (1 - wr) * (risk$ + comm$);
+    const weight = a.backtestDays > 0 ? a.trades / a.backtestDays : 0;
+    analyticalEVPerTrade += evTrade * weight;
+    totalWeight += weight;
+  }
+  if (totalWeight > 0) analyticalEVPerTrade /= totalWeight;
 
   // Global variables for overall stats
   let streak3Count = 0;
@@ -68,14 +85,14 @@ function runMonteCarloPortfolio(
       if (balance <= 0 || (mode === "PROP" && propState === "FAILED")) {
         const fillVal = balance <= 0 ? 0 : balance;
         path.push(fillVal);
-        continue; // Keep array same length
+        continue;
       }
       
       totalActiveDays++;
       let dayStartBalance = balance;
       let winsToday = 0;
       
-      // Generate trades for today
+      // Generate trades for today based on frequency
       let todayTrades: { asset: typeof assetConfigs[0] }[] = [];
       
       for (const asset of assetConfigs) {
@@ -95,32 +112,40 @@ function runMonteCarloPortfolio(
       // Shuffle today's trades randomly
       todayTrades.sort(() => Math.random() - 0.5);
       
+      // Apply maxTradesPerDay limit
       if (maxTradesPerDay > 0 && todayTrades.length > maxTradesPerDay) {
         todayTrades = todayTrades.slice(0, maxTradesPerDay);
       }
       
       // Execute trades
       for (const trade of todayTrades) {
+        // Apply maxWinsPerDay limit — stop trading after hitting TP target
         if (maxWinsPerDay > 0 && winsToday >= maxWinsPerDay) {
-          break; // Stop trading for the day after hitting Take-Profit limit
+          break;
         }
         
-        const riskAmount = riskType === "fixed" ? phaseStartBalance * (trade.asset.riskPercent / 100) : balance * (trade.asset.riskPercent / 100);
+        const riskAmount = riskType === "fixed"
+          ? phaseStartBalance * (trade.asset.riskPercent / 100)
+          : balance * (trade.asset.riskPercent / 100);
         const commAmount = riskAmount * (commission / 100);
         
         const isWin = (Math.random() * 100) <= trade.asset.winRate;
         
-        // Empirical tracking (Always as fixed risk from starting balance to get pure mathematical edge)
+        // ── Shadow empirical tracking (fixed risk from startingBalance for pure edge) ──
         const shadowRisk = startingBalance * (trade.asset.riskPercent / 100);
         const shadowComm = shadowRisk * (commission / 100);
+        totalTradesExecuted++;
         if (isWin) {
-          totalEmpiricalProfit += (shadowRisk * trade.asset.rr) - shadowComm;
+          const winAmount = shadowRisk * trade.asset.rr - shadowComm;
+          totalEmpiricalGrossWin += winAmount;
           totalEmpiricalWins++;
         } else {
-          totalEmpiricalProfit -= (shadowRisk + shadowComm);
+          const lossAmount = shadowRisk + shadowComm;
+          totalEmpiricalGrossLoss += lossAmount;
           totalEmpiricalLosses++;
         }
         
+        // ── Actual balance update ──
         if (isWin) {
           balance += (riskAmount * trade.asset.rr) - commAmount;
           currentStreak = 0;
@@ -137,13 +162,14 @@ function runMonteCarloPortfolio(
         const drawdown = ((maxBalance - balance) / maxBalance) * 100;
         if (drawdown > maxPathDrawdown) maxPathDrawdown = drawdown;
         
+        // ── PROP mode: check DD limits and phase transitions ──
         if (mode === "PROP") {
-          const dailyLossLimit = dayStartBalance * 0.95; // 5% Daily DD
-          const maxLossLimit = phaseStartBalance * 0.90; // 10% Total DD
+          const dailyLossLimit = dayStartBalance * 0.95; // 5% Daily DD (FTMO rule)
+          const maxLossLimit = phaseStartBalance * 0.90;  // 10% Total DD
           
           if (balance <= dailyLossLimit || balance <= maxLossLimit) {
             propState = "FAILED";
-            break; // Stop trading today
+            break;
           } else {
             if (propState === "PHASE_1" && balance >= phaseStartBalance * 1.08) {
               propState = "PHASE_2";
@@ -164,14 +190,14 @@ function runMonteCarloPortfolio(
       path.push(balance);
     }
     
+    // ── Post-path statistics ──
     if (mode === "PROP") {
+      if (propState === "FAILED") propFailedCount++;
       if (propState === "PHASE_2" || propState === "LIVE") phase1Pass++;
       if (propState === "LIVE") {
         phase2Pass++;
         livePass++;
-        if (passedLiveAtDay > 0) {
-          totalDaysToLive += passedLiveAtDay;
-        }
+        if (passedLiveAtDay > 0) totalDaysToLive += passedLiveAtDay;
       }
     }
     
@@ -179,13 +205,14 @@ function runMonteCarloPortfolio(
     totalDrawdowns += maxPathDrawdown;
     
     const finalBalance = path[path.length - 1];
-    if (finalBalance < startingBalance * 0.1) ruinCount++; // Risk of ruin for SELF
+    if (finalBalance < startingBalance * 0.1) ruinCount++;
     
     if (hit3) streak3Count++;
     if (hit5) streak5Count++;
     if (hit10) streak10Count++;
   }
   
+  // ── Sort paths and build chart data ──
   paths.sort((a, b) => a[a.length - 1] - b[b.length - 1]);
   const worstPath = paths[0];
   const medianPath = paths[Math.floor(NUM_PATHS / 2)];
@@ -201,32 +228,63 @@ function runMonteCarloPortfolio(
     });
   }
   
-  const empiricalEVPerDay = totalActiveDays > 0 ? (totalEmpiricalProfit / totalActiveDays) : 0;
-  const overallWinRate = (totalEmpiricalWins + totalEmpiricalLosses) > 0 
-    ? (totalEmpiricalWins / (totalEmpiricalWins + totalEmpiricalLosses)) * 100 
+  // ── Calculate clean statistics ──
+  
+  // Profit Factor = Gross Wins / Gross Losses
+  const profitFactor = totalEmpiricalGrossLoss > 0
+    ? totalEmpiricalGrossWin / totalEmpiricalGrossLoss
+    : Infinity;
+  
+  // Effective Win Rate (actual WR observed in simulation, affected by maxWinsPerDay cutoff)
+  const effectiveWinRate = totalTradesExecuted > 0
+    ? (totalEmpiricalWins / totalTradesExecuted) * 100
     : 0;
+  
+  // EV per trade (from empirical shadow tracking)  
+  const totalEmpiricalProfit = totalEmpiricalGrossWin - totalEmpiricalGrossLoss;
+  const avgIncomePerTrade = totalTradesExecuted > 0
+    ? totalEmpiricalProfit / totalTradesExecuted
+    : 0;
+  
+  // EV per trading day (empirical)
+  const evPerDay = totalActiveDays > 0 ? totalEmpiricalProfit / totalActiveDays : 0;
+  
+  // Effective trades per day (actual, after limits applied)
+  const effectiveTradesPerDay = totalActiveDays > 0
+    ? totalTradesExecuted / totalActiveDays
+    : 0;
+  
+  // Risk of Ruin: in PROP mode = % of FAILED paths; in SELF mode = % below 10% of starting
+  const riskOfRuin = mode === "PROP"
+    ? (propFailedCount / NUM_PATHS) * 100
+    : (ruinCount / NUM_PATHS) * 100;
   
   let avgDaysToLive = undefined;
   if (mode === "PROP" && livePass > 0) {
     avgDaysToLive = totalDaysToLive / livePass;
   }
   
-  let monthlyIncome = avgTradesPerDay > 0 ? empiricalEVPerDay * (365 / 12) : null;
-  let quarterlyIncome = avgTradesPerDay > 0 ? empiricalEVPerDay * (365 / 4) : null;
-  let halfYearlyIncome = avgTradesPerDay > 0 ? empiricalEVPerDay * (365 / 2) : null;
-  let yearlyIncome = avgTradesPerDay > 0 ? empiricalEVPerDay * 365 : null;
+  // Income projections: use 21 trading days/month (252/year standard)
+  const TRADING_DAYS_MONTH = 21;
+  const monthlyIncome = effectiveTradesPerDay > 0 ? evPerDay * TRADING_DAYS_MONTH : null;
+  const quarterlyIncome = monthlyIncome !== null ? monthlyIncome * 3 : null;
+  const halfYearlyIncome = monthlyIncome !== null ? monthlyIncome * 6 : null;
+  const yearlyIncome = monthlyIncome !== null ? monthlyIncome * 12 : null;
   
   return {
-    probSL: 100 - overallWinRate,
-    probTP: overallWinRate,
-    profitFactor: 0, 
-    mathExpectation: empiricalEVPerDay, // updated to use empirical EV
+    probSL: 100 - effectiveWinRate,
+    probTP: effectiveWinRate,
+    profitFactor,
+    mathExpectation: analyticalEVPerTrade,
+    evPerDay,
+    effectiveTradesPerDay,
+    effectiveWinRate,
     streak3: (streak3Count / NUM_PATHS) * 100,
     streak5: (streak5Count / NUM_PATHS) * 100,
     streak10: (streak10Count / NUM_PATHS) * 100,
     maxDrawdown: totalDrawdowns / NUM_PATHS,
-    riskOfRuin: (ruinCount / NUM_PATHS) * 100,
-    avgIncomePerTrade: empiricalEVPerDay, // This is now correctly EV per DAY
+    riskOfRuin,
+    avgIncomePerTrade,
     monthlyIncome,
     quarterlyIncome,
     halfYearlyIncome,
@@ -321,14 +379,15 @@ export function MonteCarloSimulator() {
   };
   
   const calcTotalTradesPerMonth = () => {
+    const TRADING_DAYS_MONTH = 21;
     const raw = assets.reduce((acc, a) => {
       const d = a.backtestDays;
       if (d <= 0) return acc;
-      return acc + ((a.trades / d) * (365 / 12));
+      return acc + ((a.trades / d) * TRADING_DAYS_MONTH);
     }, 0);
     if (maxTrades && maxTrades > 0) {
-       const dailyAvg = raw / (365/12);
-       if (dailyAvg > maxTrades) return maxTrades * (365 / 12);
+       const dailyAvg = raw / TRADING_DAYS_MONTH;
+       if (dailyAvg > maxTrades) return maxTrades * TRADING_DAYS_MONTH;
     }
     return raw;
   };
@@ -501,24 +560,55 @@ export function MonteCarloSimulator() {
       
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="p-4 bg-background/50 backdrop-blur border-white/5">
-          <p className="text-sm text-muted-foreground">{t.simulator.probSL || "Общий шанс SL"}</p>
+          <p className="text-sm text-muted-foreground">{t.simulator.probSL || "Эфф. шанс SL"}</p>
           <p className="text-2xl font-bold text-red-400">{res.probSL.toFixed(1)}%</p>
         </Card>
         <Card className="p-4 bg-background/50 backdrop-blur border-white/5">
-          <p className="text-sm text-muted-foreground">{t.simulator.probTP || "Общий шанс TP"}</p>
+          <p className="text-sm text-muted-foreground">{t.simulator.probTP || "Эфф. шанс TP"}</p>
           <p className="text-2xl font-bold text-green-400">{res.probTP.toFixed(1)}%</p>
         </Card>
         <Card className="p-4 bg-background/50 backdrop-blur border-white/5">
-          <p className="text-sm text-muted-foreground">Активов в портфеле</p>
-          <p className="text-2xl font-bold text-blue-400">{assetsList.length}</p>
+          <p className="text-sm text-muted-foreground">Profit Factor</p>
+          <p className={`text-2xl font-bold ${res.profitFactor >= 1.5 ? 'text-emerald-400' : res.profitFactor >= 1 ? 'text-yellow-400' : 'text-red-400'}`}>
+            {res.profitFactor === Infinity ? '∞' : res.profitFactor.toFixed(2)}
+          </p>
         </Card>
         <Card className="p-4 bg-background/50 backdrop-blur border-white/5">
           <p className="text-sm text-muted-foreground">{t.simulator.mathExpectation}</p>
           <p 
-            title={`${res.mathExpectation.toFixed(2)}$`}
+            title={`${res.mathExpectation.toFixed(2)}$ на сделку`}
             className="text-2xl font-bold text-yellow-400 cursor-help border-b border-dashed border-yellow-400/50 inline-block"
           >
-            {formatPct(res.mathExpectation, sb)} <span className="text-sm">в день</span>
+            {formatPct(res.mathExpectation, sb)} <span className="text-sm">/ сделка</span>
+          </p>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="p-4 bg-background/50 backdrop-blur border-white/5">
+          <p className="text-sm text-muted-foreground">EV в день</p>
+          <p 
+            title={`${(res.evPerDay || 0).toFixed(2)}$`}
+            className="text-2xl font-bold text-amber-400 cursor-help border-b border-dashed border-amber-400/50 inline-block"
+          >
+            {formatPct(res.evPerDay || 0, sb)}
+          </p>
+        </Card>
+        <Card className="p-4 bg-background/50 backdrop-blur border-white/5">
+          <p className="text-sm text-muted-foreground">Сделок в день</p>
+          <p className="text-2xl font-bold text-blue-400">{(res.effectiveTradesPerDay || 0).toFixed(2)}</p>
+        </Card>
+        <Card className="p-4 bg-background/50 backdrop-blur border-white/5">
+          <p className="text-sm text-muted-foreground">Активов</p>
+          <p className="text-2xl font-bold text-blue-400">{assetsList.length}</p>
+        </Card>
+        <Card className="p-4 bg-background/50 backdrop-blur border-white/5">
+          <p className="text-sm text-muted-foreground">EV на сделку</p>
+          <p 
+            title={`${res.avgIncomePerTrade.toFixed(2)}$`}
+            className="text-2xl font-bold text-emerald-400 cursor-help border-b border-dashed border-emerald-400/50 inline-block"
+          >
+            {res.avgIncomePerTrade.toFixed(2)}$
           </p>
         </Card>
       </div>
@@ -531,9 +621,7 @@ export function MonteCarloSimulator() {
             <div className="flex justify-between"><span>{t.simulator.streak5}:</span> <span>{res.streak5.toFixed(1)}%</span></div>
             <div className="flex justify-between"><span>{t.simulator.streak10}:</span> <span>{res.streak10.toFixed(1)}%</span></div>
             <div className="flex justify-between text-yellow-400 mt-2"><span>{t.simulator.maxDrawdown}:</span> <span>{res.maxDrawdown.toFixed(2)}%</span></div>
-            {!res.isPropMode && (
-              <div className="flex justify-between text-red-400"><span>{t.simulator.riskOfRuin}:</span> <span>{res.riskOfRuin.toFixed(2)}%</span></div>
-            )}
+            <div className="flex justify-between text-red-400"><span>{res.isPropMode ? 'Шанс слива (FAILED)' : t.simulator.riskOfRuin}:</span> <span>{res.riskOfRuin.toFixed(2)}%</span></div>
           </div>
         </Card>
         
@@ -621,7 +709,7 @@ export function MonteCarloSimulator() {
                     <div className="text-right">
                       <p className="text-xs text-zinc-500 uppercase tracking-widest mb-1 font-semibold">Сделок / Месяц</p>
                       <p className="text-3xl font-black text-white">
-                        {viewingSim.assets.reduce((acc, a) => acc + ((a.trades / (a.backtestDays || 1)) * (365 / 12)), 0).toFixed(1)}
+                        {viewingSim.assets.reduce((acc, a) => acc + ((a.trades / (a.backtestDays || 1)) * 21), 0).toFixed(1)}
                       </p>
                     </div>
                   </div>
@@ -688,7 +776,7 @@ export function MonteCarloSimulator() {
                     
                     <div className="flex justify-center items-center w-full">
                       <div className="flex-1 text-center border-r border-white/10 pr-8">
-                        <p className="text-zinc-400 text-sm uppercase tracking-widest mb-4 font-medium">Мат. Ожидание (EV) в день</p>
+                        <p className="text-zinc-400 text-sm uppercase tracking-widest mb-4 font-medium">EV на сделку</p>
                         <p className="text-6xl font-black text-yellow-400">{formatPct(viewingSim.results.mathExpectation, viewingSim.startingBalance)}</p>
                       </div>
                       <div className="flex-1 text-center pl-8">
