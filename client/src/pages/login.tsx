@@ -11,7 +11,8 @@ import {
   TrendingUp, Activity, BarChart3, Newspaper, 
   Calendar, ShieldAlert, Award, FileText, 
   CheckCircle2, ChevronRight, LayoutDashboard, 
-  Target, Timer, Lightbulb, Settings, Lock, X
+  Target, Timer, Lightbulb, Settings, Lock, X,
+  Terminal, AlertTriangle, Play
 } from "lucide-react";
 
 // ── Typewriter Text Effect ──────────────────────────────────────────────────
@@ -80,7 +81,7 @@ function CountUpStat({ value, suffix = "", duration = 1200 }: { value: number; s
 }
 
 // ── MirrorWord Component (Highlighted secret opposite words) ────────────────
-function MirrorWord({ normal, opposite, className = "" }: { normal: string; opposite: string; className?: string }) {
+function MirrorWord({ normal, opposite, className = "", style = {} }: { normal: string; opposite: string; className?: string; style?: React.CSSProperties }) {
   const containerRef = useRef<HTMLSpanElement>(null);
   const oppositeRef = useRef<HTMLSpanElement>(null);
 
@@ -106,8 +107,8 @@ function MirrorWord({ normal, opposite, className = "" }: { normal: string; oppo
       ref={containerRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      className={`relative select-none hover-target cursor-none overflow-hidden inline-block text-red-500 font-bold border-b border-dashed border-red-500/60 pb-0.5 px-1 hover:text-red-400 transition-colors ${className}`}
-      style={{ verticalAlign: "baseline" }}
+      className={`relative select-none hover-target cursor-none inline-block text-red-500 font-bold border-b border-dashed border-red-500/60 pb-0.5 px-1 hover:text-red-400 transition-colors ${className}`}
+      style={{ verticalAlign: "baseline", ...style }}
     >
       {/* Layer 1: Normal Word */}
       <span>
@@ -157,7 +158,7 @@ function OppositeText({ normal, opposite, className = "" }: { normal: string; op
       ref={containerRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      className={`relative select-none hover-target cursor-none overflow-hidden inline-block ${className}`}
+      className={`relative select-none hover-target cursor-none inline-block ${className}`}
       style={{ verticalAlign: "top" }}
     >
       {/* Layer 1: Normal text - inherits parent color to avoid light gray on white button bug */}
@@ -175,6 +176,63 @@ function OppositeText({ normal, opposite, className = "" }: { normal: string; op
         }}
       >
         <span className="w-full block">{opposite}</span>
+      </div>
+    </div>
+  );
+}
+
+// ── EasterEgg Component (Scattered chalk references with secret mirrors) ───
+interface EasterEggProps {
+  text: string;
+  oppositeText: string;
+  className?: string;
+  style?: React.CSSProperties;
+}
+
+function EasterEgg({ text, oppositeText, className = "", style = {} }: EasterEggProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const oppositeRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const container = containerRef.current;
+    const oppositeEl = oppositeRef.current;
+    if (!container || !oppositeEl) return;
+    
+    const rect = container.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    oppositeEl.style.clipPath = `circle(64px at ${x}px ${y}px)`;
+  };
+
+  const handleMouseLeave = () => {
+    const oppositeEl = oppositeRef.current;
+    if (!oppositeEl) return;
+    oppositeEl.style.clipPath = `circle(0px at 0px 0px)`;
+  };
+
+  return (
+    <div 
+      ref={containerRef}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      className={`hover-target text-white/10 font-mono text-[9px] uppercase border border-dashed border-white/15 p-3 rounded cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent select-none absolute ${className}`}
+      style={style}
+    >
+      {/* Layer 1: Faint default text */}
+      <div className="text-inherit">
+        {text}
+      </div>
+
+      {/* Layer 2: Revealed negative secret warning */}
+      <div 
+        ref={oppositeRef}
+        className="absolute inset-0 text-red-500 font-black bg-[#030304] flex items-center justify-center p-3 rounded text-center select-none pointer-events-none"
+        style={{
+          clipPath: `circle(0px at 0px 0px)`,
+          willChange: "clip-path",
+        }}
+      >
+        <span className="w-full text-white font-black text-center text-[9px] tracking-wide">{oppositeText}</span>
       </div>
     </div>
   );
@@ -790,6 +848,8 @@ interface ModuleTab {
 
 function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
   const [activeTab, setActiveTab] = useState(0);
+  const [terminalLog, setTerminalLog] = useState<string[]>(["[SYS] OS initialized.", "[SYS] Awaiting input..."]);
+  const [glitchTrigger, setGlitchTrigger] = useState(false);
   const isRu = lang === "ru";
 
   const tabs: ModuleTab[] = [
@@ -869,44 +929,93 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
 
   const currentTab = tabs[activeTab];
 
+  const handleTabChange = (idx: number) => {
+    setActiveTab(idx);
+    setGlitchTrigger(true);
+    setTimeout(() => setGlitchTrigger(false), 250);
+
+    const key = tabs[idx].id.toUpperCase();
+    const time = new Date().toLocaleTimeString();
+    setTerminalLog(prev => [
+      ...prev.slice(-3),
+      `[${time}] CALIBRATING ${key}...`,
+      `[${time}] ${key} MODULE LOADED [OK]`
+    ]);
+  };
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.8fr] gap-8 border border-white/5 rounded-3xl p-6 bg-zinc-900/40">
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.8fr] gap-8 border border-white/5 rounded-3xl p-6 bg-zinc-900/40 relative overflow-hidden">
       
+      {/* CRT Blinking Grid Lines Overlay inside showcase */}
+      <div className="absolute inset-0 scanlines pointer-events-none opacity-20" />
+
       {/* Sidebar selection */}
-      <div className="flex flex-row lg:flex-col overflow-x-auto lg:overflow-x-visible gap-2 pb-4 lg:pb-0 border-b lg:border-b-0 lg:border-r border-white/5 pr-0 lg:pr-4">
+      <div className="flex flex-row lg:flex-col overflow-x-auto lg:overflow-x-visible gap-2 pb-4 lg:pb-0 border-b lg:border-b-0 lg:border-r border-white/5 pr-0 lg:pr-4 relative z-10">
+        
+        {/* Systems Diagnostic Header */}
+        <div className="hidden lg:flex items-center gap-2 pb-3 mb-2 border-b border-white/5 font-mono text-[9px] text-zinc-500 uppercase tracking-widest">
+          <Activity className="w-3.5 h-3.5 text-red-500 animate-pulse" />
+          <span>{isRu ? "СТАТУС: АКТИВЕН" : "SYS: OPERATIONAL"}</span>
+        </div>
+
         {tabs.map((tab, idx) => {
           const Icon = tab.icon;
           const isActive = idx === activeTab;
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(idx)}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 shrink-0 text-left cursor-none ${
+              onClick={() => handleTabChange(idx)}
+              className={`flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 shrink-0 text-left cursor-none group ${
                 isActive 
-                  ? "bg-red-600/10 text-red-400 border border-red-500/20 font-bold" 
+                  ? "bg-red-600/10 text-red-400 border border-red-500/20 font-bold shadow-[0_0_15px_rgba(220,38,38,0.05)]" 
                   : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
               }`}
             >
-              <Icon className="w-4 h-4 shrink-0" />
-              <span className="text-xs uppercase tracking-wider font-display">
-                {isRu ? tab.titleRu : tab.titleEn}
-              </span>
+              <div className="flex items-center gap-3">
+                <Icon className={`w-4 h-4 shrink-0 transition-transform ${isActive ? 'scale-110 text-red-500' : 'group-hover:scale-105'}`} />
+                <span className="text-xs uppercase tracking-wider font-display">
+                  {isRu ? tab.titleRu : tab.titleEn}
+                </span>
+              </div>
+
+              {/* Glowing LED Status Light indicator */}
+              <span className={`w-1.5 h-1.5 rounded-full ml-3 ${
+                isActive ? "bg-red-500 animate-ping" : "bg-zinc-800"
+              }`} />
             </button>
           );
         })}
       </div>
 
       {/* Main active detail preview */}
-      <div className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr] gap-6 items-center">
-        <div className="space-y-4">
-          <h3 className="text-xl font-black text-white uppercase tracking-wider font-display">
+      <div className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr] gap-6 items-center relative z-10">
+        
+        <div className={`space-y-4 transition-all ${glitchTrigger ? 'blur-[1px] translate-x-[2px] opacity-75' : 'blur-0 translate-x-0 opacity-100'}`}>
+          <h3 className="text-xl font-black text-white uppercase tracking-wider font-display flex items-center gap-2">
+            <span className="w-2 h-2 bg-red-600 animate-pulse rounded-full" />
             {isRu ? currentTab.titleRu : currentTab.titleEn}
           </h3>
-          <p className="text-zinc-400 text-sm leading-relaxed">
+          <p className="text-zinc-400 text-sm leading-relaxed min-h-[70px]">
             {isRu ? currentTab.descRu : currentTab.descEn}
           </p>
+
+          {/* Interactive Shell Diagnostic Log */}
+          <div className="border border-white/5 bg-black/60 rounded-xl p-3.5 font-mono text-[9px] text-emerald-500 space-y-1 shadow-inner relative overflow-hidden">
+            <div className="absolute top-1 right-2 flex gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/20 animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/40 animate-pulse delay-100" />
+            </div>
+            <div className="flex items-center gap-1.5 border-b border-white/5 pb-1.5 mb-1.5 text-zinc-500">
+              <Terminal className="w-3.5 h-3.5 text-red-500" />
+              <span>DIAGNOSTICS_SHELL v1.0.4</span>
+            </div>
+            {terminalLog.map((log, i) => (
+              <div key={i} className="truncate">{log}</div>
+            ))}
+          </div>
         </div>
-        <div className="h-full flex items-center justify-center">
+
+        <div className={`h-full flex items-center justify-center transition-all ${glitchTrigger ? 'scale-[0.99] rotate-[-0.5deg]' : 'scale-100 rotate-0'}`}>
           <div className="w-full h-full max-w-[320px]">
             {currentTab.renderMockup()}
           </div>
@@ -1128,7 +1237,6 @@ function AuthModal({ isOpen, onClose, lang }: AuthModalProps) {
 export default function LoginPage() {
   const { t, lang } = useI18n();
   const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [hoverReady, setHoverReady] = useState(false);
   const isRu = lang === "ru";
 
   return (
@@ -1185,8 +1293,7 @@ export default function LoginPage() {
           display: inline-block;
         }
         
-        /* Hitbox expansions extend 35px in all directions. 
-           Calculated: 35px gap + 64px lens radius = 29px overlap at trigger start! */
+        /* Hitbox expansions extend 35px in all directions. */
         .hover-target::before {
           content: '';
           position: absolute;
@@ -1296,73 +1403,39 @@ export default function LoginPage() {
       {/* Trailing Inverting Circle Cursor */}
       <CustomCursor />
 
-      {/* Background Chalk Trading Easter Eggs (Scattered & Layered) */}
+      {/* Background Chalk Trading Easter Eggs (Scattered & Layered with scan mirror overlays) */}
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden select-none">
         {/* Row 1 */}
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-4deg] absolute top-[8%] left-[5%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
-          [ORDER BLOCK - 15m]
-        </div>
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-12deg] absolute top-[8%] left-[45%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
-          [Discipline &gt; Talent]
-        </div>
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[6deg] absolute top-[8%] left-[82%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
-          [Liq Pool ⬇]
-        </div>
+        <EasterEgg text="[ORDER BLOCK - 15m]" oppositeText="[INSTITUTIONAL BUY ZONE]" className="top-[8%] left-[4%]" />
+        <EasterEgg text="[Discipline > Talent]" oppositeText="[90% FAIL DUE TO EGO]" className="top-[8%] left-[45%] rotate-[-4deg]" />
+        <EasterEgg text="[Liq Pool ⬇]" oppositeText="[RETAIL STOP LOSS HUNT]" className="top-[8%] left-[82%] rotate-[6deg]" />
 
         {/* Row 2 */}
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[8deg] absolute top-[28%] left-[3%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
-          [Premium Array: 78.6% Fib]
-        </div>
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-3deg] absolute top-[24%] left-[42%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
-          [HTF Daily Bias: Bullish]
-        </div>
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-6deg] absolute top-[28%] left-[84%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
-          [Asia Session High Sweep]
-        </div>
+        <EasterEgg text="[Premium Array: 78.6% Fib]" oppositeText="[HIGH PROBABILITY SHORT]" className="top-[28%] left-[2%] rotate-[8deg]" />
+        <EasterEgg text="[HTF Daily Bias: Bullish]" oppositeText="[DO NOT FIGHT THE TREND]" className="top-[24%] left-[42%] rotate-[-3deg]" />
+        <EasterEgg text="[Asia Session High Sweep]" oppositeText="[FAKE OUT - SEEK SHORTS]" className="top-[28%] left-[84%] rotate-[-6deg]" />
 
         {/* Row 3 */}
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-8deg] absolute top-[48%] left-[5%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
-          [FVG / Fair Value Gap]
-        </div>
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[9deg] absolute top-[44%] left-[40%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
-          [Optimal Trade Entry: 70.5%]
-        </div>
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[3deg] absolute top-[48%] left-[85%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
-          [BOS / CHoCH]
-        </div>
+        <EasterEgg text="[FVG / Fair Value Gap]" oppositeText="[IMBALANCE WILL BE FILLED]" className="top-[48%] left-[3%] rotate-[-8deg]" />
+        <EasterEgg text="[Optimal Trade Entry: 70.5%]" oppositeText="[CONFLUENCE ZONE]" className="top-[44%] left-[40%] rotate-[9deg]" />
+        <EasterEgg text="[BOS / CHoCH]" oppositeText="[MARKET STRUCTURE SHIFT]" className="top-[48%] left-[85%] rotate-[3deg]" />
 
         {/* Row 4 */}
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-5deg] absolute top-[68%] left-[6%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
-          [No FOMO Allowed]
-        </div>
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-9deg] absolute top-[64%] left-[44%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
-          [Expected Value: E(X) &gt; 0]
-        </div>
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[4deg] absolute top-[68%] left-[82%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
-          [Volatility Warning: NFP]
-        </div>
+        <EasterEgg text="[No FOMO Allowed]" oppositeText="[WAIT FOR THE RETEST]" className="top-[68%] left-[4%] rotate-[-5deg]" />
+        <EasterEgg text="[Expected Value: E(X) > 0]" oppositeText="[MATH IS YOUR SHIELD]" className="top-[64%] left-[44%] rotate-[-9deg]" />
+        <EasterEgg text="[Volatility Warning: NFP]" oppositeText="[STAY CASH DURING RELEASE]" className="top-[68%] left-[82%] rotate-[4deg]" />
 
         {/* Row 5 */}
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-3deg] absolute top-[86%] left-[8%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
-          [Risk : Reward = 1 : 3.5]
-        </div>
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[11deg] absolute top-[82%] left-[41%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
-          [Standard Deviation: 2.5 Sigma]
-        </div>
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[5deg] absolute top-[86%] left-[80%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
-          [Premium / Discount]
-        </div>
+        <EasterEgg text="[Risk : Reward = 1 : 3.5]" oppositeText="[WIN RATE CAN BE 30%]" className="top-[86%] left-[6%] rotate-[-3deg]" />
+        <EasterEgg text="[Standard Deviation: 2.5 Sigma]" oppositeText="[MEAN REVERSION PROBABLE]" className="top-[82%] left-[41%] rotate-[11deg]" />
+        <EasterEgg text="[Premium / Discount]" oppositeText="[BUY LOW SELL HIGH ONLY]" className="top-[86%] left-[80%] rotate-[5deg]" />
 
-        {/* Extra scattered background indicators */}
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[4deg] absolute top-[94%] left-[2%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
-          [Drawdown Limit: -5% Daily]
-        </div>
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-7deg] absolute top-[92%] left-[46%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
-          [Plan the Trade. Trade the Plan.]
-        </div>
-        <div className="hover-target text-white/5 font-mono text-[9px] uppercase border border-dashed border-white/5 p-3 rounded rotate-[-6deg] absolute top-[94%] left-[85%] cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent">
-          [London Session Open: Killzone]
-        </div>
+        {/* Extra scattered background indicators - strictly outside main content */}
+        <EasterEgg text="[Drawdown Limit: -5% Daily]" oppositeText="[BLOWING ACCOUNT WARNING]" className="top-[94%] left-[2%] rotate-[4deg]" />
+        <EasterEgg text="[Plan the Trade. Trade the Plan.]" oppositeText="[NO IMPULSIVE ENTRIES]" className="top-[92%] left-[46%] rotate-[-7deg]" />
+        <EasterEgg text="[London Session Open: Killzone]" oppositeText="[HIGH VOLATILITY EXPANSION]" className="top-[94%] left-[85%] rotate-[-6deg]" />
+        <EasterEgg text="[Breaker Block Validation]" oppositeText="[SUPPORT BECOMES RESISTANCE]" className="top-[58%] left-[92%] rotate-[12deg]" />
+        <EasterEgg text="[Slippage Cost: -0.2 pips]" oppositeText="[AVOID MARKET ORDERS]" className="top-[78%] left-[91%] rotate-[-10deg]" />
       </div>
 
       {/* Header */}
@@ -1425,7 +1498,7 @@ export default function LoginPage() {
           </button>
 
           <div className="grid grid-cols-3 gap-6 pt-6 border-t border-white/10 w-full max-w-md">
-            <div>
+            <div className="space-y-1">
               <p className="text-2xl font-black text-white font-mono hover-target">
                 <CountUpStat value={0.0} suffix="%" />
               </p>
@@ -1441,7 +1514,7 @@ export default function LoginPage() {
                 )}
               </p>
             </div>
-            <div>
+            <div className="space-y-1">
               <p className="text-2xl font-black text-emerald-400 font-mono hover-target">
                 <CountUpStat value={100} suffix="%" />
               </p>
@@ -1457,7 +1530,7 @@ export default function LoginPage() {
                 )}
               </p>
             </div>
-            <div>
+            <div className="space-y-1">
               <p className="text-2xl font-black text-red-500 font-mono hover-target">
                 &lt;<CountUpStat value={2.0} suffix="%" />
               </p>
@@ -1566,9 +1639,7 @@ export default function LoginPage() {
 
             {/* News Teaser Container with overlay lock */}
             <div 
-              className="relative border border-white/10 rounded-3xl overflow-hidden shadow-2xl hover-target"
-              onMouseEnter={() => setHoverReady(true)}
-              onMouseLeave={() => setHoverReady(false)}
+              className="relative border border-white/10 rounded-3xl shadow-2xl hover-target"
             >
               {/* Actual mockup blurred */}
               <div className="blur-[5px] select-none pointer-events-none opacity-45">
@@ -1579,12 +1650,17 @@ export default function LoginPage() {
               <div className="absolute inset-0 flex flex-col justify-center items-center bg-black/85 z-20 p-6 text-center border border-red-500/35 rounded-3xl">
                 <div className="scanlines" />
                 <Lock className="w-12 h-12 text-red-500 animate-pulse mb-4 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
-                <h3 
-                  className="font-mono text-base font-bold text-red-500 tracking-[0.2em] uppercase transition-all duration-300 glitch-text" 
-                  style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '11px' }}
-                >
-                  {hoverReady ? (isRu ? "ВЫ ЕЩЕ НЕ ГОТОВЫ" : "YOU ARE NOT READY") : "COMING SOON"}
-                </h3>
+                
+                {/* Coming Soon MirrorWord glitch text */}
+                <div className="h-6 flex items-center justify-center">
+                  <MirrorWord 
+                    normal={isRu ? "СКОРО" : "COMING SOON"} 
+                    opposite={isRu ? "ВЫ ЕЩЕ НЕ ГОТОВЫ" : "YOU ARE NOT READY"} 
+                    className="font-mono text-xs font-bold text-red-500 tracking-[0.2em] uppercase glitch-text"
+                    style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '11px', borderBottom: 'none' }}
+                  />
+                </div>
+                
                 <p className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest mt-3 max-w-[280px] leading-relaxed">
                   {isRu 
                     ? "[СТАТУС: МОДЕЛИРОВАНИЕ ИСТОРИЧЕСКИХ ДАННЫХ В ПРОЦЕССЕ]" 
