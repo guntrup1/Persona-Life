@@ -80,45 +80,32 @@ function CountUpStat({ value, suffix = "", duration = 1200 }: { value: number; s
   );
 }
 
-// ── MirrorWord Component (Highlighted secret opposite words) ────────────────
+// ── MirrorWord Component (Grid-based, prevents cropping & shifts) ───────────
 function MirrorWord({ normal, opposite, className = "", style = {} }: { normal: string; opposite: string; className?: string; style?: React.CSSProperties }) {
   const containerRef = useRef<HTMLSpanElement>(null);
   const oppositeRef = useRef<HTMLSpanElement>(null);
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    const container = containerRef.current;
-    const oppositeEl = oppositeRef.current;
-    if (!container || !oppositeEl) return;
-    
-    const rect = container.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    oppositeEl.style.clipPath = `circle(64px at ${x}px ${y}px)`;
-  };
-
-  const handleMouseLeave = () => {
-    const oppositeEl = oppositeRef.current;
-    if (!oppositeEl) return;
-    oppositeEl.style.clipPath = `circle(0px at 0px 0px)`;
-  };
-
   return (
     <span 
       ref={containerRef}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      className={`relative select-none hover-target cursor-none inline-block text-red-500 font-bold border-b border-dashed border-red-500/60 pb-0.5 px-1 hover:text-red-400 transition-colors ${className}`}
-      style={{ verticalAlign: "baseline", ...style }}
+      className={`relative select-none hover-target cursor-none inline-grid grid-cols-1 grid-rows-1 justify-items-center items-center text-red-500 font-bold border-b border-dashed border-red-500/60 pb-0.5 px-1 hover:text-red-400 transition-colors ${className}`}
+      style={{ verticalAlign: "middle", ...style }}
     >
       {/* Layer 1: Normal Word */}
-      <span>
+      <span className="col-start-1 row-start-1 text-inherit">
         {normal}
       </span>
 
-      {/* Layer 2: Opposite Word (inverted by difference cursor to black-on-white) */}
+      {/* Invisible spacer for opposite word to reserve width if it is wider than normal word */}
+      <span className="col-start-1 row-start-1 opacity-0 pointer-events-none select-none uppercase font-black">
+        {opposite}
+      </span>
+
+      {/* Layer 2: Opposite Word (revealed inside difference cursor circle mask) */}
       <span 
         ref={oppositeRef}
-        className="absolute inset-0 text-white font-black bg-[#030304] flex items-center justify-center text-center select-none pointer-events-none"
+        data-lens-target="true"
+        className="absolute inset-0 col-start-1 row-start-1 text-white font-black bg-[#030304] flex items-center justify-center text-center select-none pointer-events-none"
         style={{
           clipPath: `circle(0px at 0px 0px)`,
           willChange: "clip-path",
@@ -130,45 +117,60 @@ function MirrorWord({ normal, opposite, className = "", style = {} }: { normal: 
   );
 }
 
-// ── Opposite Warning Hover Mask (Direct DOM, Buttery Smooth 60fps) ──────────
+// ── ActionButton Component (Sleek P5 Royal double border + cursor mask) ──────
+function ActionButton({ normal, opposite, onClick, className = "" }: { normal: string; opposite: string; onClick?: () => void; className?: string }) {
+  const containerRef = useRef<HTMLButtonElement>(null);
+  const oppositeRef = useRef<HTMLDivElement>(null);
+
+  return (
+    <button
+      ref={containerRef}
+      onClick={onClick}
+      className={`relative select-none hover-target cursor-none overflow-visible px-8 py-4 bg-[#0c0c0e] border border-white/25 text-white font-display font-black text-xs sm:text-sm uppercase tracking-widest rounded-xl shadow-[4px_4px_0_#dc2626] transition-all hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0_#dc2626] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0_#dc2626] flex items-center justify-center gap-2 ${className}`}
+    >
+      {/* Layer 1: Normal text */}
+      <div className="flex items-center gap-2 text-white">
+        <span>{normal}</span>
+        <ChevronRight className="w-4 h-4 text-red-500" />
+      </div>
+
+      {/* Layer 2: Opposite text (revealed inside difference cursor) */}
+      <div
+        ref={oppositeRef}
+        data-lens-target="true"
+        className="absolute inset-0 bg-[#030304] text-white font-black rounded-xl flex items-center justify-center gap-2 pointer-events-none select-none border border-white/20"
+        style={{
+          clipPath: "circle(0px at 0px 0px)",
+          willChange: "clip-path",
+        }}
+      >
+        <span>{opposite}</span>
+        <ChevronRight className="w-4 h-4 text-red-500" />
+      </div>
+    </button>
+  );
+}
+
+// ── OppositeText Component (Direct DOM, Buttery Smooth 60fps) ──────────────
 function OppositeText({ normal, opposite, className = "" }: { normal: string; opposite: string; className?: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const oppositeRef = useRef<HTMLDivElement>(null);
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    const container = containerRef.current;
-    const oppositeEl = oppositeRef.current;
-    if (!container || !oppositeEl) return;
-    
-    const rect = container.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
-    oppositeEl.style.clipPath = `circle(64px at ${x}px ${y}px)`;
-  };
-
-  const handleMouseLeave = () => {
-    const oppositeEl = oppositeRef.current;
-    if (!oppositeEl) return;
-    oppositeEl.style.clipPath = `circle(0px at 0px 0px)`;
-  };
-
   return (
     <div 
       ref={containerRef}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
       className={`relative select-none hover-target cursor-none inline-block ${className}`}
       style={{ verticalAlign: "top" }}
     >
-      {/* Layer 1: Normal text - inherits parent color to avoid light gray on white button bug */}
+      {/* Layer 1: Normal text - inherits parent color */}
       <div className="text-inherit">
         {normal}
       </div>
 
-      {/* Layer 2: Opposite warning. text-white inverts to text-black inside difference lens */}
+      {/* Layer 2: Opposite warning */}
       <div 
         ref={oppositeRef}
+        data-lens-target="true"
         className="absolute inset-0 text-white font-black bg-[#030304] select-none pointer-events-none text-[1.04em] tracking-wide text-left"
         style={{
           clipPath: `circle(0px at 0px 0px)`,
@@ -193,28 +195,9 @@ function EasterEgg({ text, oppositeText, className = "", style = {} }: EasterEgg
   const containerRef = useRef<HTMLDivElement>(null);
   const oppositeRef = useRef<HTMLDivElement>(null);
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    const container = containerRef.current;
-    const oppositeEl = oppositeRef.current;
-    if (!container || !oppositeEl) return;
-    
-    const rect = container.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    oppositeEl.style.clipPath = `circle(64px at ${x}px ${y}px)`;
-  };
-
-  const handleMouseLeave = () => {
-    const oppositeEl = oppositeRef.current;
-    if (!oppositeEl) return;
-    oppositeEl.style.clipPath = `circle(0px at 0px 0px)`;
-  };
-
   return (
     <div 
       ref={containerRef}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
       className={`hover-target text-white/10 font-mono text-[9px] uppercase border border-dashed border-white/15 p-3 rounded cursor-none pointer-events-auto hover:text-white hover:border-red-500/35 transition-all bg-transparent select-none absolute ${className}`}
       style={style}
     >
@@ -226,6 +209,7 @@ function EasterEgg({ text, oppositeText, className = "", style = {} }: EasterEgg
       {/* Layer 2: Revealed negative secret warning */}
       <div 
         ref={oppositeRef}
+        data-lens-target="true"
         className="absolute inset-0 text-red-500 font-black bg-[#030304] flex items-center justify-center p-3 rounded text-center select-none pointer-events-none"
         style={{
           clipPath: `circle(0px at 0px 0px)`,
@@ -238,7 +222,45 @@ function EasterEgg({ text, oppositeText, className = "", style = {} }: EasterEgg
   );
 }
 
-// ── P5 Royal Styled Logo (Animated) ─────────────────────────────────────────
+// ── LogoLetter Component (Logo letter box inverting PERSONA -> TRADERS) ──────
+interface LogoLetterProps {
+  normal: string;
+  opposite: string;
+  bgClass: string;
+  shadowClass: string;
+  jitterClass: string;
+}
+
+function LogoLetter({ normal, opposite, bgClass, shadowClass, jitterClass }: LogoLetterProps) {
+  const containerRef = useRef<HTMLSpanElement>(null);
+  const oppositeRef = useRef<HTMLSpanElement>(null);
+
+  return (
+    <span 
+      ref={containerRef}
+      className={`relative select-none hover-target cursor-none inline-block w-10 h-10 text-center font-display text-xl border border-black font-black transition-all ${bgClass} ${shadowClass} ${jitterClass}`}
+      style={{ lineHeight: "2.3rem" }} 
+    >
+      {/* Layer 1: Normal Letter */}
+      <span className="absolute inset-0 flex items-center justify-center text-inherit">{normal}</span>
+
+      {/* Layer 2: Opposite Letter (revealed inside difference cursor) */}
+      <span 
+        ref={oppositeRef}
+        data-lens-target="true"
+        className="absolute inset-0 text-white font-black bg-[#030304] flex items-center justify-center text-center select-none pointer-events-none"
+        style={{
+          clipPath: `circle(0px at 0px 0px)`,
+          willChange: "clip-path",
+        }}
+      >
+        <span className="w-full block text-white font-black text-center">{opposite}</span>
+      </span>
+    </span>
+  );
+}
+
+// ── P5 Royal Styled Logo (Deconstructed Letter Boxes PERSONA -> TRADERS) ─────
 function P5Logo() {
   const [jitter, setJitter] = useState(false);
 
@@ -250,29 +272,28 @@ function P5Logo() {
     return () => clearInterval(interval);
   }, []);
 
+  const letters = [
+    { normal: "P", opposite: "T", bg: "bg-red-600 text-white", shadow: "shadow-[3px_3px_0_#fff]", jitter: jitter ? "transform -rotate-12 skew-x-[-12deg]" : "transform -rotate-3 skew-x-[-6deg]" },
+    { normal: "E", opposite: "R", bg: "bg-zinc-950 text-white", shadow: "shadow-[-2px_3px_0_#ef4444]", jitter: jitter ? "transform rotate-12 skew-x-[12deg]" : "transform rotate-3 skew-x-[4deg]" },
+    { normal: "R", opposite: "A", bg: "bg-white text-black", shadow: "shadow-[3px_-2px_0_#000]", jitter: jitter ? "transform -rotate-12 skew-x-[-15deg]" : "transform -rotate-6 skew-x-[-8deg]" },
+    { normal: "S", opposite: "D", bg: "bg-red-600 text-white", shadow: "shadow-[2px_3px_0_#fff]", jitter: jitter ? "transform rotate-6 skew-x-[10deg]" : "transform rotate-2 skew-x-[6deg]" },
+    { normal: "O", opposite: "E", bg: "bg-zinc-950 text-white", shadow: "shadow-[-3px_-2px_0_#ef4444]", jitter: jitter ? "transform -rotate-6 skew-x-[-8deg]" : "transform -rotate-2 skew-x-[-2deg]" },
+    { normal: "N", opposite: "R", bg: "bg-white text-black", shadow: "shadow-[3px_3px_0_#000]", jitter: jitter ? "transform rotate-12 skew-x-[15deg]" : "transform rotate-6 skew-x-[8deg]" },
+    { normal: "A", opposite: "S", bg: "bg-red-600 text-white", shadow: "shadow-[-2px_3px_0_#fff]", jitter: jitter ? "transform -rotate-12 skew-x-[-10deg]" : "transform -rotate-3 skew-x-[-5deg]" }
+  ];
+
   return (
-    <div className="flex items-center gap-1 font-black select-none scale-90 md:scale-100 origin-left hover-target">
-      <span className={`bg-red-600 text-white px-2.5 py-1.5 font-display text-xl shadow-[3px_3px_0_#fff] border border-black font-black transition-all ${
-        jitter ? "transform -rotate-12 skew-x-[-12deg]" : "transform -rotate-3 skew-x-[-6deg]"
-      }`}>P</span>
-      <span className={`bg-zinc-950 text-white px-2.5 py-1.5 font-display text-xl shadow-[-2px_3px_0_#ef4444] border border-black font-black transition-all ${
-        jitter ? "transform rotate-12 skew-x-[12deg]" : "transform rotate-3 skew-x-[4deg]"
-      }`}>E</span>
-      <span className={`bg-white text-black px-2.5 py-1.5 font-display text-xl shadow-[3px_-2px_0_#000] border border-black font-black transition-all ${
-        jitter ? "transform -rotate-12 skew-x-[-15deg]" : "transform -rotate-6 skew-x-[-8deg]"
-      }`}>R</span>
-      <span className={`bg-red-600 text-white px-2.5 py-1.5 font-display text-xl shadow-[2px_3px_0_#fff] border border-black font-black transition-all ${
-        jitter ? "transform rotate-6 skew-x-[10deg]" : "transform rotate-2 skew-x-[6deg]"
-      }`}>S</span>
-      <span className={`bg-zinc-950 text-white px-2.5 py-1.5 font-display text-xl shadow-[-3px_-2px_0_#ef4444] border border-black font-black transition-all ${
-        jitter ? "transform -rotate-6 skew-x-[-8deg]" : "transform -rotate-2 skew-x-[-2deg]"
-      }`}>O</span>
-      <span className={`bg-white text-black px-2.5 py-1.5 font-display text-xl shadow-[3px_3px_0_#000] border border-black font-black transition-all ${
-        jitter ? "transform rotate-12 skew-x-[15deg]" : "transform rotate-6 skew-x-[8deg]"
-      }`}>N</span>
-      <span className={`bg-red-600 text-white px-2.5 py-1.5 font-display text-xl shadow-[-2px_3px_0_#fff] border border-black font-black transition-all ${
-        jitter ? "transform -rotate-12 skew-x-[-10deg]" : "transform -rotate-3 skew-x-[-5deg]"
-      }`}>A</span>
+    <div className="flex items-center gap-1 font-black select-none scale-90 md:scale-100 origin-left">
+      {letters.map((letObj, idx) => (
+        <LogoLetter
+          key={idx}
+          normal={letObj.normal}
+          opposite={letObj.opposite}
+          bgClass={letObj.bg}
+          shadowClass={letObj.shadow}
+          jitterClass={letObj.jitter}
+        />
+      ))}
       <span className="text-red-500 font-mono text-xs ml-3 tracking-[0.2em] font-black uppercase skew-x-[-12deg] drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]">Life OS</span>
     </div>
   );
@@ -1239,6 +1260,21 @@ export default function LoginPage() {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const isRu = lang === "ru";
 
+  // ── Global Coordinates Masking Coordinator (Zero lags, works 100% of the time) ──
+  useEffect(() => {
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      const targets = document.querySelectorAll('[data-lens-target="true"]');
+      targets.forEach(el => {
+        const rect = el.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        (el as HTMLElement).style.clipPath = `circle(64px at ${x}px ${y}px)`;
+      });
+    };
+    window.addEventListener("mousemove", handleGlobalMouseMove);
+    return () => window.removeEventListener("mousemove", handleGlobalMouseMove);
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#030304] text-zinc-100 font-sans relative overflow-x-hidden">
       
@@ -1486,16 +1522,14 @@ export default function LoginPage() {
 
         {/* CTA + Quick Stats Grid */}
         <div className="space-y-6 reveal-text delay-3 w-full flex flex-col items-center pt-2">
-          <button 
+          
+          {/* ActionButton with integrated proactive hover lens and custom red offset shadow */}
+          <ActionButton 
             onClick={() => setIsAuthOpen(true)}
-            className="px-8 py-4 bg-white text-zinc-950 font-display font-black text-sm uppercase tracking-widest rounded-2xl hover:bg-red-600 hover:text-white transition-all hover:scale-105 active:scale-95 cursor-none shadow-2xl flex items-center gap-2 group animate-bounce hover-target"
-          >
-            <OppositeText 
-              normal={isRu ? "ОЦИФРОВАТЬ ДИСЦИПЛИНУ" : "DIGITIZE CONSISTENCY"}
-              opposite={isRu ? "ХВАТИТ СЛИВАТЬ ДЕПОЗИТ" : "STOP BLOWING ACCOUNTS"}
-            />
-            <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-          </button>
+            normal={isRu ? "ОЦИФРОВАТЬ ДИСЦИПЛИНУ" : "DIGITIZE CONSISTENCY"}
+            opposite={isRu ? "ХВАТИТ СЛИВАТЬ ДЕПОЗИТ" : "STOP BLOWING ACCOUNTS"}
+            className="animate-bounce"
+          />
 
           <div className="grid grid-cols-3 gap-6 pt-6 border-t border-white/10 w-full max-w-md">
             <div className="space-y-1">
