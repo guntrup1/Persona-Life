@@ -854,6 +854,109 @@ function NewsCorrelationMockup({ lang }: { lang: "ru" | "en" }) {
   );
 }
 
+// ── News Monitor Mockup ──────────────────────────────────────────────────────
+function NewsMonitorMockup({ lang }: { lang: "ru" | "en" }) {
+  const isRu = lang === "ru";
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Simulated upcoming news events — times countdown in realtime
+  const baseNow = Date.now();
+  const events = [
+    { time: baseNow + (23 - tick) * 60000,  impact: "high",   name: isRu ? "ИПЦ (CPI) США" : "US CPI YoY",     curr: "USD", pair: "XAU/USD", actual: null,    forecast: "3.1%", prev: "3.4%" },
+    { time: baseNow + (47 - tick) * 60000,  impact: "high",   name: isRu ? "Заседание ФРС" : "FOMC Decision",  curr: "USD", pair: "EUR/USD", actual: null,    forecast: "5.50%", prev: "5.50%" },
+    { time: baseNow + (112 - tick) * 60000, impact: "medium", name: isRu ? "Индекс PMI" : "Services PMI",     curr: "EUR", pair: "EUR/USD", actual: null,    forecast: "52.4", prev: "51.9" },
+    { time: baseNow + (180 - tick) * 60000, impact: "low",    name: isRu ? "Запасы нефти" : "Crude Inventories", curr: "USD", pair: "WTI",    actual: null,    forecast: "-1.8M", prev: "+2.1M" },
+    { time: baseNow - 5 * 60000,            impact: "high",   name: isRu ? "NFP США" : "US NFP",              curr: "USD", pair: "USD/JPY", actual: "206K",  forecast: "185K", prev: "175K" },
+  ];
+
+  const formatCountdown = (ms: number) => {
+    if (ms < 0) return isRu ? "ВЫШЛО" : "RELEASED";
+    const m = Math.floor(ms / 60000);
+    const s = Math.floor((ms % 60000) / 1000);
+    if (m > 60) return `${Math.floor(m / 60)}h ${m % 60}m`;
+    return `${m}m ${String(s).padStart(2, "0")}s`;
+  };
+
+  const impactColor: Record<string, string> = {
+    high:   "text-red-400 border-red-500/50 bg-red-500/10",
+    medium: "text-amber-400 border-amber-500/50 bg-amber-500/10",
+    low:    "text-zinc-400 border-zinc-600/50 bg-zinc-700/10",
+  };
+  const impactDot: Record<string, string> = {
+    high: "bg-red-500", medium: "bg-amber-400", low: "bg-zinc-500",
+  };
+
+  return (
+    <div className="rounded-2xl border border-white/8 bg-[#060608] overflow-hidden font-mono text-xs">
+      {/* Header bar */}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/5 bg-black/40">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+          <span className="text-zinc-300 uppercase tracking-widest text-[10px] font-bold">
+            {isRu ? "ЭКОНОМИЧЕСКИЙ КАЛЕНДАРЬ" : "ECONOMIC CALENDAR"}
+          </span>
+        </div>
+        <span className="text-zinc-600 text-[10px]">
+          {new Date().toLocaleDateString(isRu ? "ru-RU" : "en-US", { weekday: "short", month: "short", day: "numeric" })}
+        </span>
+      </div>
+
+      {/* Column headers */}
+      <div className="grid grid-cols-[1fr_56px_72px_56px] gap-1 px-3 py-1.5 border-b border-white/5">
+        <span className="text-zinc-600 text-[9px] uppercase tracking-widest">{isRu ? "Событие" : "Event"}</span>
+        <span className="text-zinc-600 text-[9px] uppercase tracking-widest text-right">{isRu ? "До" : "In"}</span>
+        <span className="text-zinc-600 text-[9px] uppercase tracking-widest text-right">{isRu ? "Факт" : "Actual"}</span>
+        <span className="text-zinc-600 text-[9px] uppercase tracking-widest text-right">{isRu ? "Прогноз" : "Fcst"}</span>
+      </div>
+
+      {/* Events list */}
+      <div className="divide-y divide-white/4">
+        {events.map((ev, i) => {
+          const msLeft = ev.time - baseNow;
+          const released = msLeft < 0;
+          return (
+            <div
+              key={i}
+              className={`grid grid-cols-[1fr_56px_72px_56px] gap-1 items-center px-3 py-2 transition-colors ${released ? "opacity-60" : "hover:bg-white/3"}`}
+            >
+              <div className="flex items-center gap-1.5 min-w-0">
+                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${impactDot[ev.impact]} ${!released && ev.impact === "high" ? "animate-pulse" : ""}`} />
+                <div className="min-w-0">
+                  <span className="text-zinc-200 text-[10px] block truncate">{ev.name}</span>
+                  <span className={`text-[9px] px-1 rounded border ${impactColor[ev.impact]}`}>{ev.curr} · {ev.pair}</span>
+                </div>
+              </div>
+              <span className={`text-right text-[9px] ${released ? "text-zinc-600" : msLeft < 30 * 60000 ? "text-red-400 font-bold" : "text-zinc-400"}`}>
+                {formatCountdown(msLeft)}
+              </span>
+              <span className={`text-right text-[10px] font-bold ${ev.actual ? (parseFloat(ev.actual) > parseFloat(ev.forecast ?? "0") ? "text-emerald-400" : "text-red-400") : "text-zinc-600"}`}>
+                {ev.actual ?? "—"}
+              </span>
+              <span className="text-right text-[10px] text-zinc-500">{ev.forecast}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Footer note */}
+      <div className="px-4 py-2 border-t border-white/5 flex items-center justify-between">
+        <span className="text-zinc-600 text-[9px]">
+          {isRu ? "* Исторический анализ — в разработке" : "* Historical reaction analysis — coming soon"}
+        </span>
+        <span className="text-zinc-700 text-[9px] flex items-center gap-1">
+          <span className="w-1 h-1 rounded-full bg-emerald-500 inline-block animate-pulse" />
+          {isRu ? "LIVE" : "LIVE"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // ── Interactive Modules Slider (Architecture of Consistency) ────────────────
 interface ModuleTab {
   id: string;
@@ -961,6 +1064,17 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
       descRu: "Настройка личного торгового времени и часового пояса. Запрещает торговлю вне интервалов вашей сессии.",
       descEn: "Adjust trading hours and timezones. Block out chart execution settings outside your optimal session times.",
       renderMockup: () => <SettingsMockup lang={lang} />
+    },
+    {
+      id: "news",
+      icon: Newspaper,
+      titleRu: "Мониторинг Новостей",
+      titleEn: "News Monitor",
+      noteRu: "новости которые ты пропустил",
+      noteEn: "news you missed and got burned",
+      descRu: "Все ключевые макроэкономические события дня в одном месте. CPI, NFP, FOMC, GDP — время до релиза, валюты и уровень волатильности. В будущем — исторический анализ реакций.",
+      descEn: "All critical macro events for today in one place. CPI, NFP, FOMC, GDP — countdown, currencies affected, and volatility rating. Historical analysis of past reactions coming soon.",
+      renderMockup: () => <NewsMonitorMockup lang={lang} />
     }
   ];
 
@@ -1100,6 +1214,7 @@ function AuthModal({ isOpen, onClose, lang }: AuthModalProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const [showResend, setShowResend] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
@@ -1141,6 +1256,7 @@ function AuthModal({ isOpen, onClose, lang }: AuthModalProps) {
     setLoading(true);
     setShowResend(false);
     setResendDone(false);
+    setErrorMsg("");
 
     if (mode === "login") {
       const result = await login(email, password);
@@ -1148,6 +1264,7 @@ function AuthModal({ isOpen, onClose, lang }: AuthModalProps) {
         if (result.error.toLowerCase().includes("подтверди") || result.error.toLowerCase().includes("верификац") || result.error.toLowerCase().includes("verif")) {
           setShowResend(true);
         }
+        setErrorMsg(result.error);
         toast({ title: t.auth.errLogin, description: result.error, variant: "destructive" });
       } else {
         toast({ title: t.auth.welcomeBack });
@@ -1156,6 +1273,7 @@ function AuthModal({ isOpen, onClose, lang }: AuthModalProps) {
     } else {
       const result = await register(email, password, lang);
       if (result.error) {
+        setErrorMsg(result.error);
         toast({ title: t.auth.errReg, description: result.error, variant: "destructive" });
       } else {
         toast({ title: t.auth.created, description: t.auth.createdDesc });
@@ -1251,6 +1369,14 @@ function AuthModal({ isOpen, onClose, lang }: AuthModalProps) {
           >
             {loading ? "..." : mode === "login" ? t.auth.loginBtn : t.auth.registerBtn}
           </Button>
+
+          {/* Inline error display — always visible inside modal, no z-index issues */}
+          {errorMsg && (
+            <div className="flex items-start gap-2 mt-2 px-3 py-2.5 rounded-xl border border-red-500/30 bg-red-500/8 animate-in fade-in slide-in-from-top-1 duration-200">
+              <span className="text-red-400 mt-0.5 shrink-0">⚠</span>
+              <p className="text-red-300 text-xs font-mono leading-relaxed">{errorMsg}</p>
+            </div>
+          )}
         </form>
 
         {showResend && (
@@ -1299,17 +1425,30 @@ export default function LoginPage() {
 
   // ── Global Coordinates Masking Coordinator ──
   useEffect(() => {
+    let frameId = 0;
+    let mx = -9999, my = -9999;
+
     const handleGlobalMouseMove = (e: MouseEvent) => {
-      const targets = document.querySelectorAll('[data-lens-target="true"]');
-      targets.forEach(el => {
-        const rect = el.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        (el as HTMLElement).style.clipPath = `circle(54px at ${x}px ${y}px)`;
+      mx = e.clientX;
+      my = e.clientY;
+      if (frameId) return;
+      frameId = requestAnimationFrame(() => {
+        frameId = 0;
+        const targets = document.querySelectorAll('[data-lens-target="true"]');
+        targets.forEach(el => {
+          const rect = el.getBoundingClientRect();
+          const x = mx - rect.left;
+          const y = my - rect.top;
+          (el as HTMLElement).style.clipPath = `circle(54px at ${x}px ${y}px)`;
+        });
       });
     };
-    window.addEventListener("mousemove", handleGlobalMouseMove);
-    return () => window.removeEventListener("mousemove", handleGlobalMouseMove);
+
+    window.addEventListener("mousemove", handleGlobalMouseMove, { passive: true });
+    return () => {
+      window.removeEventListener("mousemove", handleGlobalMouseMove);
+      if (frameId) cancelAnimationFrame(frameId);
+    };
   }, []);
 
   return (
@@ -1358,11 +1497,6 @@ export default function LoginPage() {
           mix-blend-mode: difference;
           border: 1.5px solid rgba(220, 38, 38, 0.55);
           box-shadow: 0 0 0 1px rgba(255,255,255,0.15), 0 0 20px rgba(220,38,38,0.15);
-        }
-
-        /* Smooth lens reveal animation for all negative targets */
-        [data-lens-target="true"] {
-          transition: clip-path 55ms ease-out;
         }
 
         /* Hitbox expansion pseudo-element to trigger cursor scale-up early */
