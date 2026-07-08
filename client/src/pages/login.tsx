@@ -171,7 +171,7 @@ function OppositeText({ normal, opposite, className = "" }: { normal: string; op
       <div 
         ref={oppositeRef}
         data-lens-target="true"
-        className="absolute inset-0 text-white font-black bg-transparent select-none pointer-events-none text-[1.04em] tracking-wide text-left"
+        className="absolute inset-0 text-white font-black bg-[#030304] select-none pointer-events-none text-[1.04em] tracking-wide text-left"
         style={{
           clipPath: `circle(0px at 0px 0px)`,
           willChange: "clip-path",
@@ -1147,7 +1147,7 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
                   {/* School note negative annotation */}
                   <span
                     data-lens-target="true"
-                    className="text-red-300 font-mono italic bg-transparent select-none pointer-events-none whitespace-nowrap text-[10px] lowercase"
+                    className="text-red-300 font-mono italic bg-[#030304] select-none pointer-events-none whitespace-nowrap text-[10px] lowercase rounded-xl"
                     style={{
                       position: "absolute",
                       inset: 0,
@@ -1451,7 +1451,7 @@ export default function LoginPage() {
           const rect = el.getBoundingClientRect();
           const x = mx - rect.left;
           const y = my - rect.top;
-          (el as HTMLElement).style.clipPath = `circle(54px at ${x}px ${y}px)`;
+          (el as HTMLElement).style.clipPath = `circle(60px at ${x}px ${y}px)`;
         });
       });
     };
@@ -1510,23 +1510,16 @@ export default function LoginPage() {
             background 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        /* Active circle state — radial gradient gives soft feathered inversion */
+        /* Active circle state — clean ring, NO mix-blend-mode (clip-path handles text) */
         .custom-lens.lens-active {
           width: 120px;
           height: 120px;
-          background: radial-gradient(circle,
-            rgba(255,255,255,1) 0%,
-            rgba(255,255,255,0.95) 35%,
-            rgba(255,255,255,0.6) 60%,
-            rgba(255,255,255,0.15) 80%,
-            rgba(255,255,255,0) 100%
-          );
-          mix-blend-mode: difference;
-          border: none;
+          background: transparent;
+          border: 1.5px solid rgba(255,255,255,0.35);
           box-shadow:
-            0 0 30px 8px rgba(220,38,38,0.12),
-            0 0 60px 15px rgba(220,38,38,0.06),
-            inset 0 0 15px 2px rgba(255,255,255,0.08);
+            0 0 20px 4px rgba(220,38,38,0.15),
+            0 0 40px 10px rgba(220,38,38,0.06),
+            inset 0 0 20px 3px rgba(255,255,255,0.04);
         }
 
         /* Hitbox expansion pseudo-element to trigger cursor scale-up early */
