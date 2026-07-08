@@ -1494,26 +1494,39 @@ export default function LoginPage() {
           position: fixed;
           top: 0;
           left: 0;
-          width: 10px;
-          height: 10px;
+          width: 8px;
+          height: 8px;
           border-radius: 50%;
-          background-color: white;
-          box-shadow: 0 0 12px rgba(255,255,255,0.9);
+          background: radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(255,255,255,0.85) 60%, rgba(255,255,255,0) 100%);
+          box-shadow: 0 0 8px 2px rgba(255,255,255,0.7), 0 0 20px 4px rgba(220,38,38,0.25);
           pointer-events: none;
           z-index: 9999;
           transform: translate(-50%, -50%);
-          will-change: transform, width, height;
-          transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), height 0.25s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.25s;
+          will-change: transform, width, height, box-shadow;
+          transition:
+            width 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+            height 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+            box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+            background 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        /* Active circle state - mix-blend-mode difference allows inversion */
+        /* Active circle state — radial gradient gives soft feathered inversion */
         .custom-lens.lens-active {
-          width: 108px;
-          height: 108px;
-          background-color: white;
+          width: 120px;
+          height: 120px;
+          background: radial-gradient(circle,
+            rgba(255,255,255,1) 0%,
+            rgba(255,255,255,0.95) 35%,
+            rgba(255,255,255,0.6) 60%,
+            rgba(255,255,255,0.15) 80%,
+            rgba(255,255,255,0) 100%
+          );
           mix-blend-mode: difference;
-          border: 1.5px solid rgba(220, 38, 38, 0.55);
-          box-shadow: 0 0 0 1px rgba(255,255,255,0.15), 0 0 20px rgba(220,38,38,0.15);
+          border: none;
+          box-shadow:
+            0 0 30px 8px rgba(220,38,38,0.12),
+            0 0 60px 15px rgba(220,38,38,0.06),
+            inset 0 0 15px 2px rgba(255,255,255,0.08);
         }
 
         /* Hitbox expansion pseudo-element to trigger cursor scale-up early */
