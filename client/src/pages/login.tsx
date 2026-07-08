@@ -88,7 +88,7 @@ function MirrorWord({ normal, opposite, className = "", style = {} }: { normal: 
       style={{ verticalAlign: "middle", display: "inline-grid", gridTemplateColumns: "1fr", gridTemplateRows: "1fr", ...style }}
     >
       {/* Layer 1: Normal Word — occupies grid cell, sets width */}
-      <span style={{ gridArea: "1/1", visibility: "visible" }} className="text-inherit whitespace-nowrap">
+      <span data-lens-normal="true" style={{ gridArea: "1/1", visibility: "visible" }} className="text-inherit whitespace-nowrap">
         {normal}
       </span>
 
@@ -100,7 +100,7 @@ function MirrorWord({ normal, opposite, className = "", style = {} }: { normal: 
       {/* Layer 2: Opposite Word — absolutely fills the same grid cell, aligned identically to Layer 1 */}
       <span 
         data-lens-target="true"
-        className="text-white font-black bg-[#030304] select-none pointer-events-none whitespace-nowrap"
+        className="text-white font-black bg-transparent select-none pointer-events-none whitespace-nowrap"
         style={{
           position: "absolute",
           inset: 0,
@@ -129,7 +129,7 @@ function ActionButton({ normal, opposite, onClick, className = "" }: { normal: s
       className={`relative select-none hover-target cursor-none overflow-visible px-8 py-4 bg-[#0c0c0e] border border-white/25 text-white font-display font-black text-xs sm:text-sm uppercase tracking-widest rounded-xl shadow-[4px_4px_0_#dc2626] transition-all hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0_#dc2626] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0_#dc2626] flex items-center justify-center gap-2 ${className}`}
     >
       {/* Layer 1: Normal text */}
-      <div className="flex items-center gap-2 text-white">
+      <div data-lens-normal="true" className="flex items-center gap-2 text-white">
         <span>{normal}</span>
         <ChevronRight className="w-4 h-4 text-red-500" />
       </div>
@@ -138,7 +138,7 @@ function ActionButton({ normal, opposite, onClick, className = "" }: { normal: s
       <div
         ref={oppositeRef}
         data-lens-target="true"
-        className="absolute inset-0 bg-[#030304] text-white font-black rounded-xl flex items-center justify-center gap-2 pointer-events-none select-none border border-white/20"
+        className="absolute inset-0 bg-transparent text-white font-black rounded-xl flex items-center justify-center gap-2 pointer-events-none select-none border border-transparent"
         style={{
           clipPath: "circle(0px at 0px 0px)",
           willChange: "clip-path",
@@ -163,7 +163,7 @@ function OppositeText({ normal, opposite, className = "" }: { normal: string; op
       style={{ verticalAlign: "top" }}
     >
       {/* Layer 1: Normal text - inherits parent color */}
-      <div className="text-inherit">
+      <div data-lens-normal="true" className="text-inherit">
         {normal}
       </div>
 
@@ -171,7 +171,7 @@ function OppositeText({ normal, opposite, className = "" }: { normal: string; op
       <div 
         ref={oppositeRef}
         data-lens-target="true"
-        className="absolute inset-0 text-white font-black bg-[#030304] select-none pointer-events-none text-[1.04em] tracking-wide text-left"
+        className="absolute inset-0 text-white font-black bg-transparent select-none pointer-events-none text-[1.04em] tracking-wide text-left"
         style={{
           clipPath: `circle(0px at 0px 0px)`,
           willChange: "clip-path",
@@ -539,18 +539,10 @@ function CustomCursor() {
       lens.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0) translate(-50%, -50%)`;
     };
 
-    // Expand cursor on hovering targets (including H1, H2, H3, P, SPAN, LI, A, BUTTON)
+    // Expand cursor ONLY on hovering explicit negative/easter egg targets
     const handleMouseOver = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (target && (
-        target.tagName === "H1" || 
-        target.tagName === "H2" || 
-        target.tagName === "H3" || 
-        target.tagName === "P" || 
-        target.tagName === "SPAN" || 
-        target.tagName === "LI" || 
-        target.tagName === "A" || 
-        target.tagName === "BUTTON" || 
         target.classList.contains("hover-target") ||
         target.closest(".hover-target")
       )) {
@@ -1018,9 +1010,8 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
             >
               <div className="flex items-center gap-3">
                 <Icon className={`w-4 h-4 shrink-0 transition-transform ${isActive ? 'scale-110 text-red-500' : 'group-hover:scale-105'}`} />
-                {/* Module title with school-note annotation in negative lens */}
                 <span className="relative hover-target cursor-none" style={{ display: "inline-grid", gridTemplateColumns: "1fr", gridTemplateRows: "1fr" }}>
-                  <span style={{ gridArea: "1/1", visibility: "visible" }} className="text-xs uppercase tracking-wider font-display text-inherit whitespace-nowrap">
+                  <span data-lens-normal="true" style={{ gridArea: "1/1", visibility: "visible" }} className="text-xs uppercase tracking-wider font-display text-inherit whitespace-nowrap">
                     {isRu ? tab.titleRu : tab.titleEn}
                   </span>
                   {/* Spacer reserves width for the annotation if it is wider */}
@@ -1030,7 +1021,7 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
                   {/* School note negative annotation */}
                   <span
                     data-lens-target="true"
-                    className="text-red-300 font-mono italic bg-[#030304] select-none pointer-events-none whitespace-nowrap text-[10px] lowercase"
+                    className="text-red-300 font-mono italic bg-transparent select-none pointer-events-none whitespace-nowrap text-[10px] lowercase"
                     style={{
                       position: "absolute",
                       inset: 0,
@@ -1317,6 +1308,16 @@ export default function LoginPage() {
         // Use 50px radius — compact enough to feel like a precise reveal lens
         (el as HTMLElement).style.clipPath = `circle(50px at ${x}px ${y}px)`;
       });
+
+      const normals = document.querySelectorAll('[data-lens-normal="true"]');
+      normals.forEach(el => {
+        const rect = el.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const maskVal = `radial-gradient(circle 50px at ${x}px ${y}px, transparent 99%, black 100%)`;
+        (el as HTMLElement).style.webkitMaskImage = maskVal;
+        (el as HTMLElement).style.maskImage = maskVal;
+      });
     };
     window.addEventListener("mousemove", handleGlobalMouseMove);
     return () => window.removeEventListener("mousemove", handleGlobalMouseMove);
@@ -1554,7 +1555,7 @@ export default function LoginPage() {
           )}
         </h1>
         
-        <p className="text-zinc-200 text-sm md:text-base leading-relaxed max-w-xl reveal-text delay-2 hover-target">
+        <p className="text-zinc-200 text-sm md:text-base leading-relaxed max-w-xl reveal-text delay-2">
           {isRu ? (
             "Persona Life OS — это система декомпозиции целей и анализа личной эффективности, разработанная трейдерами для трейдеров. Мы убрали геймификацию и сфокусировались на жестких цифрах вашего поведения: времени чистого фокуса на графиках, торговых сессиях, выполнении рутинных привычек и чистый расчет матожидания."
           ) : (
@@ -1580,40 +1581,40 @@ export default function LoginPage() {
 
           <div className="grid grid-cols-3 gap-6 pt-6 border-t border-white/10 w-full max-w-md">
             <div className="space-y-1">
-              <p className="text-2xl font-black text-white font-mono hover-target">
+              <p className="text-2xl font-black text-white font-mono">
                 <CountUpStat value={0.0} suffix="%" />
               </p>
-              <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
+              <div className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
                 {isRu ? (
                   <MirrorWord normal="иллюзий" opposite="мечтаний" />
                 ) : (
                   <MirrorWord normal="illusions" opposite="delusions" />
                 )}
-              </p>
+              </div>
             </div>
             <div className="space-y-1">
-              <p className="text-2xl font-black text-emerald-400 font-mono hover-target">
+              <p className="text-2xl font-black text-emerald-400 font-mono">
                 <CountUpStat value={100} suffix="%" />
               </p>
-              <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
+              <div className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
                 {isRu ? (
                   <MirrorWord normal="чистая логика" opposite="холодный расчёт" />
                 ) : (
                   <MirrorWord normal="pure logic" opposite="cold calculus" />
                 )}
-              </p>
+              </div>
             </div>
             <div className="space-y-1">
-              <p className="text-2xl font-black text-red-500 font-mono hover-target">
+              <p className="text-2xl font-black text-red-500 font-mono">
                 &lt;<CountUpStat value={2.0} suffix="%" />
               </p>
-              <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
+              <div className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
                 {isRu ? (
                   <MirrorWord normal="риск руины" opposite="цена ошибки" />
                 ) : (
                   <MirrorWord normal="ruin risk" opposite="mistake toll" />
                 )}
-              </p>
+              </div>
             </div>
           </div>
         </div>
@@ -1640,15 +1641,15 @@ export default function LoginPage() {
                   </>
                 )}
               </h2>
-              <p className="text-zinc-200 leading-relaxed text-sm hover-target">
+              <p className="text-zinc-200 leading-relaxed text-sm">
                 {isRu 
                   ? "Наша вкладка «Трейдинг» — это не просто таблица сделок, это инструмент валидации вашего торгового плана. Она объединяет подробный торговый журнал с симулятором Монте-Карло. Вместо надежд вы получаете сухие цифры: вероятность уйти в просадку, влияние комиссии брокера и точный шанс пройти обе фазы проп-челленджа при риске 1%."
                   : "Our Trading section is a workbench to validate your statistical edge. It integrates a trade journal with a path-dependent Monte Carlo simulation engine. Instead of blind assumptions, you get verified statistics: maximum drawdown probability, broker slippage impact, and the exact odds of passing prop challenges."}
               </p>
               <div className="space-y-3 font-mono text-xs text-zinc-300">
-                <div className="flex gap-2 items-start"><CheckCircle2 className="w-4 h-4 text-red-500 shrink-0 mt-0.5" /> <p className="hover-target">{isRu ? "Симуляция 1000 эквити-кривых с учетом лимитов (maxWinsPerDay)" : "Simulating 1000 equity paths under strict maxWinsPerDay rules"}</p></div>
-                <div className="flex gap-2 items-start"><CheckCircle2 className="w-4 h-4 text-red-500 shrink-0 mt-0.5" /> <p className="hover-target">{isRu ? "Расчет Profit Factor и чистого EV на сделку" : "Calculates Profit Factor & exact Expected Value per trade"}</p></div>
-                <div className="flex gap-2 items-start"><CheckCircle2 className="w-4 h-4 text-red-500 shrink-0 mt-0.5" /> <p className="hover-target">{isRu ? "Экспорт ИИ-датасетов (JSON) для ваших нейросетей" : "AI-ready dataset exports (JSON) containing full algorithm specs"}</p></div>
+                <div className="flex gap-2 items-start"><CheckCircle2 className="w-4 h-4 text-red-500 shrink-0 mt-0.5" /> <p>{isRu ? "Симуляция 1000 эквити-кривых с учетом лимитов (maxWinsPerDay)" : "Simulating 1000 equity paths under strict maxWinsPerDay rules"}</p></div>
+                <div className="flex gap-2 items-start"><CheckCircle2 className="w-4 h-4 text-red-500 shrink-0 mt-0.5" /> <p>{isRu ? "Расчет Profit Factor и чистого EV на сделку" : "Calculates Profit Factor & exact Expected Value per trade"}</p></div>
+                <div className="flex gap-2 items-start"><CheckCircle2 className="w-4 h-4 text-red-500 shrink-0 mt-0.5" /> <p>{isRu ? "Экспорт ИИ-датасетов (JSON) для ваших нейросетей" : "AI-ready dataset exports (JSON) containing full algorithm specs"}</p></div>
               </div>
             </div>
 
@@ -1673,7 +1674,7 @@ export default function LoginPage() {
               </>
             )}
           </h2>
-          <p className="text-zinc-200 max-w-xl mx-auto text-sm hover-target">
+          <p className="text-zinc-200 max-w-xl mx-auto text-sm">
             {isRu ? "Интерактивная демонстрация работы каждого отдельного модуля нашей операционной системы трейдера." : "Interactive showcase explaining the mechanics of each individual Trader OS module."}
           </p>
         </div>
@@ -1687,7 +1688,7 @@ export default function LoginPage() {
           <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-12 lg:gap-20 items-center">
             
             <div className="space-y-6">
-              <Badge className="bg-red-500/10 text-red-400 border-red-500/20 font-mono text-xs hover-target">{isRu ? "В разработке" : "In Development"}</Badge>
+              <Badge className="bg-red-500/10 text-red-400 border-red-500/20 font-mono text-xs">{isRu ? "В разработке" : "In Development"}</Badge>
               <h2 className="text-3xl sm:text-4xl font-black text-white leading-tight uppercase font-display cursor-default">
                 {isRu ? (
                   <>
@@ -1699,7 +1700,7 @@ export default function LoginPage() {
                   </>
                 )}
               </h2>
-              <p className="text-zinc-200 leading-relaxed text-sm hover-target">
+              <p className="text-zinc-200 leading-relaxed text-sm">
                 {isRu 
                   ? "Экономические новости — главный источник непредвиденной волатильности. Скоро платформа будет автоматически мониторить экономический календарь, собирать данные и рассчитывать вероятность и силу влияния событий (CPI, FOMC, NFP) на выбранные вами активы. Анализ строится на основе исторических реакций цены за последние 5 лет."
                   : "Macroeconomic reports are the prime source of tail risk. Soon, the engine will automatically parse the Forex Factory calendar, gather reaction database tables, and calculate the mathematical probability and expected pip deviation of events (CPI, FOMC, NFP) on majors and Gold, mapped against 5 years of historical tick charts."}
@@ -1708,7 +1709,7 @@ export default function LoginPage() {
 
             {/* News Teaser Container with overlay lock */}
             <div 
-              className="relative border border-white/10 rounded-3xl shadow-2xl hover-target"
+              className="relative border border-white/10 rounded-3xl shadow-2xl"
             >
               {/* Actual mockup blurred */}
               <div className="blur-[5px] select-none pointer-events-none opacity-45">
