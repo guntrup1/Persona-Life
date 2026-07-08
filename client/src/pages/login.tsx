@@ -1474,13 +1474,18 @@ export default function LoginPage() {
           font-family: 'Outfit', sans-serif !important;
         }
 
-        body.landing-cursor {
-          cursor: none !important;
-        }
-        body.landing-cursor a, 
-        body.landing-cursor button, 
-        body.landing-cursor input, 
-        body.landing-cursor textarea {
+        body.landing-cursor,
+        body.landing-cursor *,
+        body.landing-cursor *::before,
+        body.landing-cursor *::after,
+        body.landing-cursor a,
+        body.landing-cursor button,
+        body.landing-cursor input,
+        body.landing-cursor textarea,
+        body.landing-cursor select,
+        body.landing-cursor label,
+        body.landing-cursor [role="button"],
+        body.landing-cursor [tabindex] {
           cursor: none !important;
         }
 
