@@ -82,36 +82,36 @@ function CountUpStat({ value, suffix = "", duration = 1200 }: { value: number; s
 
 // ── MirrorWord Component (Grid-based, prevents cropping & shifts) ───────────
 function MirrorWord({ normal, opposite, className = "", style = {} }: { normal: string; opposite: string; className?: string; style?: React.CSSProperties }) {
-  const containerRef = useRef<HTMLSpanElement>(null);
-  const oppositeRef = useRef<HTMLSpanElement>(null);
-
   return (
     <span 
-      ref={containerRef}
-      className={`relative select-none hover-target cursor-none inline-grid grid-cols-1 grid-rows-1 justify-items-center items-center text-red-500 font-bold border-b border-dashed border-red-500/60 pb-0.5 px-1 hover:text-red-400 transition-colors ${className}`}
-      style={{ verticalAlign: "middle", ...style }}
+      className={`relative select-none hover-target cursor-none text-red-500 font-bold border-b border-dashed border-red-500/60 pb-0.5 px-1 hover:text-red-400 transition-colors ${className}`}
+      style={{ verticalAlign: "middle", display: "inline-grid", gridTemplateColumns: "1fr", gridTemplateRows: "1fr", ...style }}
     >
-      {/* Layer 1: Normal Word */}
-      <span className="col-start-1 row-start-1 text-inherit">
+      {/* Layer 1: Normal Word — occupies grid cell, sets width */}
+      <span style={{ gridArea: "1/1", visibility: "visible" }} className="text-inherit whitespace-nowrap">
         {normal}
       </span>
 
-      {/* Invisible spacer for opposite word to reserve width if it is wider than normal word */}
-      <span className="col-start-1 row-start-1 opacity-0 pointer-events-none select-none uppercase font-black">
-        {opposite}
+      {/* Invisible spacer: reserves width for the wider of the two words */}
+      <span style={{ gridArea: "1/1", visibility: "hidden" }} className="pointer-events-none select-none uppercase font-black whitespace-nowrap">
+        {opposite.length > normal.length ? opposite : normal}
       </span>
 
-      {/* Layer 2: Opposite Word (revealed inside difference cursor circle mask) */}
+      {/* Layer 2: Opposite Word — absolutely fills the same grid cell, aligned identically to Layer 1 */}
       <span 
-        ref={oppositeRef}
         data-lens-target="true"
-        className="absolute inset-0 col-start-1 row-start-1 text-white font-black bg-[#030304] flex items-center justify-center text-center select-none pointer-events-none"
+        className="text-white font-black bg-[#030304] select-none pointer-events-none whitespace-nowrap"
         style={{
+          position: "absolute",
+          inset: 0,
           clipPath: `circle(0px at 0px 0px)`,
           willChange: "clip-path",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "flex-start",
         }}
       >
-        <span className="w-full block text-white font-black text-center">{opposite}</span>
+        {opposite}
       </span>
     </span>
   );
@@ -394,14 +394,15 @@ function SynthwaveCanvas() {
     const warpRadius = 200;
     const warpStrength = 28; // Push outward strength
 
-    const particles: { x: number; y: number; size: number; speed: number; opacity: number }[] = [];
-    for (let i = 0; i < 40; i++) {
+    const particles: { x: number; y: number; size: number; speed: number; opacity: number; hue: number }[] = [];
+    for (let i = 0; i < 120; i++) {
       particles.push({
         x: Math.random() * width,
         y: Math.random() * height,
-        size: Math.random() * 1.5 + 0.5,
-        speed: Math.random() * 0.2 + 0.1,
-        opacity: Math.random() * 0.2 + 0.1,
+        size: Math.random() * 2 + 0.3,
+        speed: Math.random() * 0.35 + 0.05,
+        opacity: Math.random() * 0.25 + 0.05,
+        hue: Math.random() < 0.2 ? 150 : 0, // 20% emerald, 80% red
       });
     }
 
@@ -499,7 +500,12 @@ function SynthwaveCanvas() {
         }
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(220, 38, 38, ${p.opacity})`;
+        // Red particles are main; emerald particles as accent
+        if (p.hue === 150) {
+          ctx.fillStyle = `rgba(52, 211, 153, ${p.opacity})`;
+        } else {
+          ctx.fillStyle = `rgba(220, 38, 38, ${p.opacity})`;
+        }
         ctx.fill();
       });
 
@@ -862,6 +868,8 @@ interface ModuleTab {
   icon: any;
   titleRu: string;
   titleEn: string;
+  noteRu: string;
+  noteEn: string;
   descRu: string;
   descEn: string;
   renderMockup: () => React.ReactNode;
@@ -879,6 +887,8 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
       icon: LayoutDashboard,
       titleRu: "Главный Хаб",
       titleEn: "Main Hub",
+      noteRu: "то, чего тебе не хватало",
+      noteEn: "what you were missing",
       descRu: "Панель мониторинга дня. Выводит активные сессии, сессии фокуса, задачи дисциплины и динамические круги прогресса.",
       descEn: "Cockpit of your day. Displays active trading sessions, focus minutes, discipline checklists, and progress metrics.",
       renderMockup: () => <HubMockup lang={lang} />
@@ -888,6 +898,8 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
       icon: CheckCircle2,
       titleRu: "Задачи и Рутина",
       titleEn: "Tasks & Routines",
+      noteRu: "то, что ты игнорировал",
+      noteEn: "what you kept ignoring",
       descRu: "Создавайте шаблоны повторяющихся действий (чек-листы подготовки к сессии, медитации) для жесткого следования торговому плану.",
       descEn: "Build routine templates (session preparation checklists, meditation) to secure disciplined, structural executions.",
       renderMockup: () => <TasksMockup lang={lang} />
@@ -897,6 +909,8 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
       icon: Target,
       titleRu: "Декомпозиция целей",
       titleEn: "Goals Decomposition",
+      noteRu: "то, куда ты не дошёл",
+      noteEn: "where you never arrived",
       descRu: "Связывайте годовые финансовые цели с месячными лимитами просадки и недельными шагами. Дисциплина подчиняется целям.",
       descEn: "Chain yearly financial goals to monthly drawdown budgets and weekly steps. Operational discipline meets target goals.",
       renderMockup: () => <GoalsMockup lang={lang} />
@@ -906,6 +920,8 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
       icon: Timer,
       titleRu: "Таймер Фокуса",
       titleEn: "Focus Timer",
+      noteRu: "время, которое ты тратил впустую",
+      noteEn: "time you wasted on noise",
       descRu: "Помодоро-таймер фиксирует время чистой концентрации на анализе графиков. Защищает от переутомления и спонтанных трейдов.",
       descEn: "Pomodoro Focus Timer logs chart concentration sessions, keeping you alert and preventing spontaneous trading entries.",
       renderMockup: () => <TimerMockup lang={lang} />
@@ -915,6 +931,8 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
       icon: TrendingUp,
       titleRu: "Журнал и Симулятор",
       titleEn: "Journal & Simulator",
+      noteRu: "сделки которые ты не записывал",
+      noteEn: "trades you never logged",
       descRu: "Загружайте статистику бэктеста и симулируйте 1000 путей эквити по методу Монте-Карло, вычисляя точный шанс прохождения проп-челленджей.",
       descEn: "Upload backtest metrics and run a 1000-path Monte Carlo simulator. Calculate exact odds of passing prop evaluations.",
       renderMockup: () => <TradingSimulatorMockup lang={lang} />
@@ -924,6 +942,8 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
       icon: Lightbulb,
       titleRu: "Банк Торговых Идей",
       titleEn: "Ideas Vault",
+      noteRu: "идеи что ты забыл проверить",
+      noteEn: "ideas you forgot to test",
       descRu: "Отделяйте мгновенные идеи и сетапы от реального исполнения. Сохраняйте торговые модели вне терминала для будущих тестов.",
       descEn: "Isolate immediate setup hypotheses from execution. File potential patterns outside the terminal for future validation.",
       renderMockup: () => <IdeasMockup lang={lang} />
@@ -933,6 +953,8 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
       icon: Calendar,
       titleRu: "Календарь Биасов",
       titleEn: "Bias Calendar",
+      noteRu: "дни когда ты ошибался в биасе",
+      noteEn: "days your bias was wrong",
       descRu: "Визуальная сетка истории вашего понимания рынка. Показывает точность утренних предвзятостей (Bias) и сделок по дням недели.",
       descEn: "A structural calendar tracking daily bias accuracy. Analyze weekly performance patterns and refine market contexts.",
       renderMockup: () => <CalendarMockup lang={lang} />
@@ -942,6 +964,8 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
       icon: Settings,
       titleRu: "Калибровка Сессий",
       titleEn: "Session Calibration",
+      noteRu: "время когда ты торговал не в своё окно",
+      noteEn: "when you traded outside your window",
       descRu: "Настройка личного торгового времени и часового пояса. Запрещает торговлю вне интервалов вашей сессии.",
       descEn: "Adjust trading hours and timezones. Block out chart execution settings outside your optimal session times.",
       renderMockup: () => <SettingsMockup lang={lang} />
@@ -994,8 +1018,30 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
             >
               <div className="flex items-center gap-3">
                 <Icon className={`w-4 h-4 shrink-0 transition-transform ${isActive ? 'scale-110 text-red-500' : 'group-hover:scale-105'}`} />
-                <span className="text-xs uppercase tracking-wider font-display">
-                  {isRu ? tab.titleRu : tab.titleEn}
+                {/* Module title with school-note annotation in negative lens */}
+                <span className="relative hover-target cursor-none" style={{ display: "inline-grid", gridTemplateColumns: "1fr", gridTemplateRows: "1fr" }}>
+                  <span style={{ gridArea: "1/1", visibility: "visible" }} className="text-xs uppercase tracking-wider font-display text-inherit whitespace-nowrap">
+                    {isRu ? tab.titleRu : tab.titleEn}
+                  </span>
+                  {/* Spacer reserves width for the annotation if it is wider */}
+                  <span style={{ gridArea: "1/1", visibility: "hidden" }} className="text-[10px] font-mono lowercase whitespace-nowrap pointer-events-none">
+                    {isRu ? tab.noteRu : tab.noteEn}
+                  </span>
+                  {/* School note negative annotation */}
+                  <span
+                    data-lens-target="true"
+                    className="text-red-300 font-mono italic bg-[#030304] select-none pointer-events-none whitespace-nowrap text-[10px] lowercase"
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      clipPath: "circle(0px at 0px 0px)",
+                      willChange: "clip-path",
+                      display: "flex",
+                      alignItems: "center",
+                    }}
+                  >
+                    {isRu ? tab.noteRu : tab.noteEn}
+                  </span>
                 </span>
               </div>
 
@@ -1268,7 +1314,8 @@ export default function LoginPage() {
         const rect = el.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
-        (el as HTMLElement).style.clipPath = `circle(64px at ${x}px ${y}px)`;
+        // Use 50px radius — compact enough to feel like a precise reveal lens
+        (el as HTMLElement).style.clipPath = `circle(50px at ${x}px ${y}px)`;
       });
     };
     window.addEventListener("mousemove", handleGlobalMouseMove);
@@ -1498,11 +1545,11 @@ export default function LoginPage() {
         <h1 className="text-4xl md:text-5xl lg:text-7.5xl font-black tracking-tight leading-none text-white font-display uppercase cursor-default reveal-text delay-1 max-w-3xl">
           {isRu ? (
             <>
-              Прекратите сливать из-за <MirrorWord normal="тильта" opposite="ЭМОЦИЙ" />. Оцифруйте <MirrorWord normal="дисциплину" opposite="СЕБЯ" />.
+              Прекратите сливать из-за <MirrorWord normal="тильта" opposite="потери" />. Оцифруйте <MirrorWord normal="дисциплину" opposite="характер" />.
             </>
           ) : (
             <>
-              Stop blowing accounts to <MirrorWord normal="tilt" opposite="EMOTIONS" />. Track your <MirrorWord normal="discipline" opposite="EDGE" />.
+              Stop blowing accounts to <MirrorWord normal="tilt" opposite="fear" />. Track your <MirrorWord normal="discipline" opposite="behavior" />.
             </>
           )}
         </h1>
@@ -1538,13 +1585,9 @@ export default function LoginPage() {
               </p>
               <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
                 {isRu ? (
-                  <>
-                    <MirrorWord normal="иллюзий" opposite="ХЛАМА" />
-                  </>
+                  <MirrorWord normal="иллюзий" opposite="мечтаний" />
                 ) : (
-                  <>
-                    <MirrorWord normal="illusions" opposite="TRASH" />
-                  </>
+                  <MirrorWord normal="illusions" opposite="delusions" />
                 )}
               </p>
             </div>
@@ -1554,13 +1597,9 @@ export default function LoginPage() {
               </p>
               <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
                 {isRu ? (
-                  <>
-                    <MirrorWord normal="чистая логика" opposite="БЕЗУПРЕЧНОСТЬ" />
-                  </>
+                  <MirrorWord normal="чистая логика" opposite="холодный расчёт" />
                 ) : (
-                  <>
-                    <MirrorWord normal="hard logic" opposite="PERFECTION" />
-                  </>
+                  <MirrorWord normal="pure logic" opposite="cold calculus" />
                 )}
               </p>
             </div>
@@ -1570,13 +1609,9 @@ export default function LoginPage() {
               </p>
               <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
                 {isRu ? (
-                  <>
-                    <MirrorWord normal="риск слива" opposite="КАПИТУЛЯЦИЯ" />
-                  </>
+                  <MirrorWord normal="риск руины" opposite="цена ошибки" />
                 ) : (
-                  <>
-                    <MirrorWord normal="ruin risk" opposite="DEATH" />
-                  </>
+                  <MirrorWord normal="ruin risk" opposite="mistake toll" />
                 )}
               </p>
             </div>
@@ -1597,11 +1632,11 @@ export default function LoginPage() {
               <h2 className="text-3xl sm:text-4xl font-black text-white leading-tight uppercase font-display cursor-default">
                 {isRu ? (
                   <>
-                    Раздел Трейдинг — оцифровка вашего <MirrorWord normal="математического ожидания" opposite="РЕАЛЬНОГО РИСКА" />
+                    Раздел Трейдинг — оцифровка вашего <MirrorWord normal="матожидания" opposite="настоящих рисков" />
                   </>
                 ) : (
                   <>
-                    Trading Section — Digitizing Your <MirrorWord normal="expected value math" opposite="REAL SLIPPAGE RISK" />
+                    Trading Section — Digitizing Your <MirrorWord normal="expected value" opposite="slippage reality" />
                   </>
                 )}
               </h2>
@@ -1630,11 +1665,11 @@ export default function LoginPage() {
           <h2 className="text-3xl font-black text-white uppercase tracking-wider font-display cursor-default">
             {isRu ? (
               <>
-                Архитектура <MirrorWord normal="Системности" opposite="ДИСЦИПЛИНЫ" />
+                Архитектура <MirrorWord normal="Системности" opposite="Дисциплины" />
               </>
             ) : (
               <>
-                Architecture of <MirrorWord normal="Consistency" opposite="DISCIPLINE" />
+                Architecture of <MirrorWord normal="Consistency" opposite="Discipline" />
               </>
             )}
           </h2>
@@ -1656,11 +1691,11 @@ export default function LoginPage() {
               <h2 className="text-3xl sm:text-4xl font-black text-white leading-tight uppercase font-display cursor-default">
                 {isRu ? (
                   <>
-                    Мониторинг и исторический анализ новостного <MirrorWord normal="влияния" opposite="БЕЗУМИЯ" />
+                    Мониторинг и исторический анализ новостного <MirrorWord normal="влияния" opposite="безумия" />
                   </>
                 ) : (
                   <>
-                    Monitoring and historical analysis of news <MirrorWord normal="impact factors" opposite="MADNESS OUTLETS" />
+                    Monitoring and historical analysis of news <MirrorWord normal="impact" opposite="madness" />
                   </>
                 )}
               </h2>
@@ -1685,13 +1720,13 @@ export default function LoginPage() {
                 <div className="scanlines" />
                 <Lock className="w-12 h-12 text-red-500 animate-pulse mb-4 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
                 
-                {/* Coming Soon MirrorWord glitch text */}
-                <div className="h-6 flex items-center justify-center">
+                {/* Coming Soon — always shows "COMING SOON" in English; opposite reveals localized warning in negative */}
+                <div className="h-8 flex items-center justify-center">
                   <MirrorWord 
-                    normal={isRu ? "СКОРО" : "COMING SOON"} 
-                    opposite={isRu ? "ВЫ ЕЩЕ НЕ ГОТОВЫ" : "YOU ARE NOT READY"} 
-                    className="font-mono text-xs font-bold text-red-500 tracking-[0.2em] uppercase glitch-text"
-                    style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '11px', borderBottom: 'none' }}
+                    normal="COMING SOON"
+                    opposite={isRu ? "ТЫ ЕЩЕ НЕ ГОТОВ" : "YOU ARE NOT READY"} 
+                    className="font-mono font-bold text-red-500 tracking-[0.2em] uppercase glitch-text"
+                    style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '10px', borderBottom: 'none' }}
                   />
                 </div>
                 
