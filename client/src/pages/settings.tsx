@@ -270,6 +270,19 @@ export default function SettingsPage() {
         >
           {saving ? t.settings.saving : t.settings.save}
         </Button>
+
+        {/* Contact Author */}
+        <a
+          href="https://t.me/TraderJey"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 w-full border border-border/60 hover:border-primary/40 text-muted-foreground hover:text-foreground font-display text-xs uppercase tracking-widest h-10 rounded-full transition-all hover:bg-primary/5"
+        >
+          <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current text-primary" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.17 13.667l-2.945-.924c-.64-.203-.652-.64.135-.954l11.57-4.461c.537-.194 1.006.131.964.893z"/>
+          </svg>
+          {lang === "ru" ? "Связаться с автором" : "Contact Author"}
+        </a>
       </div>
     </div>
   );

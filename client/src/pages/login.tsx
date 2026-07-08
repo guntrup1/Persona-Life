@@ -87,8 +87,8 @@ function MirrorWord({ normal, opposite, className = "", style = {} }: { normal: 
       className={`relative select-none hover-target cursor-none text-red-500 font-bold border-b border-dashed border-red-500/60 pb-0.5 px-1 hover:text-red-400 transition-colors ${className}`}
       style={{ verticalAlign: "middle", display: "inline-grid", gridTemplateColumns: "1fr", gridTemplateRows: "1fr", ...style }}
     >
-      {/* Layer 1: Normal Word — occupies grid cell, sets width */}
-      <span data-lens-normal="true" style={{ gridArea: "1/1", visibility: "visible" }} className="text-inherit whitespace-nowrap">
+      {/* Layer 1: Normal Word */}
+      <span style={{ gridArea: "1/1", visibility: "visible" }} className="text-inherit whitespace-nowrap">
         {normal}
       </span>
 
@@ -97,10 +97,10 @@ function MirrorWord({ normal, opposite, className = "", style = {} }: { normal: 
         {opposite.length > normal.length ? opposite : normal}
       </span>
 
-      {/* Layer 2: Opposite Word — absolutely fills the same grid cell, aligned identically to Layer 1 */}
+      {/* Layer 2: Opposite Word with solid bg to cover normal text inside the circle */}
       <span 
         data-lens-target="true"
-        className="text-white font-black bg-transparent select-none pointer-events-none whitespace-nowrap"
+        className="text-white font-black bg-[#030304] select-none pointer-events-none whitespace-nowrap"
         style={{
           position: "absolute",
           inset: 0,
@@ -129,16 +129,16 @@ function ActionButton({ normal, opposite, onClick, className = "" }: { normal: s
       className={`relative select-none hover-target cursor-none overflow-visible px-8 py-4 bg-[#0c0c0e] border border-white/25 text-white font-display font-black text-xs sm:text-sm uppercase tracking-widest rounded-xl shadow-[4px_4px_0_#dc2626] transition-all hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0_#dc2626] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0_#dc2626] flex items-center justify-center gap-2 ${className}`}
     >
       {/* Layer 1: Normal text */}
-      <div data-lens-normal="true" className="flex items-center gap-2 text-white">
+      <div className="flex items-center gap-2 text-white">
         <span>{normal}</span>
         <ChevronRight className="w-4 h-4 text-red-500" />
       </div>
 
-      {/* Layer 2: Opposite text (revealed inside difference cursor) */}
+      {/* Layer 2: Opposite text — solid bg covers normal text in circle */}
       <div
         ref={oppositeRef}
         data-lens-target="true"
-        className="absolute inset-0 bg-transparent text-white font-black rounded-xl flex items-center justify-center gap-2 pointer-events-none select-none border border-transparent"
+        className="absolute inset-0 bg-[#030304] text-white font-black rounded-xl flex items-center justify-center gap-2 pointer-events-none select-none"
         style={{
           clipPath: "circle(0px at 0px 0px)",
           willChange: "clip-path",
@@ -1166,7 +1166,7 @@ function AuthModal({ isOpen, onClose, lang }: AuthModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[500] flex items-center justify-center p-4" style={{ isolation: "isolate" }}>
       <div 
         className="absolute inset-0 bg-black/80 backdrop-blur-md cursor-none" 
         onClick={onClose} 
@@ -1297,7 +1297,7 @@ export default function LoginPage() {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const isRu = lang === "ru";
 
-  // ── Global Coordinates Masking Coordinator (Zero lags, works 100% of the time) ──
+  // ── Global Coordinates Masking Coordinator ──
   useEffect(() => {
     const handleGlobalMouseMove = (e: MouseEvent) => {
       const targets = document.querySelectorAll('[data-lens-target="true"]');
@@ -1305,18 +1305,7 @@ export default function LoginPage() {
         const rect = el.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
-        // Use 50px radius — compact enough to feel like a precise reveal lens
-        (el as HTMLElement).style.clipPath = `circle(50px at ${x}px ${y}px)`;
-      });
-
-      const normals = document.querySelectorAll('[data-lens-normal="true"]');
-      normals.forEach(el => {
-        const rect = el.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        const maskVal = `radial-gradient(circle 50px at ${x}px ${y}px, transparent 99%, black 100%)`;
-        (el as HTMLElement).style.webkitMaskImage = maskVal;
-        (el as HTMLElement).style.maskImage = maskVal;
+        (el as HTMLElement).style.clipPath = `circle(54px at ${x}px ${y}px)`;
       });
     };
     window.addEventListener("mousemove", handleGlobalMouseMove);
@@ -1363,12 +1352,17 @@ export default function LoginPage() {
 
         /* Active circle state - mix-blend-mode difference allows inversion */
         .custom-lens.lens-active {
-          width: 128px;
-          height: 128px;
+          width: 108px;
+          height: 108px;
           background-color: white;
           mix-blend-mode: difference;
-          border: 1px solid rgba(220, 38, 38, 0.3);
-          box-shadow: none;
+          border: 1.5px solid rgba(220, 38, 38, 0.55);
+          box-shadow: 0 0 0 1px rgba(255,255,255,0.15), 0 0 20px rgba(220,38,38,0.15);
+        }
+
+        /* Smooth lens reveal animation for all negative targets */
+        [data-lens-target="true"] {
+          transition: clip-path 55ms ease-out;
         }
 
         /* Hitbox expansion pseudo-element to trigger cursor scale-up early */
@@ -1525,7 +1519,19 @@ export default function LoginPage() {
       {/* Header */}
       <header className="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between border-b border-white/5 relative z-10">
         <P5Logo />
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          {/* Contact Author button */}
+          <a
+            href="https://t.me/TraderJey"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-4 py-2 border border-white/10 hover:border-white/25 text-zinc-400 hover:text-white font-display text-xs uppercase tracking-widest rounded-xl transition-all hover:scale-105 active:scale-95 cursor-none bg-white/5 hover:bg-white/10"
+          >
+            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.17 13.667l-2.945-.924c-.64-.203-.652-.64.135-.954l11.57-4.461c.537-.194 1.006.131.964.893z"/>
+            </svg>
+            {isRu ? "Автор" : "Author"}
+          </a>
           <button 
             onClick={() => setIsAuthOpen(true)}
             className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-display text-xs uppercase tracking-widest rounded-xl transition-all hover:scale-105 active:scale-95 cursor-none shadow-[0_0_15px_rgba(220,38,38,0.3)] font-bold"
