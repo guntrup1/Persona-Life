@@ -535,8 +535,28 @@ function CustomCursor() {
 
     document.body.classList.add("landing-cursor");
 
+    let hoverTargetRects: DOMRect[] = [];
+    const cacheRects = () => {
+      const els = document.querySelectorAll(".hover-target");
+      hoverTargetRects = Array.from(els).map(el => el.getBoundingClientRect());
+    };
+
+    // Initial cache + refresh on scroll/resize
+    setTimeout(cacheRects, 200);
+    window.addEventListener("resize", cacheRects, { passive: true });
+    window.addEventListener("scroll", cacheRects, { passive: true });
+
     const handleMouseMove = (e: MouseEvent) => {
       lens.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0) translate(-50%, -50%)`;
+
+      // Expand if cursor is within 80px of any hover-target center
+      const isNear = hoverTargetRects.some(rect => {
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        return Math.hypot(e.clientX - cx, e.clientY - cy) < 80;
+      });
+      if (isNear) lens.classList.add("lens-active");
+      else if (!lens.classList.contains("lens-active-hover")) lens.classList.remove("lens-active");
     };
 
     // Expand cursor ONLY on hovering explicit negative/easter egg targets
@@ -547,18 +567,21 @@ function CustomCursor() {
         target.closest(".hover-target")
       )) {
         lens.classList.add("lens-active");
+        lens.classList.add("lens-active-hover");
       } else {
-        lens.classList.remove("lens-active");
+        lens.classList.remove("lens-active-hover");
       }
     };
 
-    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mousemove", handleMouseMove, { passive: true });
     window.addEventListener("mouseover", handleMouseOver);
 
     return () => {
       document.body.classList.remove("landing-cursor");
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseover", handleMouseOver);
+      window.removeEventListener("resize", cacheRects);
+      window.removeEventListener("scroll", cacheRects);
     };
   }, []);
 
@@ -752,8 +775,8 @@ function TradingSimulatorMockup({ lang }: { lang: "ru" | "en" }) {
 
       <div className="text-[10px] text-zinc-500 leading-tight">
         {lang === 'ru' 
-          ? '* Текущие прогоны: слияние XAU/USD и GER40 при риске 1%. Учитывается лимит maxWinsPerDay = 1.'
-          : '* Active paths: XAU/USD & GER40 correlation simulation. 1% Risk. constraint: maxWinsPerDay = 1.'}
+          ? '* Текущие прогоны: слияние XAU/USD и GER40 при риске 1%.'
+          : '* Active paths: XAU/USD & GER40 correlation simulation at 1% risk per trade.'}
       </div>
     </div>
   );
@@ -1000,6 +1023,28 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
       renderMockup: () => <TasksMockup lang={lang} />
     },
     {
+      id: "trading",
+      icon: TrendingUp,
+      titleRu: "Торговля",
+      titleEn: "Trading",
+      noteRu: "сделки которые ты не записывал",
+      noteEn: "trades you never logged",
+      descRu: "Торговый журнал, календарь биасов и симулятор Монте-Карло в одном разделе. Загружайте статистику бэктеста и симулируйте 1000 путей эквити для расчёта шансов прохождения проп-челленджей.",
+      descEn: "Trade journal, bias calendar and Monte Carlo simulator in one section. Upload backtest stats and calculate exact odds of passing prop evaluations.",
+      renderMockup: () => <TradingSimulatorMockup lang={lang} />
+    },
+    {
+      id: "news",
+      icon: Newspaper,
+      titleRu: "Мониторинг Новостей",
+      titleEn: "News Monitor",
+      noteRu: "новости которые ты пропустил",
+      noteEn: "news you missed and got burned",
+      descRu: "Все ключевые макроэкономические события дня в одном месте. CPI, NFP, FOMC, GDP — время до релиза, валюты и уровень волатильности. В будущем — исторический анализ реакций.",
+      descEn: "All critical macro events for today in one place. CPI, NFP, FOMC, GDP — countdown, currencies affected, and volatility rating. Historical analysis of past reactions coming soon.",
+      renderMockup: () => <NewsMonitorMockup lang={lang} />
+    },
+    {
       id: "goals",
       icon: Target,
       titleRu: "Декомпозиция целей",
@@ -1009,28 +1054,6 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
       descRu: "Связывайте годовые финансовые цели с месячными лимитами просадки и недельными шагами. Дисциплина подчиняется целям.",
       descEn: "Chain yearly financial goals to monthly drawdown budgets and weekly steps. Operational discipline meets target goals.",
       renderMockup: () => <GoalsMockup lang={lang} />
-    },
-    {
-      id: "timer",
-      icon: Timer,
-      titleRu: "Таймер Фокуса",
-      titleEn: "Focus Timer",
-      noteRu: "время, которое ты тратил впустую",
-      noteEn: "time you wasted on noise",
-      descRu: "Помодоро-таймер фиксирует время чистой концентрации на анализе графиков. Защищает от переутомления и спонтанных трейдов.",
-      descEn: "Pomodoro Focus Timer logs chart concentration sessions, keeping you alert and preventing spontaneous trading entries.",
-      renderMockup: () => <TimerMockup lang={lang} />
-    },
-    {
-      id: "trading",
-      icon: TrendingUp,
-      titleRu: "Журнал и Симулятор",
-      titleEn: "Journal & Simulator",
-      noteRu: "сделки которые ты не записывал",
-      noteEn: "trades you never logged",
-      descRu: "Загружайте статистику бэктеста и симулируйте 1000 путей эквити по методу Монте-Карло, вычисляя точный шанс прохождения проп-челленджей.",
-      descEn: "Upload backtest metrics and run a 1000-path Monte Carlo simulator. Calculate exact odds of passing prop evaluations.",
-      renderMockup: () => <TradingSimulatorMockup lang={lang} />
     },
     {
       id: "ideas",
@@ -1044,15 +1067,15 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
       renderMockup: () => <IdeasMockup lang={lang} />
     },
     {
-      id: "calendar",
-      icon: Calendar,
-      titleRu: "Календарь Биасов",
-      titleEn: "Bias Calendar",
-      noteRu: "дни когда ты ошибался в биасе",
-      noteEn: "days your bias was wrong",
-      descRu: "Визуальная сетка истории вашего понимания рынка. Показывает точность утренних предвзятостей (Bias) и сделок по дням недели.",
-      descEn: "A structural calendar tracking daily bias accuracy. Analyze weekly performance patterns and refine market contexts.",
-      renderMockup: () => <CalendarMockup lang={lang} />
+      id: "timer",
+      icon: Timer,
+      titleRu: "Таймер Фокуса",
+      titleEn: "Focus Timer",
+      noteRu: "время, которое ты тратил впустую",
+      noteEn: "time you wasted on noise",
+      descRu: "Помодоро-таймер фиксирует время чистой концентрации на анализе графиков. Защищает от переутомления и спонтанных трейдов.",
+      descEn: "Pomodoro Focus Timer logs chart concentration sessions, keeping you alert and preventing spontaneous trading entries.",
+      renderMockup: () => <TimerMockup lang={lang} />
     },
     {
       id: "settings",
@@ -1064,17 +1087,6 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
       descRu: "Настройка личного торгового времени и часового пояса. Запрещает торговлю вне интервалов вашей сессии.",
       descEn: "Adjust trading hours and timezones. Block out chart execution settings outside your optimal session times.",
       renderMockup: () => <SettingsMockup lang={lang} />
-    },
-    {
-      id: "news",
-      icon: Newspaper,
-      titleRu: "Мониторинг Новостей",
-      titleEn: "News Monitor",
-      noteRu: "новости которые ты пропустил",
-      noteEn: "news you missed and got burned",
-      descRu: "Все ключевые макроэкономические события дня в одном месте. CPI, NFP, FOMC, GDP — время до релиза, валюты и уровень волатильности. В будущем — исторический анализ реакций.",
-      descEn: "All critical macro events for today in one place. CPI, NFP, FOMC, GDP — countdown, currencies affected, and volatility rating. Historical analysis of past reactions coming soon.",
-      renderMockup: () => <NewsMonitorMockup lang={lang} />
     }
   ];
 
