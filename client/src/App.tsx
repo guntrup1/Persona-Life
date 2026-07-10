@@ -571,7 +571,7 @@ function App() {
 
     const smoothScroll = () => {
       if (!activeElement) return;
-      const ease = 0.075; // Butter-smooth easing interpolation
+      const ease = 0.16; // Much more responsive initial catch-up with smooth rubbery deceleration
       const diff = targetY - currentY;
 
       if (Math.abs(diff) < 0.5) {
@@ -599,6 +599,13 @@ function App() {
         return;
       }
 
+      // Detect trackpads/smooth mice (fractional scrolling or very small deltas)
+      // to let browser handle them natively with full high-refresh-rate hardware acceleration.
+      const isTrackpad = Math.abs(e.deltaY) < 30 || (e.deltaY % 1 !== 0);
+      if (isTrackpad) {
+        return;
+      }
+
       const scrollParent = getScrollParent(target);
       if (!scrollParent) return;
 
@@ -615,7 +622,8 @@ function App() {
       }
 
       const maxScroll = scrollParent.scrollHeight - scrollParent.clientHeight;
-      targetY = Math.max(0, Math.min(maxScroll, targetY + e.deltaY * 1.15));
+      // Responsive scroll multiplier
+      targetY = Math.max(0, Math.min(maxScroll, targetY + e.deltaY * 1.05));
 
       if (!animationFrameId) {
         animationFrameId = requestAnimationFrame(smoothScroll);
