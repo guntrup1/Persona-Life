@@ -399,14 +399,27 @@ body::before {
 /* ═══════════════════════════════════════════
    SCROLLBAR
 ═══════════════════════════════════════════ */
-::-webkit-scrollbar { width: 3px; height: 3px; }
+html {
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--primary) / 0.4) transparent;
+}
+::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--primary) / 0.4);
-  border-radius: 0;
-  clip-path: polygon(0 0, calc(100% - 2px) 0, 100% 2px, 100% 100%, 0 100%);
+  background: hsl(var(--primary) / 0.35);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+  transition: background 0.2s;
 }
-::-webkit-scrollbar-thumb:hover { background: hsl(var(--primary)); }
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.7);
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  background-clip: content-box;
+  box-shadow: 0 0 6px hsl(var(--primary) / 0.3);
+}
 
 /* ═══════════════════════════════════════════
    CARD OVERRIDES — P5 sharp corners

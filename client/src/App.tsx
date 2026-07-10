@@ -548,6 +548,87 @@ function App() {
     }
   }, []);
 
+  // Global smooth wheel scroll logic
+  useEffect(() => {
+    let targetY = 0;
+    let currentY = 0;
+    let activeElement: HTMLElement | null = null;
+    let animationFrameId: number | null = null;
+
+    const getScrollParent = (node: HTMLElement | null): HTMLElement | null => {
+      if (node === null) return null;
+      if (node === document.body || node === document.documentElement) {
+        return document.documentElement;
+      }
+      const overflowY = window.getComputedStyle(node).overflowY;
+      const isScrollable = overflowY === 'auto' || overflowY === 'scroll';
+      const canScroll = node.scrollHeight > node.clientHeight;
+      if (isScrollable && canScroll) {
+        return node;
+      }
+      return getScrollParent(node.parentElement);
+    };
+
+    const smoothScroll = () => {
+      if (!activeElement) return;
+      const ease = 0.075; // Butter-smooth easing interpolation
+      const diff = targetY - currentY;
+
+      if (Math.abs(diff) < 0.5) {
+        activeElement.scrollTop = targetY;
+        animationFrameId = null;
+        activeElement = null;
+        return;
+      }
+
+      currentY += diff * ease;
+      activeElement.scrollTop = Math.round(currentY);
+      animationFrameId = requestAnimationFrame(smoothScroll);
+    };
+
+    const handleWheel = (e: WheelEvent) => {
+      const target = e.target as HTMLElement;
+      // Skip textareas, inputs, editable content, pinch zoom, or horizontal scroll
+      if (
+        target.tagName === "TEXTAREA" || 
+        target.tagName === "INPUT" || 
+        target.isContentEditable ||
+        e.ctrlKey || 
+        e.shiftKey
+      ) {
+        return;
+      }
+
+      const scrollParent = getScrollParent(target);
+      if (!scrollParent) return;
+
+      e.preventDefault();
+
+      if (activeElement !== scrollParent) {
+        if (animationFrameId) {
+          cancelAnimationFrame(animationFrameId);
+          animationFrameId = null;
+        }
+        activeElement = scrollParent;
+        currentY = scrollParent.scrollTop;
+        targetY = scrollParent.scrollTop;
+      }
+
+      const maxScroll = scrollParent.scrollHeight - scrollParent.clientHeight;
+      targetY = Math.max(0, Math.min(maxScroll, targetY + e.deltaY * 1.15));
+
+      if (!animationFrameId) {
+        animationFrameId = requestAnimationFrame(smoothScroll);
+      }
+    };
+
+    window.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      window.removeEventListener("wheel", handleWheel);
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    };
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
