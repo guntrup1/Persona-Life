@@ -442,7 +442,7 @@ export function MonteCarloSimulator() {
     const enrichedSession = {
       ...sim,
       algorithmSpecification: {
-        description: "Полная техническая и математическая спецификация алгоритма мультивалютного портфельного симулятора Монте-Карло для анализа ИИ / нейросетей.",
+        description: "Полная техническая и математическая спецификация алгоритма мультивалютного портфельного симулятора Монте-Карло для статистического анализа портфеля.",
         step1_FrequencyCalculation: {
           concept: "Превращение исторических бэктестов разной длительности в единую ежедневную частоту торговой активности.",
           formula: "Daily Frequency (freq) = Total Trades / Backtest Days",
@@ -456,7 +456,7 @@ export function MonteCarloSimulator() {
         step3_DailyLimitsExecution: {
           concept: "Применение дневных фильтров и лимитов торговой активности.",
           maxTradesPerDay: "Если сгенерированных сделок больше, чем maxTradesPerDay, массив обрезается до лимита.",
-          maxWinsPerDay: "Сделки дня выполняются последовательно. Если количество прибыльных сделок в этот день достигает maxWinsPerDay, торговля на сегодня прекращается, остальные сделки дня аннулируются.",
+          maxWinsPerDay: "Сделки дня выполняются последовательно. Если количество прибыльных сделок в этот день достигает лимита прибыльных сделок в день, торговля на сегодня прекращается, остальные сделки дня аннулируются.",
           balanceReference: "Каждая сделка рассчитывает риск в долларах от текущего баланса (если выбран динамический риск) или от баланса на начало текущей фазы (если выбран фиксированный риск)."
         },
         step4_PropAccountRules: {
@@ -1072,7 +1072,7 @@ export function MonteCarloSimulator() {
                             variant="outline" 
                             size="icon" 
                             onClick={() => handleDownloadJson(viewingSim)}
-                            title={t.simulator.downloadJson || "Скачать ИИ-датасет (JSON)"}
+                            title={t.simulator.downloadJson || "Скачать спецификацию (JSON)"}
                             className="bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/20 text-emerald-400 rounded-xl"
                           >
                             <Download className="w-4 h-4" />

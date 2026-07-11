@@ -1720,9 +1720,9 @@ export default function LoginPage() {
         
         <p className="text-zinc-200 text-sm md:text-base leading-relaxed max-w-xl reveal-text delay-2">
           {isRu ? (
-            "Persona Life OS — это система декомпозиции целей и анализа личной эффективности, разработанная трейдерами для трейдеров. Мы убрали геймификацию и сфокусировались на жестких цифрах вашего поведения: времени чистого фокуса на графиках, торговых сессиях, выполнении рутинных привычек и чистый расчет матожидания."
+            "Trade Persona — это инструмент самоанализа для трейдеров, которые стремятся быть больше, чем просто участниками рынка. Мы сфокусировались на детальном расчете вашего математического ожидания, мониторинге сессий, контроле эмоций, времени чистого фокуса и автоматическом учете рисков."
           ) : (
-            "Persona Life OS is an OKR decomposition and behavioral analytics engine crafted by a trader, for traders. We stripped gaming fluff to focus strictly on raw performance data: screen concentration, sessions log, routines execution, and Expected Value math."
+            "Trade Persona is a self-analytical workspace built for traders who aim to be more than just market participants. We focus strictly on validating your mathematical edge, session monitoring, emotional control, deep concentration tracking, and automated risk parameters."
           )}
         </p>
         
@@ -1810,9 +1810,9 @@ export default function LoginPage() {
                   : "Our Trading section is a workbench to validate your statistical edge. It integrates a trade journal with a path-dependent Monte Carlo simulation engine. Instead of blind assumptions, you get verified statistics: maximum drawdown probability, broker slippage impact, and the exact odds of passing prop challenges."}
               </p>
               <div className="space-y-3 font-mono text-xs text-zinc-300">
-                <div className="flex gap-2 items-start"><CheckCircle2 className="w-4 h-4 text-red-500 shrink-0 mt-0.5" /> <p>{isRu ? "Симуляция 1000 эквити-кривых с учетом лимитов (maxWinsPerDay)" : "Simulating 1000 equity paths under strict maxWinsPerDay rules"}</p></div>
-                <div className="flex gap-2 items-start"><CheckCircle2 className="w-4 h-4 text-red-500 shrink-0 mt-0.5" /> <p>{isRu ? "Расчет Profit Factor и чистого EV на сделку" : "Calculates Profit Factor & exact Expected Value per trade"}</p></div>
-                <div className="flex gap-2 items-start"><CheckCircle2 className="w-4 h-4 text-red-500 shrink-0 mt-0.5" /> <p>{isRu ? "Экспорт ИИ-датасетов (JSON) для ваших нейросетей" : "AI-ready dataset exports (JSON) containing full algorithm specs"}</p></div>
+                <div className="flex gap-2 items-start"><CheckCircle2 className="w-4 h-4 text-red-500 shrink-0 mt-0.5" /> <p>{isRu ? "Симуляция 1000 вариантов развития эквити с учетом дневных ограничений" : "Simulation of 1000 equity paths with daily limits accounted for"}</p></div>
+                <div className="flex gap-2 items-start"><CheckCircle2 className="w-4 h-4 text-red-500 shrink-0 mt-0.5" /> <p>{isRu ? "Точный расчет математического ожидания и фактора прибыли" : "Precise calculation of profit factor and expected value"}</p></div>
+                <div className="flex gap-2 items-start"><CheckCircle2 className="w-4 h-4 text-red-500 shrink-0 mt-0.5" /> <p>{isRu ? "Экспорт торговой статистики в формат JSON для внешнего анализа" : "Export trade statistics to JSON format for custom analysis"}</p></div>
               </div>
             </div>
 
