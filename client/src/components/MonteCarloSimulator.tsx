@@ -442,25 +442,42 @@ export function MonteCarloSimulator() {
     const enrichedSession = {
       ...sim,
       algorithmSpecification: {
-        description: "Полная техническая и математическая спецификация алгоритма мультивалютного портфельного симулятора Монте-Карло для статистического анализа портфеля.",
+        description: "Полная техническая, математическая и алгоритмическая спецификация мультивалютного портфельного симулятора Монте-Карло для обучения ИИ, нейросетей и статистического моделирования.",
+        simulationFramework: {
+          modes: {
+            SELF: "Свободная торговля на личном счете. Риск разорения (Risk of Ruin) наступает при падении баланса ниже 10% от стартового.",
+            PROP: "Моделирование проп-челленджа (например, FTMO). Фаза 1: цель +8%. Фаза 2: цель +5%. Лимиты: дневная просадка 5% от баланса на начало дня, общая просадка 10% от стартового баланса фазы. Успех: переход на LIVE."
+          },
+          parametersApplied: {
+            startingBalance: sim.startingBalance,
+            riskType: sim.riskType,
+            commissionPercent: sim.commission,
+            maxTradesPerDay: sim.maxTradesPerDay || "unlimited",
+            maxWinsPerDay: sim.maxWinsPerDay || "unlimited"
+          }
+        },
         step1_FrequencyCalculation: {
-          concept: "Превращение исторических бэктестов разной длительности в единую ежедневную частоту торговой активности.",
+          concept: "Конвертация исторических бэктестов разной длительности в единую ежедневную частоту торговой активности.",
           formula: "Daily Frequency (freq) = Total Trades / Backtest Days",
-          notes: "Определяет вероятность того, что в любой случайный симуляционный день по данному активу произойдет хотя бы одна сделка."
+          notes: "freq определяет математическое ожидание количества сделок по данному активу в один торговый день."
         },
         step2_DailyTradeGeneration: {
-          concept: "Пошаговый генератор торговых дней (Time-Series) для одновременного моделирования нескольких активов.",
-          logic: "Для каждого дня симуляции (от 1 до MaxDays) для каждого актива генерируется количество сделок. Целая часть freq гарантирует сделки (integerTrades), дробная часть freq проверяется случайным числом: Math.random() < fractionalTrade.",
-          shuffling: "Если в один день сгенерировано несколько сделок по разным активам, массив сделок дня случайно перемешивается: todayTrades.sort(() => Math.random() - 0.5)."
+          concept: "Пошаговый генератор торговых дней (Time-Series) для мультивалютного моделирования.",
+          logic: "Для каждого дня (от 1 до MaxDays) для каждого актива генерируется количество сделок. Целая часть freq гарантирует сделки (integerTrades), дробная часть freq проверяется случайным числом: Math.random() < fractionalTrade.",
+          shuffling: "Сделки разных активов внутри одного дня случайно перемешиваются: todayTrades.sort(() => Math.random() - 0.5) для эмуляции случайной последовательности исполнения."
         },
         step3_DailyLimitsExecution: {
           concept: "Применение дневных фильтров и лимитов торговой активности.",
-          maxTradesPerDay: "Если сгенерированных сделок больше, чем maxTradesPerDay, массив обрезается до лимита.",
-          maxWinsPerDay: "Сделки дня выполняются последовательно. Если количество прибыльных сделок в этот день достигает лимита прибыльных сделок в день, торговля на сегодня прекращается, остальные сделки дня аннулируются.",
-          balanceReference: "Каждая сделка рассчитывает риск в долларах от текущего баланса (если выбран динамический риск) или от баланса на начало текущей фазы (если выбран фиксированный риск)."
+          maxTradesPerDayRule: "Если общее число сгенерированных сделок за день превышает maxTradesPerDay, массив обрезается до этого лимита.",
+          maxWinsPerDayRule: "Сделки дня выполняются последовательно. Если количество прибыльных сделок в текущий день достигает maxWinsPerDay, торговля на сегодня прекращается, остальные сделки дня аннулируются.",
+          riskCalculation: {
+            fixedRisk: "Risk Amount = Phase Start Balance * Risk Percent",
+            dynamicRisk: "Risk Amount = Current Balance * Risk Percent"
+          },
+          commissionDeduction: "Commission Amount = Risk Amount * Commission Percent. Чистый убыток = Risk + Commission. Чистая прибыль = Risk * RR - Commission."
         },
         step4_PropAccountRules: {
-          concept: "Эмуляция прохождения челленджей проп-компаний (например, FTMO).",
+          concept: "Эмуляция прохождения челленджей проп-компаний.",
           dailyDrawdownLimit: "Потеря более 5% от баланса на начало дня (dayStartBalance * 0.95) переводит статус прохождения в FAILED.",
           maxDrawdownLimit: "Потеря более 10% от стартового депозита текущей фазы (phaseStartBalance * 0.90) переводит статус в FAILED.",
           phase1Transition: "При достижении прибыли +8% от фазового баланса (Phase 1 Target), баланс сбрасывается на стартовый, начинается Phase 2.",
@@ -469,7 +486,7 @@ export function MonteCarloSimulator() {
         step5_StatisticalMetricsCalculation: {
           concept: "Сбор и валидация итоговых статистических параметров портфеля.",
           formulas: {
-            profitFactor: "Profit Factor = Total Gross Win / Total Gross Loss (Сумма всей чистой прибыли делится на сумму всех чистых убытков)",
+            profitFactor: "Profit Factor = Total Gross Win / Total Gross Loss",
             effectiveWinRate: "Effective Win Rate = (Total Wins / Total Executed Trades) * 100",
             avgIncomePerTrade: "Average Income Per Trade (EV на сделку) = Total Profit / Total Executed Trades",
             evPerDay: "EV Per Trading Day = Total Profit / Total Active Days",
@@ -477,6 +494,9 @@ export function MonteCarloSimulator() {
             riskOfRuin: "Для SELF: процент симуляций, где баланс упал < 10% стартового. Для PROP: процент симуляций со статусом FAILED.",
             projections: "Месячный доход = EV Per Trading Day * 21 торговый день. Квартальный = * 3, Полугодовой = * 6, Годовой = * 12."
           }
+        },
+        neuralNetworkGuidance: {
+          instructions: "Этот JSON-файл представляет собой полный датасет результатов Монте-Карло симуляции. Нейросети могут использовать эти данные для прогнозирования вероятности прохождения проп-аккаунтов, оптимизации риск-менеджмента, анализа корреляции параметров активов (Win Rate, RR, Frequency) и построения прогностических моделей кривой доходности."
         }
       }
     };
