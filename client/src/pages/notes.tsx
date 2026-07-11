@@ -471,7 +471,7 @@ export default function NotesPage() {
         <Tabs value={mainTab} onValueChange={setMainTab} className="w-full">
           <TabsList className="w-full bg-black/40 border border-white/5 mb-6">
             <TabsTrigger value="journal" className="flex-1">{t.simulator?.tabJournal || "Дневник сделок"}</TabsTrigger>
-            <TabsTrigger value="simulator" className="flex-1">{t.simulator?.tabSimulator || "Симулятор Монте-Карло"}</TabsTrigger>
+            <TabsTrigger value="simulator" className="flex-1">{t.simulator?.tabSimulator || "Симулятор исторических данных"}</TabsTrigger>
           </TabsList>
           <TabsContent value="journal" className="space-y-6 m-0">
         {/* Daily Bias Section */}

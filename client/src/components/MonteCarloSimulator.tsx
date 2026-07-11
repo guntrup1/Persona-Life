@@ -460,7 +460,7 @@ export function MonteCarloSimulator() {
     const enrichedSession = {
       ...sim,
       algorithmSpecification: {
-        description: "Полная техническая, математическая и алгоритмическая спецификация мультивалютного портфельного симулятора Монте-Карло для обучения ИИ, нейросетей и статистического моделирования.",
+        description: "Полная техническая, математическая и алгоритмическая спецификация мультивалютного портфельного симулятора исторических данных для обучения ИИ, нейросетей и статистического моделирования.",
         simulationFramework: {
           modes: {
             SELF: "Свободная торговля на личном счете. Риск разорения (Risk of Ruin) наступает при падении баланса ниже 10% от стартового.",
@@ -514,7 +514,7 @@ export function MonteCarloSimulator() {
           }
         },
         neuralNetworkGuidance: {
-          instructions: "Этот JSON-файл представляет собой полный датасет результатов Монте-Карло симуляции. Нейросети могут использовать эти данные для прогнозирования вероятности прохождения проп-аккаунтов, оптимизации риск-менеджмента, анализа корреляции параметров активов (Win Rate, RR, Frequency) и построения прогностических моделей кривой доходности."
+          instructions: "Этот JSON-файл представляет собой полный датасет результатов симуляции исторических данных. Нейросети могут использовать эти данные для прогнозирования вероятности прохождения проп-аккаунтов, оптимизации риск-менеджмента, анализа корреляции параметров активов (Win Rate, RR, Frequency) и построения прогностических моделей кривой доходности."
         }
       }
     };
@@ -917,7 +917,7 @@ export function MonteCarloSimulator() {
                     <Badge className={`text-sm px-3 py-1 font-bold tracking-widest uppercase leading-none h-auto flex items-center justify-center ${viewingSim.mode === 'PROP' ? 'bg-blue-500 text-white' : 'bg-zinc-700 text-white'}`}>
                       {viewingSim.mode}
                     </Badge>
-                    <span className="text-zinc-500 text-sm font-medium leading-none">Portfolio Monte-Carlo</span>
+                     <span className="text-zinc-500 text-sm font-medium leading-none">{lang === 'ru' ? 'Симулятор исторических данных' : 'Historical Data Simulator'}</span>
                   </div>
                 </div>
 

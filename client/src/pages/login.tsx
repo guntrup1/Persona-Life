@@ -737,7 +737,7 @@ function TradingSimulatorMockup({ lang }: { lang: "ru" | "en" }) {
     <div className="bg-[#0b0b0d] border border-white/10 rounded-3xl p-6 font-mono text-xs text-zinc-300 space-y-4 shadow-2xl relative overflow-hidden w-full">
       <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 blur-xl rounded-full" />
       <div className="flex justify-between items-center border-b border-white/5 pb-3">
-        <span className="text-zinc-500 font-bold uppercase tracking-wider font-display">MONTE-CARLO SIMULATOR</span>
+        <span className="text-zinc-500 font-bold uppercase tracking-wider font-display">{lang === 'ru' ? 'СИМУЛЯТОР ИСТОРИЧЕСКИХ ДАННЫХ' : 'HISTORICAL DATA SIMULATOR'}</span>
         <span className={`text-[10px] px-2 py-0.5 rounded font-black ${failed ? 'bg-red-500/20 text-red-400' : passed ? 'bg-emerald-500/20 text-emerald-400' : 'bg-yellow-500/10 text-yellow-400 animate-pulse'}`}>
           {failed ? (lang === 'ru' ? 'ПРОВАЛЕН' : 'FAILED') : passed ? (lang === 'ru' ? 'ПРОЙДЕН' : 'PASSED') : (lang === 'ru' ? 'СИМУЛЯЦИЯ...' : 'RUNNING...')}
         </span>
@@ -1029,8 +1029,8 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
       titleEn: "Trading",
       noteRu: "сделки которые ты не записывал",
       noteEn: "trades you never logged",
-      descRu: "Торговый журнал, календарь биасов и симулятор Монте-Карло в одном разделе. Загружайте статистику бэктеста и симулируйте 1000 путей эквити для расчёта шансов прохождения проп-челленджей.",
-      descEn: "Trade journal, bias calendar and Monte Carlo simulator in one section. Upload backtest stats and calculate exact odds of passing prop evaluations.",
+      descRu: "Торговый журнал, календарь биасов и симулятор исторических данных в одном разделе. Загружайте статистику бэктеста и моделируйте 1000 вариантов развития эквити для точного расчета мат. ожидания и шансов прохождения проп-челленджей.",
+      descEn: "Trade journal, bias calendar and historical data simulator in one section. Upload backtest stats and simulate 1000 equity paths to calculate mathematical edge and prop challenge odds.",
       renderMockup: () => <TradingSimulatorMockup lang={lang} />
     },
     {
@@ -1806,8 +1806,8 @@ export default function LoginPage() {
               </h2>
               <p className="text-zinc-200 leading-relaxed text-sm">
                 {isRu 
-                  ? "Наша вкладка «Трейдинг» — это не просто таблица сделок, это инструмент валидации вашего торгового плана. Она объединяет подробный торговый журнал с симулятором Монте-Карло. Вместо надежд вы получаете сухие цифры: вероятность уйти в просадку, влияние комиссии брокера и точный шанс пройти обе фазы проп-челленджа при риске 1%."
-                  : "Our Trading section is a workbench to validate your statistical edge. It integrates a trade journal with a path-dependent Monte Carlo simulation engine. Instead of blind assumptions, you get verified statistics: maximum drawdown probability, broker slippage impact, and the exact odds of passing prop challenges."}
+                  ? "Наша вкладка «Трейдинг» — это не просто таблица сделок, это инструмент валидации вашего торгового плана. Она объединяет подробный торговый журнал с симулятором исторических данных. Вместо надежд вы получаете подтвержденную математическую модель: вероятность уйти в просадку, влияние комиссии брокера и точный шанс пройти обе фазы проп-челленджа при заданном риске."
+                  : "Our Trading section is a workbench to validate your statistical edge. It integrates a trade journal with a path-dependent historical data simulation engine. Instead of blind assumptions, you get verified statistics: maximum drawdown probability, broker slippage impact, and the exact odds of passing prop challenges."}
               </p>
               <div className="space-y-3 font-mono text-xs text-zinc-300">
                 <div className="flex gap-2 items-start"><CheckCircle2 className="w-4 h-4 text-red-500 shrink-0 mt-0.5" /> <p>{isRu ? "Симуляция 1000 вариантов развития эквити с учетом дневных ограничений" : "Simulation of 1000 equity paths with daily limits accounted for"}</p></div>
