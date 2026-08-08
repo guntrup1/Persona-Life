@@ -19,7 +19,7 @@ import {
 import {
   Popover, PopoverContent, PopoverTrigger
 } from "@/components/ui/popover";
-import { CheckCircle, Circle, Plus, Trash2, RefreshCw, Repeat, Zap, Pencil, Clock, ChevronDown, ChevronRight, Hourglass, Milestone, GripVertical } from "lucide-react";
+import { CheckCircle, Circle, Plus, Trash2, RefreshCw, Repeat, Zap, Pencil, Clock, ChevronDown, ChevronUp, ChevronRight, Hourglass, Milestone, GripVertical } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/lib/i18n";
 import {
