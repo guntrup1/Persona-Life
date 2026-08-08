@@ -133,7 +133,7 @@ function AddTaskDialog({ onAdd, taskToEdit, open: externalOpen, onOpenChange }: 
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="font-display">
-            {taskToEdit ? "{t.tasks.editTask}" : "{t.tasks.newTask}"}
+            {taskToEdit ? t.tasks.editTask : t.tasks.newTask}
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -206,6 +206,7 @@ function AddTaskDialog({ onAdd, taskToEdit, open: externalOpen, onOpenChange }: 
               type="date"
               value={date}
               onChange={e => setDate(e.target.value)}
+              className="bg-background border-border text-foreground font-mono text-xs rounded-xl focus:border-primary"
               data-testid="input-task-date"
             />
           </div>
@@ -247,6 +248,7 @@ function AddTaskDialog({ onAdd, taskToEdit, open: externalOpen, onOpenChange }: 
                   type="time"
                   value={startTime}
                   onChange={e => setStartTime(e.target.value)}
+                  className="bg-background border-border text-foreground font-mono text-xs rounded-xl focus:border-primary"
                   data-testid="input-task-start-time"
                 />
               </div>
@@ -257,6 +259,7 @@ function AddTaskDialog({ onAdd, taskToEdit, open: externalOpen, onOpenChange }: 
                   type="time"
                   value={endTime}
                   onChange={e => setEndTime(e.target.value)}
+                  className="bg-background border-border text-foreground font-mono text-xs rounded-xl focus:border-primary"
                   data-testid="input-task-end-time"
                 />
               </div>
@@ -349,7 +352,7 @@ function AddRoutineDialog({ onAdd, routineToEdit, open: externalOpen, onOpenChan
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="font-display">
-            {routineToEdit ? "{t.tasks.editRoutine}" : "{t.tasks.newRoutine}"}
+            {routineToEdit ? t.tasks.editRoutine : t.tasks.newRoutine}
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -428,7 +431,7 @@ function AddRoutineDialog({ onAdd, routineToEdit, open: externalOpen, onOpenChan
             </Select>
           </div>
           <Button type="submit" className="w-full" data-testid="button-routine-submit">
-            {routineToEdit ? t.tasks.save : "{t.tasks.addRoutineBtn}"}
+            {routineToEdit ? t.tasks.save : t.tasks.addRoutineBtn}
           </Button>
         </form>
       </DialogContent>
@@ -722,7 +725,7 @@ export default function TasksPage() {
                   data-testid="button-sync-routine"
                   onClick={() => {
                     actions.loadRoutineForToday();
-                    toast({ title: "{t.hub.routine} обновлена", description: t.tasks.routineUpdatedDesc });
+                    toast({ title: `${t.hub.routine} обновлена`, description: t.tasks.routineUpdatedDesc });
                   }}
                 >
                   <RefreshCw className="w-3 h-3" />
@@ -868,7 +871,7 @@ function TaskRow({ task, onToggle, onDelete, onEdit, onReschedule, dragHandlePro
                 task.difficulty === "low" ? "border-green-500/50 text-green-400" :
                 "border-primary/50 text-primary"
               }`}>
-                {task.difficulty === "low" ? t.tasks.low : task.difficulty === "medium" ? t.tasks.medium : task.difficulty === "high" ? t.tasks.high : "{t.tasks.difficultyCustom}"}
+                {task.difficulty === "low" ? t.tasks.low : task.difficulty === "medium" ? t.tasks.medium : task.difficulty === "high" ? t.tasks.high : t.tasks.difficultyCustom}
               </Badge>
             )}
             {weekGoal && (
@@ -918,7 +921,7 @@ function TaskRow({ task, onToggle, onDelete, onEdit, onReschedule, dragHandlePro
                     type="date"
                     value={customDate}
                     onChange={e => setCustomDate(e.target.value)}
-                    className="text-xs h-8 flex-1"
+                    className="text-xs h-8 flex-1 bg-background border-border font-mono rounded-lg"
                     data-testid={`task-reschedule-date-${task.id}`}
                     onClick={(e) => e.stopPropagation()}
                   />

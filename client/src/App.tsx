@@ -35,6 +35,7 @@ import {
   ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { FloatingTimerWidget } from "@/components/FloatingTimerWidget";
 
 function Router() {
   return (
@@ -642,6 +643,7 @@ function App() {
         <I18nProvider>
           <AuthProvider onLogin={handleLogin}>
             <AppShell />
+            <FloatingTimerWidget />
             <Toaster />
           </AuthProvider>
         </I18nProvider>

@@ -156,6 +156,7 @@ export interface FocusSession {
   xp: number;
   date: string;
   completedAt: string;
+  note?: string;
 }
 
 export interface TradingNote {
@@ -233,6 +234,7 @@ export interface AppState {
   streak: StreakData;
   xp: XPData;
   routineLoadedDates: string[];
+  timerWidgetOpen?: boolean;
   simulations?: SimulationSession[];
   _deletedIds?: string[];
 }
@@ -957,15 +959,60 @@ export function useStore() {
 
   const actions = {
     addRoutineTemplate: useCallback((template: Omit<RoutineTemplate, "id">) => {
-      mutate(s => ({ ...s, routineTemplates: [...s.routineTemplates, { ...template, id: crypto.randomUUID() }] }));
+      mutate(s => {
+        const newId = crypto.randomUUID();
+        const newTemplate = { ...template, id: newId };
+        const today = getTodayDate();
+        let newTodayTasks = [...s.todayTasks];
+        if (s.routineLoadedDates.includes(today) && template.enabled) {
+          newTodayTasks.push({
+            id: crypto.randomUUID(),
+            name: template.name,
+            description: template.description,
+            category: template.category,
+            xp: template.xp,
+            completed: false,
+            date: today,
+            type: "routine" as TaskType,
+            routineId: newId,
+            weekGoalId: template.goalId,
+            noDeadline: true,
+          });
+        }
+        return {
+          ...s,
+          routineTemplates: [...s.routineTemplates, newTemplate],
+          todayTasks: newTodayTasks,
+        };
+      });
     }, []),
 
     updateRoutineTemplate: useCallback((id: string, updates: Partial<RoutineTemplate>) => {
-      mutate(s => ({ ...s, routineTemplates: s.routineTemplates.map(r => r.id === id ? { ...r, ...updates } : r) }));
+      mutate(s => ({
+        ...s,
+        routineTemplates: s.routineTemplates.map(r => r.id === id ? { ...r, ...updates } : r),
+        todayTasks: s.todayTasks.map(t => {
+          if (t.routineId === id && !t.completed) {
+            return {
+              ...t,
+              name: updates.name !== undefined ? updates.name : t.name,
+              description: updates.description !== undefined ? updates.description : t.description,
+              category: updates.category !== undefined ? updates.category : t.category,
+              xp: updates.xp !== undefined ? updates.xp : t.xp,
+            };
+          }
+          return t;
+        }),
+      }));
     }, []),
 
     deleteRoutineTemplate: useCallback((id: string) => {
-      mutate(s => ({ ...s, routineTemplates: s.routineTemplates.filter(r => r.id !== id), _deletedIds: [...(s._deletedIds || []), id].slice(-200) }));
+      mutate(s => ({
+        ...s,
+        routineTemplates: s.routineTemplates.filter(r => r.id !== id),
+        todayTasks: s.todayTasks.filter(t => !(t.routineId === id && !t.completed)),
+        _deletedIds: [...(s._deletedIds || []), id].slice(-200),
+      }));
     }, []),
 
     reorderRoutineTemplates: useCallback((oldIndex: number, newIndex: number) => {
@@ -1111,6 +1158,10 @@ export function useStore() {
 
     addFocusSession: useCallback((session: Omit<FocusSession, "id">) => {
       mutate(s => ({ ...s, focusSessions: [...s.focusSessions, { ...session, id: crypto.randomUUID() }] }));
+    }, []),
+
+    setTimerWidgetOpen: useCallback((open: boolean) => {
+      mutate(s => ({ ...s, timerWidgetOpen: open }));
     }, []),
 
     addTradingNote: useCallback((note: Omit<TradingNote, "id" | "createdAt">) => {
