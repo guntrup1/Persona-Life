@@ -139,7 +139,7 @@ export default function TimerPage() {
             data-testid="button-toggle-floating-timer"
           >
             <ExternalLink className="w-3.5 h-3.5" />
-            {state.timerWidgetOpen ? "Виджет включён" : "Виджет поверх окон"}
+            {state.timerWidgetOpen ? "Плавающий виджет (включен)" : "Плавающий виджет"}
           </Button>
         </div>
 
