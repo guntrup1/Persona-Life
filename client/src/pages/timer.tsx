@@ -1,15 +1,25 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useSyncExternalStore } from "react";
+import { useState } from "react";
 import { useStore, xpForFocus, type TimerMode } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Play, Pause, RotateCcw, Brain, Check, Flame, Zap, FileText, ChevronDown, ChevronRight, ExternalLink, Pin } from "lucide-react";
+import { Play, Pause, RotateCcw, Brain, Check, Flame, Zap, FileText, ChevronDown, ChevronRight, Pin } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/lib/i18n";
 import { getTodayDate } from "@/lib/store";
-import { openSystemPipWindow } from "@/components/FloatingTimerWidget";
+import {
+  getTimerState,
+  subscribeTimer,
+  setTimerMode,
+  setTimerNote,
+  toggleTimer,
+  resetTimer as resetTimerState,
+  openPipWindow,
+  getPipWindow,
+} from "@/lib/timer-state";
 
 const getModes = (t: any): { key: TimerMode; label: string; duration: number; xp: number; color: string }[] => [
   { key: "pomodoro", label: "Pomodoro", duration: 25, xp: 5, color: "text-red-400" },
@@ -49,73 +59,38 @@ function TimerRing({ progress, radius, stroke }: { progress: number; radius: num
 }
 
 export default function TimerPage() {
-  const { state, actions } = useStore();
-  const { toast } = useToast();
+  const { state } = useStore();
   const { t, lang } = useI18n();
 
-  const [selectedMode, setSelectedMode] = useState<TimerMode>("pomodoro");
+  // Read from shared timer state
+  const ts = useSyncExternalStore(subscribeTimer, getTimerState, getTimerState);
+  const pip = useSyncExternalStore(subscribeTimer, getPipWindow, getPipWindow);
+
   const [customMinutes, setCustomMinutes] = useState(60);
-  const [timeLeft, setTimeLeft] = useState(25 * 60);
-  const [totalTime, setTotalTime] = useState(25 * 60);
-  const [running, setRunning] = useState(false);
-  const [completed, setCompleted] = useState(false);
-  const [sessionNote, setSessionNote] = useState("");
   const [historyOpen, setHistoryOpen] = useState(true);
 
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const minutes = Math.floor(ts.timeLeft / 60);
+  const seconds = ts.timeLeft % 60;
+  const progress = ((ts.totalTime - ts.timeLeft) / ts.totalTime) * 100;
 
-  const getModeConfig = useCallback(() => {
-    const mode = getModes(t).find(m => m.key === selectedMode)!;
-    const duration = selectedMode === "custom" ? customMinutes : mode.duration;
-    return { ...mode, duration, xp: xpForFocus(duration) };
-  }, [selectedMode, customMinutes, t]);
+  const modeConfig = getModes(t).find(m => m.key === ts.mode)!;
+  const currentDuration = ts.mode === "custom" ? customMinutes : modeConfig.duration;
+  const currentXp = xpForFocus(currentDuration);
 
-  const resetTimer = useCallback(() => {
-    const config = getModeConfig();
-    setTimeLeft(config.duration * 60);
-    setTotalTime(config.duration * 60);
-    setRunning(false);
-    setCompleted(false);
-    setSessionNote("");
-    if (intervalRef.current) clearInterval(intervalRef.current);
-  }, [getModeConfig]);
+  const handleModeChange = (mode: TimerMode) => {
+    const m = getModes(t).find(x => x.key === mode)!;
+    const dur = mode === "custom" ? customMinutes : m.duration;
+    setTimerMode(mode, dur);
+  };
 
-  useEffect(() => {
-    resetTimer();
-  }, [selectedMode, customMinutes, resetTimer]);
-
-  useEffect(() => {
-    if (running) {
-      intervalRef.current = setInterval(() => {
-        setTimeLeft(prev => {
-          if (prev <= 1) {
-            setRunning(false);
-            setCompleted(true);
-            const config = getModeConfig();
-            actions.addFocusSession({
-              duration: config.duration,
-              mode: selectedMode,
-              xp: config.xp,
-              date: getTodayDate(),
-              completedAt: new Date().toISOString(),
-              note: sessionNote.trim() || undefined,
-            });
-            toast({ title: t.timer.sessionCompleted, description: t.timer.xpReceived.replace("{xp}", config.xp.toString()) });
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } else {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+  const handleCustomMinutesChange = (mins: number) => {
+    setCustomMinutes(mins);
+    if (ts.mode === "custom") {
+      setTimerMode("custom", mins);
     }
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [running, selectedMode, sessionNote, actions, toast, t, getModeConfig]);
+  };
 
-  const minutes = Math.floor(timeLeft / 60);
-  const seconds = timeLeft % 60;
-  const progress = ((totalTime - timeLeft) / totalTime) * 100;
-  const config = getModeConfig();
+  const isPinned = !!pip;
 
   const todayXP = state.focusSessions
     .filter(s => s.date === getTodayDate())
@@ -132,17 +107,18 @@ export default function TimerPage() {
             <Brain className="w-5 h-5 text-primary" />
             {t.nav.timer.toUpperCase()}
           </h1>
+          {/* Pin Widget button — calls openPipWindow DIRECTLY in click handler */}
           <Button
             variant="outline"
             size="sm"
-            onClick={() => {
-              openSystemPipWindow();
+            onClick={async () => {
+              await openPipWindow();
             }}
-            className={`gap-1.5 border-primary/40 font-display text-xs ${state.timerWidgetOpen ? "bg-primary/20 text-primary" : ""}`}
+            className={`gap-1.5 border-primary/40 font-display text-xs ${isPinned ? "bg-primary/20 text-primary" : ""}`}
             data-testid="button-toggle-floating-timer"
           >
             <Pin className="w-3.5 h-3.5" />
-            {state.timerWidgetOpen ? "Виджет прикреплён" : "Прикрепить виджет"}
+            {isPinned ? "Виджет прикреплён" : "Прикрепить виджет"}
           </Button>
         </div>
 
@@ -151,9 +127,9 @@ export default function TimerPage() {
           {getModes(t).map(mode => (
             <button
               key={mode.key}
-              onClick={() => { setSelectedMode(mode.key); setRunning(false); }}
+              onClick={() => handleModeChange(mode.key)}
               className={`px-4 py-2 rounded-md font-display text-sm font-semibold transition-all border ${
-                selectedMode === mode.key
+                ts.mode === mode.key
                   ? "bg-primary text-primary-foreground border-primary p5-glow-sm"
                   : "bg-card border-card-border text-muted-foreground hover-elevate"
               }`}
@@ -164,7 +140,7 @@ export default function TimerPage() {
           ))}
         </div>
 
-        {selectedMode === "custom" && (
+        {ts.mode === "custom" && (
           <Card className="p-3 border-card-border animate-slide-in-up">
             <div className="flex items-center gap-3">
               <Label className="text-sm font-display flex-shrink-0">{t.timer.minutes}</Label>
@@ -173,7 +149,7 @@ export default function TimerPage() {
                 min="1"
                 max="180"
                 value={customMinutes}
-                onChange={e => setCustomMinutes(Math.max(1, Math.min(180, Number(e.target.value))))}
+                onChange={e => handleCustomMinutesChange(Math.max(1, Math.min(180, Number(e.target.value))))}
                 className="w-24 font-mono"
                 data-testid="input-custom-minutes"
               />
@@ -191,10 +167,10 @@ export default function TimerPage() {
                 <div className="font-display font-bold text-5xl text-foreground tabular-nums">
                   {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
                 </div>
-                <div className={`font-display text-sm mt-1 ${config.color}`}>{config.label}</div>
-                {completed && (
+                <div className={`font-display text-sm mt-1 ${modeConfig.color}`}>{modeConfig.label}</div>
+                {ts.completed && (
                   <div className="font-display text-xs text-primary mt-1 animate-slide-in-up">
-                    +{config.xp} XP!
+                    +{currentXp} XP!
                   </div>
                 )}
               </div>
@@ -208,8 +184,8 @@ export default function TimerPage() {
               </Label>
               <Input
                 id="session-note"
-                value={sessionNote}
-                onChange={e => setSessionNote(e.target.value)}
+                value={ts.note}
+                onChange={e => setTimerNote(e.target.value)}
                 placeholder="Что вы планируете или успели сделать?"
                 className="text-xs bg-background/50 border-border"
                 data-testid="input-session-note"
@@ -220,16 +196,16 @@ export default function TimerPage() {
               <Button
                 size="icon"
                 variant="outline"
-                onClick={resetTimer}
+                onClick={() => resetTimerState()}
                 data-testid="button-timer-reset"
               >
                 <RotateCcw className="w-4 h-4" />
               </Button>
 
-              {completed ? (
+              {ts.completed ? (
                 <Button
                   size="lg"
-                  onClick={resetTimer}
+                  onClick={() => resetTimerState()}
                   className="gap-2 px-8 p5-glow-sm"
                   data-testid="button-timer-restart"
                 >
@@ -239,19 +215,19 @@ export default function TimerPage() {
               ) : (
                 <Button
                   size="lg"
-                  onClick={() => setRunning(!running)}
+                  onClick={() => toggleTimer()}
                   className="gap-2 px-8 p5-glow-sm"
-                  data-testid={running ? "button-timer-pause" : "button-timer-start"}
+                  data-testid={ts.running ? "button-timer-pause" : "button-timer-start"}
                 >
-                  {running ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                  {running ? t.timer.pause : t.timer.start}
+                  {ts.running ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                  {ts.running ? t.timer.pause : t.timer.start}
                 </Button>
               )}
             </div>
 
             <div className="flex items-center gap-4 text-sm text-muted-foreground font-mono">
-              <span>{config.duration} мин</span>
-              <span className="text-primary font-bold">+{config.xp} XP</span>
+              <span>{currentDuration} мин</span>
+              <span className="text-primary font-bold">+{currentXp} XP</span>
             </div>
           </div>
         </Card>
@@ -274,7 +250,7 @@ export default function TimerPage() {
           </Card>
         </div>
 
-        {/* History Collapsible Card */}
+        {/* History */}
         {state.focusSessions.length > 0 && (
           <Card className="p-4 border-card-border">
             <button
