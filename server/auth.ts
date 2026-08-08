@@ -9,27 +9,36 @@ import { User, UserData, UserDataBackup, ResetToken, UserSettings } from "./mong
 // ── Brevo email helper ──
 async function sendEmail(to: string, subject: string, html: string) {
   const apiKey = process.env.BREVO_API_KEY;
-  const senderEmail = process.env.BREVO_SENDER_EMAIL;
-  if (!apiKey || !senderEmail) {
-    throw new Error("BREVO_API_KEY and BREVO_SENDER_EMAIL environment variables must be configured.");
+  const senderEmail = process.env.BREVO_SENDER_EMAIL || "hermandmytro62@gmail.com";
+  
+  if (!apiKey) {
+    console.error("[sendEmail] BREVO_API_KEY is not configured in process.env!");
+    throw new Error("BREVO_API_KEY environment variable is missing.");
   }
 
-  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "api-key": apiKey,
-    },
-    body: JSON.stringify({
-      sender: { name: "Persona Life", email: senderEmail },
-      to: [{ email: to }],
-      subject,
-      htmlContent: html,
-    }),
-  });
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Brevo error: ${err}`);
+  try {
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "api-key": apiKey,
+      },
+      body: JSON.stringify({
+        sender: { name: "Persona Life", email: senderEmail },
+        to: [{ email: to }],
+        subject,
+        htmlContent: html,
+      }),
+    });
+    if (!response.ok) {
+      const err = await response.text();
+      console.error("[sendEmail] Brevo API responded with error:", err);
+      throw new Error(`Brevo error: ${err}`);
+    }
+    console.log("[sendEmail] Email successfully sent to:", to);
+  } catch (err) {
+    console.error("[sendEmail] Exception caught during sending:", err);
+    throw err;
   }
 }
 
