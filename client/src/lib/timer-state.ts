@@ -121,7 +121,7 @@ function runInterval() {
   }, 1000);
 }
 
-// ─── PiP / Popout Window Launcher ─────────────────────────────────────
+// ─── PiP / Popout Desktop Window Launcher ────────────────────────────
 let externalWin: Window | null = null;
 
 export function isPipOpen(): boolean {
@@ -144,7 +144,6 @@ export async function tryOpenPip(): Promise<boolean> {
       pip.document.documentElement.style.cssText = "background:#09090b;margin:0;padding:0";
       pip.document.body.style.cssText = "background:#09090b;color:#fafafa;margin:0;padding:0;overflow:hidden;font-family:system-ui,-apple-system,sans-serif;user-select:none";
 
-      // Inject styles and HTML
       Array.from(document.querySelectorAll("style, link[rel='stylesheet']")).forEach((node: Element) => {
         pip.document.head.appendChild(node.cloneNode(true));
       });
@@ -162,8 +161,27 @@ export async function tryOpenPip(): Promise<boolean> {
       notify();
       return true;
     } catch (e) {
-      console.warn("Document PiP request failed, using in-app widget:", e);
+      console.warn("Document PiP request failed, falling back to desktop popout window:", e);
     }
+  }
+
+  // 2. Open desktop popout window /timer-pip (allows moving outside Opera onto desktop)
+  const left = Math.max(50, window.screen.width - 320);
+  const top = Math.max(50, window.screen.height - 350);
+  const pop = window.open(
+    "/timer-pip",
+    "PersonaTimerWin",
+    `width=280,height=270,left=${left},top=${top},resizable=yes,scrollbars=no,menubar=no,toolbar=no,location=no,directories=no,status=no`
+  );
+
+  if (pop) {
+    pop.addEventListener("beforeunload", () => {
+      cleanupPip();
+      notify();
+    });
+    externalWin = pop;
+    notify();
+    return true;
   }
 
   return false;
