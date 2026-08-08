@@ -1199,6 +1199,13 @@ export function useStore() {
       mutate(s => ({ ...s, todayTasks: [...s.todayTasks, { ...task, id: crypto.randomUUID(), completed: false }] }));
     }, []),
 
+    scheduleTaskToDay: useCallback((taskId: string, targetDate: string) => {
+      mutate(s => ({
+        ...s,
+        todayTasks: s.todayTasks.map(t => t.id === taskId ? { ...t, date: targetDate } : t),
+      }));
+    }, []),
+
     updateTask: useCallback((id: string, updates: Partial<TodayTask>) => {
       mutate(s => ({ ...s, todayTasks: s.todayTasks.map(t => t.id === id ? { ...t, ...updates } : t) }));
     }, []),

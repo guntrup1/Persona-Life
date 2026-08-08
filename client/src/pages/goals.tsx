@@ -347,14 +347,14 @@ function UnifiedSubItemsSection({ goal, childGoals }: {
     if (!newTitle.trim()) return;
 
     if (isWeek) {
-      // Add a daily task linked to this week goal
+      // Add a week sub-task into the Week Pool (unassigned day)
       actions.addTodayTask({
         name: newTitle.trim(),
         category: goal.category,
         difficulty: "medium",
         xp: 25,
         type: "today",
-        date: getTodayDate(),
+        date: "unassigned",
         weekGoalId: goal.id,
         noDeadline: true,
       });

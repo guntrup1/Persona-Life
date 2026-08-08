@@ -522,138 +522,99 @@ function SortableRoutineItem({ routine, setEditingRoutine, linkedGoal }: { routi
   );
 }
 
-// ─── Week Sub-Tasks Pool Component ─────────────────────────────────────
+// ─── Week Sub-Tasks Pool Sidebar Component ───────────────────────────
 
-function WeekSubTasksPool() {
+function WeekSubTasksPoolSidebar() {
   const { state, actions } = useStore();
   const { toast } = useToast();
-  const [open, setOpen] = useState(false);
-  const [newSubTaskTitles, setNewSubTaskTitles] = useState<Record<string, string>>({});
+  const [collapsed, setCollapsed] = useState(false);
 
   const activeWeekGoals = state.goals.filter(g => g.type === "week" && g.status !== "failed" && !g.completed);
+
   if (activeWeekGoals.length === 0) return null;
 
-  const today = getTodayDate();
-
-  // Find all sub-tasks of week goals that are unassigned to today
-  const allWeekSubTasks = state.todayTasks.filter(t => t.weekGoalId && activeWeekGoals.some(g => g.id === t.weekGoalId));
-  const unassignedToToday = allWeekSubTasks.filter(t => t.date !== today && !t.completed);
-
-  const handleScheduleToToday = (task: TodayTask) => {
-    actions.updateTask(task.id, { date: today });
-    toast({
-      title: "Запланировано на сегодня!",
-      description: `Под-задача «${task.name}» добавлена в план на сегодня (${today}).`,
-    });
-  };
-
-  const handleCreateSubTask = (goalId: string, category: LifeArea) => {
-    const title = newSubTaskTitles[goalId];
-    if (!title || !title.trim()) return;
-
-    actions.addTodayTask({
-      name: title.trim(),
-      category,
-      difficulty: "medium",
-      xp: 25,
-      type: "today",
-      date: today,
-      weekGoalId: goalId,
-      noDeadline: true,
-    });
-
-    toast({
-      title: "Под-задача добавлена!",
-      description: `«${title.trim()}» создана и добавлена в план на сегодня.`,
-    });
-
-    setNewSubTaskTitles(prev => ({ ...prev, [goalId]: "" }));
-  };
+  const todayStr = getTodayDate();
 
   return (
-    <Card className="p-3 border-card-border bg-card/80 space-y-2">
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between text-xs font-display font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <div className="flex items-center gap-1.5">
-          <Milestone className="w-3.5 h-3.5 text-primary" />
-          <span>Пул под-задач недели</span>
-          {unassignedToToday.length > 0 && (
-            <Badge variant="secondary" className="text-[10px] font-mono py-0 h-4 bg-primary/20 text-primary">
-              {unassignedToToday.length} свободных
-            </Badge>
-          )}
+    <Card className="p-3 border-card-border bg-card/60 backdrop-blur space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5 font-display text-xs font-bold uppercase tracking-wider text-primary">
+          <Milestone className="w-3.5 h-3.5" />
+          Пул под-задач недели
         </div>
-        {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-      </button>
+        <button
+          onClick={() => setCollapsed(c => !c)}
+          className="text-muted-foreground hover:text-foreground p-1 transition-colors"
+        >
+          {collapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+        </button>
+      </div>
 
-      {open && (
-        <div className="space-y-3 pt-2 animate-in fade-in slide-in-from-top-1 duration-150">
+      {!collapsed && (
+        <div className="space-y-3 animate-in fade-in slide-in-from-top-1 duration-150">
           {activeWeekGoals.map(goal => {
-            const goalTasks = allWeekSubTasks.filter(t => t.weekGoalId === goal.id);
-            const goalUnassigned = goalTasks.filter(t => t.date !== today && !t.completed);
-
-            const daysRemaining = goal.endDate
-              ? Math.ceil((new Date(goal.endDate + "T23:59:59").getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
-              : null;
+            const subTasks = state.todayTasks.filter(t => t.weekGoalId === goal.id || t.goalId === goal.id);
 
             return (
-              <div key={goal.id} className="p-2.5 rounded-lg bg-muted/20 border border-border/40 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="font-display text-xs font-bold text-foreground truncate">{goal.title}</span>
-                    <Badge variant="outline" className={`text-[9px] ${LIFE_AREA_COLORS[goal.category]}`}>
-                      {goal.category}
+              <div key={goal.id} className="space-y-1.5 p-2 rounded-lg bg-muted/20 border border-border/40">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="font-display text-xs font-bold truncate text-foreground">{goal.title}</span>
+                  {goal.endDate && (
+                    <Badge variant="secondary" className="text-[9px] font-mono flex-shrink-0">
+                      Срок: {goal.endDate}
                     </Badge>
+                  )}
+                </div>
+
+                {subTasks.length === 0 ? (
+                  <p className="text-[10px] text-muted-foreground italic">Под-задач в недельной цели пока нет</p>
+                ) : (
+                  <div className="space-y-1">
+                    {subTasks.map(task => {
+                      const isToday = task.date === todayStr;
+
+                      return (
+                        <div key={task.id} className="flex items-center justify-between text-xs py-1 px-1.5 rounded bg-background/50 border border-border/30 gap-1.5">
+                          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                            <button onClick={() => actions.toggleTask(task.id)}>
+                              {task.completed ? (
+                                <CheckCircle className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                              ) : (
+                                <Circle className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                              )}
+                            </button>
+                            <span className={`truncate text-[11px] ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                              {task.name}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            {isToday ? (
+                              <Badge variant="outline" className="text-[9px] border-primary/40 text-primary">
+                                На сегодня
+                              </Badge>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-5 px-1.5 text-[10px] gap-0.5 border-primary/50 text-primary hover:bg-primary/10"
+                                onClick={() => {
+                                  actions.scheduleTaskToDay(task.id, todayStr);
+                                  toast({
+                                    title: "Под-задача добавлена в план",
+                                    description: `«${task.name}» назначена на сегодня (${todayStr})`,
+                                  });
+                                }}
+                              >
+                                <Plus className="w-2.5 h-2.5" /> На сегодня
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                  {daysRemaining !== null && daysRemaining >= 0 && (
-                    <span className="text-[10px] text-amber-400 font-mono flex-shrink-0">
-                      ⌛ До конца недели: {daysRemaining} дн.
-                    </span>
-                  )}
-                </div>
-
-                {/* Sub-tasks available to schedule */}
-                <div className="space-y-1">
-                  {goalUnassigned.length === 0 ? (
-                    <p className="text-[11px] text-muted-foreground italic py-0.5">Все под-задачи этой недели распределены</p>
-                  ) : (
-                    goalUnassigned.map(task => (
-                      <div key={task.id} className="flex items-center justify-between text-xs py-1 px-2 rounded bg-background/60 border border-border/40">
-                        <span className="truncate font-medium text-foreground">{task.name}</span>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleScheduleToToday(task)}
-                          className="h-6 text-[10px] px-2 gap-1 border-primary/40 text-primary hover:bg-primary/10"
-                        >
-                          <Plus className="w-2.5 h-2.5" />
-                          На сегодня
-                        </Button>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                {/* Inline task creation for this week goal */}
-                <div className="flex gap-1.5 pt-1">
-                  <Input
-                    value={newSubTaskTitles[goal.id] || ""}
-                    onChange={e => setNewSubTaskTitles({ ...newSubTaskTitles, [goal.id]: e.target.value })}
-                    placeholder="Создать под-задачу недели на сегодня..."
-                    className="text-xs h-7 bg-background"
-                    onKeyDown={e => e.key === "Enter" && (e.preventDefault(), handleCreateSubTask(goal.id, goal.category))}
-                  />
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleCreateSubTask(goal.id, goal.category)}
-                    className="h-7 px-2 text-xs"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
+                )}
               </div>
             );
           })}
@@ -745,8 +706,6 @@ export default function TasksPage() {
           </TabsList>
 
           <TabsContent value="today" className="mt-4 space-y-3 animate-slide-in-up">
-            <WeekSubTasksPool />
-
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="text-sm text-muted-foreground font-mono">
                 {todayTasks.filter(t => t.completed).length}/{todayTasks.length} {t.tasks.completed}
@@ -761,6 +720,9 @@ export default function TasksPage() {
                 <AddTaskDialog onAdd={actions.addTodayTask} />
               </div>
             </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="lg:col-span-2 space-y-3">
 
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleTodayDragEnd}>
             {routineTasks.length > 0 && (
@@ -853,6 +815,12 @@ export default function TasksPage() {
               </Card>
             )}
             </DndContext>
+              </div>
+
+              <div className="lg:col-span-1">
+                <WeekSubTasksPoolSidebar />
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="routine" className="mt-4 space-y-3 animate-slide-in-up">
@@ -1018,13 +986,8 @@ function TaskRow({ task, onToggle, onDelete, onEdit, onReschedule, dragHandlePro
               </Badge>
             )}
             {weekGoal && (
-              <Badge variant="outline" className="text-xs py-0 h-4 border-primary/30 text-primary/70 gap-1">
-                <span>{weekGoal.title}</span>
-                {weekGoal.endDate && (
-                  <span className="text-[10px] text-amber-400 font-mono">
-                    ({Math.max(0, Math.ceil((new Date(weekGoal.endDate + "T23:59:59").getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))} дн.)
-                  </span>
-                )}
+              <Badge variant="outline" className="text-xs py-0 h-4 border-primary/30 text-primary/70">
+                {weekGoal.title}
               </Badge>
             )}
             {(task.startTime || task.endTime) && !task.noDeadline && (
