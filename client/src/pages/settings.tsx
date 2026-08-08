@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SlidersHorizontal, Clock, ChevronDown, ChevronUp, Globe } from "lucide-react";
+import { SlidersHorizontal, Clock, ChevronDown, ChevronUp, Globe, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/lib/i18n";
 
@@ -22,8 +22,19 @@ interface UserSettings {
   restEnd: number;
   sleepStart: number;
   sleepEnd: number;
+  workDays?: number[];
   tradingSessions: TradingSession[];
 }
+
+const WEEKDAYS = [
+  { id: 1, label: "Пн" },
+  { id: 2, label: "Вт" },
+  { id: 3, label: "Ср" },
+  { id: 4, label: "Чт" },
+  { id: 5, label: "Пт" },
+  { id: 6, label: "Сб" },
+  { id: 0, label: "Вс" },
+];
 
 const DEFAULT_SESSIONS: TradingSession[] = [
   { name: "Азия", start: 3, end: 8, enabled: true },
@@ -77,6 +88,7 @@ export default function SettingsPage() {
     workStart: 9, workEnd: 18,
     restStart: 18, restEnd: 23,
     sleepStart: 23, sleepEnd: 7,
+    workDays: [1, 2, 3, 4, 5],
     tradingSessions: DEFAULT_SESSIONS,
   });
 
@@ -194,6 +206,41 @@ export default function SettingsPage() {
               ))}
             </SelectContent>
           </Select>
+        </Card>
+
+        {/* Рабочие дни */}
+        <Card className="p-3 border-card-border rounded-2xl space-y-2">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-3.5 h-3.5 text-primary" />
+            <span className="font-display text-xs font-bold uppercase tracking-wider">Рабочие дни</span>
+          </div>
+          <div className="flex items-center justify-between gap-1 pt-1">
+            {WEEKDAYS.map(day => {
+              const activeWorkDays = settings.workDays || [1, 2, 3, 4, 5];
+              const isSelected = activeWorkDays.includes(day.id);
+              return (
+                <button
+                  key={day.id}
+                  type="button"
+                  onClick={() => {
+                    const current = settings.workDays || [1, 2, 3, 4, 5];
+                    const next = current.includes(day.id)
+                      ? current.filter(d => d !== day.id)
+                      : [...current, day.id];
+                    set("workDays", next);
+                  }}
+                  className={`flex-1 py-1.5 rounded-lg font-display text-xs font-bold transition-all ${
+                    isSelected
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "bg-muted/40 text-muted-foreground hover:bg-muted/80"
+                  }`}
+                >
+                  {day.label}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[10px] text-muted-foreground">В нерабочие дни торговые сессии отключаются и выводится «Отдохни ;3»</p>
         </Card>
 
         {/* Статусы */}
