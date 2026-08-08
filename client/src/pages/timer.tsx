@@ -9,6 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/lib/i18n";
 import { getTodayDate } from "@/lib/store";
+import { openSystemPipWindow } from "@/components/FloatingTimerWidget";
 
 const getModes = (t: any): { key: TimerMode; label: string; duration: number; xp: number; color: string }[] => [
   { key: "pomodoro", label: "Pomodoro", duration: 25, xp: 5, color: "text-red-400" },
@@ -134,7 +135,9 @@ export default function TimerPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => actions.setTimerWidgetOpen(!state.timerWidgetOpen)}
+            onClick={() => {
+              openSystemPipWindow();
+            }}
             className={`gap-1.5 border-primary/40 font-display text-xs ${state.timerWidgetOpen ? "bg-primary/20 text-primary" : ""}`}
             data-testid="button-toggle-floating-timer"
           >

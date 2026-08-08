@@ -1,9 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import ReactDOM from "react-dom";
 import { useStore, getTodayDate, xpForFocus, type TimerMode } from "@/lib/store";
-import { Play, Pause, RotateCcw, Brain, X, Minimize2, Maximize2, FileText, Pin } from "lucide-react";
+import { Play, Pause, RotateCcw, Brain, X, Minimize2, Maximize2, FileText, Pin, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/lib/i18n";
+
+export function openSystemPipWindow() {
+  const event = new CustomEvent("trigger-open-pip");
+  window.dispatchEvent(event);
+}
 
 export function FloatingTimerWidget() {
   const { state, actions } = useStore();
@@ -70,8 +75,13 @@ export function FloatingTimerWidget() {
     };
   }, [running, duration, mode, note, actions, toast, t]);
 
-  // Launch Document Picture-in-Picture OS-level window (always on top of browser and all desktop apps)
+  // Synchronously open Document Picture-in-Picture window inside user click gesture
   const openSystemPip = useCallback(async () => {
+    if (pipWindow) {
+      pipWindow.focus();
+      return;
+    }
+
     if ("documentPictureInPicture" in window) {
       try {
         const pip = await (window as any).documentPictureInPicture.requestWindow({
@@ -79,17 +89,15 @@ export function FloatingTimerWidget() {
           height: 250,
         });
 
-        // Ensure dark mode class is applied to HTML and Body
         pip.document.documentElement.className = "dark";
         pip.document.body.className = "dark bg-[#09090b] text-foreground p-0 m-0 overflow-hidden font-sans select-none antialiased";
 
-        // Copy all style & link tags from main document to PiP window
+        // Copy styles
         const styleNodes = Array.from(document.querySelectorAll("style, link[rel='stylesheet']"));
         styleNodes.forEach(node => {
           pip.document.head.appendChild(node.cloneNode(true));
         });
 
-        // Inject explicit CSS variables & dark mode styles so Tailwind colors render 100% correctly
         const customStyle = pip.document.createElement("style");
         customStyle.textContent = `
           :root {
@@ -97,34 +105,29 @@ export function FloatingTimerWidget() {
             --foreground: 0 0% 98%;
             --card: 240 10% 3.9%;
             --card-foreground: 0 0% 98%;
-            --popover: 240 10% 3.9%;
-            --popover-foreground: 0 0% 98%;
             --primary: 346.8 77.2% 49.8%;
             --primary-foreground: 355.7 100% 97.3%;
-            --secondary: 240 3.7% 15.9%;
-            --secondary-foreground: 0 0% 98%;
-            --muted: 240 3.7% 15.9%;
-            --muted-foreground: 240 5% 64.9%;
-            --accent: 240 3.7% 15.9%;
-            --accent-foreground: 0 0% 98%;
             --border: 240 3.7% 15.9%;
             --input: 240 3.7% 15.9%;
-            --ring: 346.8 77.2% 49.8%;
           }
           * { box-sizing: border-box; }
           body {
             background-color: #09090b !important;
             color: #fafafa !important;
             font-family: system-ui, -apple-system, sans-serif !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
         `;
         pip.document.head.appendChild(customStyle);
 
         pip.addEventListener("pagehide", () => {
           setPipWindow(null);
+          actions.setTimerWidgetOpen(false);
         });
 
         setPipWindow(pip);
+        actions.setTimerWidgetOpen(true);
       } catch (err) {
         console.error("Document PiP request error:", err);
       }
@@ -138,18 +141,26 @@ export function FloatingTimerWidget() {
         styleNodes.forEach(node => {
           pop.document.head.appendChild(node.cloneNode(true));
         });
-        pop.addEventListener("beforeunload", () => setPipWindow(null));
+        pop.addEventListener("beforeunload", () => {
+          setPipWindow(null);
+          actions.setTimerWidgetOpen(false);
+        });
         setPipWindow(pop);
+        actions.setTimerWidgetOpen(true);
       }
     }
-  }, []);
+  }, [pipWindow, actions]);
 
-  // When timerWidgetOpen changes to true, automatically open system PiP!
+  // Listen for user trigger event
   useEffect(() => {
-    if (isOpen && !pipWindow) {
+    const handleTrigger = () => {
       openSystemPip();
-    }
-  }, [isOpen, pipWindow, openSystemPip]);
+    };
+    window.addEventListener("trigger-open-pip", handleTrigger);
+    return () => {
+      window.removeEventListener("trigger-open-pip", handleTrigger);
+    };
+  }, [openSystemPip]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest("button, input, textarea")) return;
