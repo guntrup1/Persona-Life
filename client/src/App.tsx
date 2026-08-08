@@ -26,6 +26,7 @@ import TimerPipPage from "@/pages/timer-pip";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { I18nProvider, useI18n, LangToggle } from "@/lib/i18n";
 import { loadFromServerData, useStore, getTodayDate, syncFromServer, onSyncResult, type NoteType } from "@/lib/store";
+import { getUrgentGoalNotifications } from "@/lib/goal-notifications";
 import { useCallback, useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
@@ -455,6 +456,31 @@ function WelcomePopup() {
   );
 }
 
+function GoalNotificationBanner() {
+  const { state } = useStore();
+  const [, setLocation] = useLocation();
+  const notifications = getUrgentGoalNotifications(state.goals || []);
+
+  if (notifications.length === 0) return null;
+
+  const current = notifications[0];
+
+  return (
+    <div className="bg-amber-500/10 border-b border-amber-500/30 px-3 py-1.5 flex items-center justify-between gap-2 text-xs font-display animate-slide-in-down">
+      <div className="flex items-center gap-2 min-w-0">
+        <span className="text-amber-400 font-bold flex-shrink-0">⚠️ Напоминание по цели:</span>
+        <span className="text-foreground truncate">{current.message}</span>
+      </div>
+      <button
+        onClick={() => setLocation("/goals")}
+        className="px-2.5 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-bold flex-shrink-0 transition-colors"
+      >
+        Открыть цели ({current.daysRemaining} дн.)
+      </button>
+    </div>
+  );
+}
+
 function AppShell() {
   const { user, loading } = useAuth();
   const [location] = useLocation();
@@ -534,6 +560,8 @@ function AppShell() {
           </Link>
         </div>
       </header>
+
+          <GoalNotificationBanner />
 
           <main className="flex-1 overflow-auto" style={{ contain: "paint layout" }}>
             <WelcomePopup />

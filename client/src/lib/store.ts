@@ -147,6 +147,12 @@ export interface Goal {
   week?: number;
   description?: string;
   plan?: PlanItem[];
+  timeLimitType?: "current_period" | "from_now" | "custom";
+  startDate?: string;
+  endDate?: string;
+  status?: "active" | "completed" | "failed";
+  failedAt?: string;
+  restoredFromId?: string;
 }
 
 export interface FocusSession {
@@ -301,7 +307,7 @@ function loadState(): AppState {
     if (!Array.isArray(safeSims)) safeSims = [];
     safeSims = safeSims.filter((s: any) => s.assets && Array.isArray(s.assets));
 
-    return {
+    const loadedState: AppState = {
       ...DEFAULT_STATE,
       ...parsed,
       simulations: safeSims,
@@ -311,6 +317,8 @@ function loadState(): AppState {
       xp: { ...DEFAULT_XP, ...parsed.xp, categoryXP: { ...DEFAULT_XP.categoryXP, ...(parsed.xp?.categoryXP || {}) } },
       streak: { ...DEFAULT_STATE.streak, ...parsed.streak },
     };
+
+    return checkGoalExpirations(loadedState);
   } catch {
     return DEFAULT_STATE;
   }
@@ -541,41 +549,131 @@ function getLinkedTasksForWeekGoal(goal: Goal, state: AppState): TodayTask[] {
   return [...direct, ...routineTasks.filter(rt => !direct.find(t => t.id === rt.id))];
 }
 
-function getCompletedXPForGoal(goal: Goal, state: AppState): number {
+export function calculateGoalDates(
+  type: GoalType,
+  mode: "current_period" | "from_now" | "custom",
+  customStart?: string,
+  customEnd?: string
+): { startDate: string; endDate: string } {
+  const today = new Date();
+  const formatDate = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
+
+  const startDate = customStart || formatDate(today);
+
+  if (mode === "custom" && customEnd) {
+    return { startDate, endDate: customEnd };
+  }
+
+  if (mode === "from_now") {
+    const end = new Date(today);
+    if (type === "week") end.setDate(end.getDate() + 7);
+    else if (type === "month") end.setMonth(end.getMonth() + 1);
+    else if (type === "year") end.setFullYear(end.getFullYear() + 1);
+    return { startDate, endDate: formatDate(end) };
+  }
+
+  // mode === "current_period"
+  const end = new Date(today);
+  if (type === "week") {
+    const dayOfWeek = today.getDay() === 0 ? 7 : today.getDay();
+    end.setDate(end.getDate() + (7 - dayOfWeek));
+  } else if (type === "month") {
+    end.setMonth(end.getMonth() + 1, 0);
+  } else if (type === "year") {
+    end.setMonth(11, 31);
+  }
+
+  return { startDate, endDate: formatDate(end) };
+}
+
+export function checkGoalExpirations(state: AppState): AppState {
+  const todayStr = getTodayDate();
+  let changed = false;
+
+  const updatedGoals = state.goals.map(goal => {
+    // Active goal with endDate can expire
+    if (goal.status === "failed" || goal.completed || !goal.endDate) {
+      return goal;
+    }
+
+    if (goal.endDate < todayStr) {
+      changed = true;
+      return {
+        ...goal,
+        status: "failed" as const,
+        failedAt: new Date().toISOString(),
+      };
+    }
+    return goal;
+  });
+
+  if (!changed) return state;
+  return { ...state, goals: updatedGoals };
+}
+
+export function canCompleteGoal(goal: Goal, state: AppState): { allowed: boolean; reason?: string } {
+  // 1. Check plan items
+  if (goal.plan && goal.plan.length > 0) {
+    const unfinishedPlan = goal.plan.filter(p => !p.done);
+    if (unfinishedPlan.length > 0) {
+      return { allowed: false, reason: "Завершите все пункты плана перед выполнением цели" };
+    }
+  }
+
+  // 2. Check child sub-goals
+  const childGoals = state.goals.filter(g => g.parentId === goal.id);
+  if (childGoals.length > 0) {
+    const unfinishedChild = childGoals.filter(g => !g.completed && g.status !== "failed");
+    if (unfinishedChild.length > 0) {
+      return { allowed: false, reason: "Сначала завершите все под-цели перед выполнением главной цели" };
+    }
+  }
+
+  // 3. For week goals, check linked daily tasks
   if (goal.type === "week") {
     const tasks = getLinkedTasksForWeekGoal(goal, state);
-    return tasks.filter(t => t.completed).reduce((sum, t) => sum + t.xp, 0);
+    if (tasks.length > 0) {
+      const unfinishedTasks = tasks.filter(t => !t.completed);
+      if (unfinishedTasks.length > 0) {
+        return { allowed: false, reason: "Сначала выполните все дневные задачи, привязанные к этой цели" };
+      }
+    }
   }
-  const childGoals = state.goals.filter(g => g.parentId === goal.id);
-  return childGoals.reduce((sum, child) => sum + getCompletedXPForGoal(child, state), 0);
+
+  return { allowed: true };
 }
 
 export function getGoalProgress(goal: Goal, state: AppState): { completed: number; total: number; percent: number } {
-  const totalGoalXP = goal.xp > 0 ? goal.xp : 1;
+  let totalItems = 0;
+  let completedItems = 0;
+
+  // Plan items
+  if (goal.plan && goal.plan.length > 0) {
+    totalItems += goal.plan.length;
+    completedItems += goal.plan.filter(p => p.done).length;
+  }
 
   if (goal.type === "week") {
     const tasks = getLinkedTasksForWeekGoal(goal, state);
-    if (tasks.length === 0) return { completed: 0, total: totalGoalXP, percent: 0 };
-    const completedXP = tasks.filter(t => t.completed).reduce((sum, t) => sum + t.xp, 0);
-    return {
-      completed: completedXP,
-      total: totalGoalXP,
-      percent: Math.min(100, Math.round((completedXP / totalGoalXP) * 100)),
-    };
-  }
-
-  if (goal.type === "month" || goal.type === "year") {
+    totalItems += tasks.length;
+    completedItems += tasks.filter(t => t.completed).length;
+  } else {
     const childGoals = state.goals.filter(g => g.parentId === goal.id);
-    if (childGoals.length === 0) return { completed: 0, total: totalGoalXP, percent: 0 };
-    const completedXP = getCompletedXPForGoal(goal, state);
-    return {
-      completed: completedXP,
-      total: totalGoalXP,
-      percent: Math.min(100, Math.round((completedXP / totalGoalXP) * 100)),
-    };
+    totalItems += childGoals.length;
+    completedItems += childGoals.filter(g => g.completed).length;
   }
 
-  return { completed: 0, total: 0, percent: 0 };
+  if (totalItems === 0) {
+    return { completed: goal.completed ? 1 : 0, total: 1, percent: goal.completed ? 100 : 0 };
+  }
+
+  const percent = Math.min(100, Math.round((completedItems / totalItems) * 100));
+  return { completed: completedItems, total: totalItems, percent };
 }
 
 export function recalcXP(state: AppState): XPData {
@@ -598,12 +696,8 @@ export function recalcXP(state: AppState): XPData {
     }
   }
 
-  for (const goal of state.goals) {
-    if (goal.completed) {
-      goalXP += goal.xp;
-      categoryXP[goal.category] = (categoryXP[goal.category] || 0) + goal.xp;
-    }
-  }
+  // Goals do not award XP (XP is 0 for goals)
+  goalXP = 0;
 
   const focusXP = state.focusSessions.reduce((sum, s) => sum + s.xp, 0);
 
@@ -1125,31 +1219,82 @@ export function useStore() {
 
     addGoal: useCallback((goal: Omit<Goal, "id" | "completed" | "linkedTaskIds" | "xp"> & { customXP?: number }) => {
       const { customXP, ...goalData } = goal;
+      const type = goalData.type;
+      const timeLimitType = goalData.timeLimitType || "current_period";
+      const dates = calculateGoalDates(type, timeLimitType, goalData.startDate, goalData.endDate);
+
       mutate(s => ({
         ...s,
         goals: [...s.goals, {
-          ...goalData, id: crypto.randomUUID(), completed: false, linkedTaskIds: [],
-          xp: customXP && customXP > 0 ? customXP : xpForGoal(goal.type), taskWeights: {},
+          ...goalData,
+          startDate: dates.startDate,
+          endDate: dates.endDate,
+          timeLimitType,
+          status: "active",
+          id: crypto.randomUUID(),
+          completed: false,
+          linkedTaskIds: [],
+          xp: 0,
+          taskWeights: {},
         }],
       }));
     }, []),
 
     updateGoal: useCallback((id: string, updates: Partial<Goal>) => {
-      mutate(s => ({ ...s, goals: s.goals.map(g => g.id === id ? { ...g, ...updates } : g) }));
-    }, []),
-
-    setGoalTaskWeight: useCallback((goalId: string, taskId: string, weight: number) => {
       mutate(s => ({
         ...s,
-        goals: s.goals.map(g => g.id === goalId
-          ? { ...g, taskWeights: { ...(g.taskWeights || {}), [taskId]: weight } }
-          : g
-        ),
+        goals: s.goals.map(g => {
+          if (g.id !== id) return g;
+          const updated = { ...g, ...updates };
+          if (updates.timeLimitType || updates.startDate || updates.endDate) {
+            const dates = calculateGoalDates(
+              updated.type,
+              updated.timeLimitType || "current_period",
+              updated.startDate,
+              updated.endDate
+            );
+            updated.startDate = dates.startDate;
+            updated.endDate = dates.endDate;
+          }
+          return updated;
+        }),
       }));
     }, []),
 
+    restoreGoal: useCallback((id: string, timeLimitType: "current_period" | "from_now" | "custom", customStart?: string, customEnd?: string) => {
+      mutate(s => {
+        const goal = s.goals.find(g => g.id === id);
+        if (!goal) return s;
+        const dates = calculateGoalDates(goal.type, timeLimitType, customStart, customEnd);
+        const restored: Goal = {
+          ...goal,
+          status: "active",
+          completed: false,
+          timeLimitType,
+          startDate: dates.startDate,
+          endDate: dates.endDate,
+          failedAt: undefined,
+        };
+        return {
+          ...s,
+          goals: s.goals.map(g => g.id === id ? restored : g),
+        };
+      });
+    }, []),
+
     toggleGoal: useCallback((id: string) => {
-      mutate(s => ({ ...s, goals: s.goals.map(g => g.id === id ? { ...g, completed: !g.completed } : g) }));
+      mutate(s => ({
+        ...s,
+        goals: s.goals.map(g => {
+          if (g.id !== id) return g;
+          const nextCompleted = !g.completed;
+          return {
+            ...g,
+            completed: nextCompleted,
+            status: nextCompleted ? ("completed" as const) : ("active" as const),
+          };
+        }),
+      }));
     }, []),
 
     deleteGoal: useCallback((id: string) => {
