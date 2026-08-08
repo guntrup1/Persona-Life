@@ -237,31 +237,82 @@ export function registerAuthRoutes(app: Express) {
   const lastBackupTime = new Map<string, number>();
   const BACKUP_COOLDOWN = 10 * 60 * 1000;
 
-  async function saveWithBackup(userId: string, data: any) {
-    const now = Date.now();
-    const lastTime = lastBackupTime.get(userId) || 0;
-    const shouldBackup = (now - lastTime) > BACKUP_COOLDOWN;
+  function sanitizeMongoInput(data: any): any {
+    if (data === null || data === undefined) return data;
+    if (typeof data !== "object") return data;
+    if (Array.isArray(data)) return data.map(sanitizeMongoInput);
 
-    if (shouldBackup) {
-      const existing = await UserData.findOne({ userId });
-      if (existing?.data && typeof existing.data === "object") {
-        const oldData = existing.data as any;
-        const hasContent = (oldData.todayTasks?.length > 0) || (oldData.dayNotes?.length > 0) ||
-          (oldData.tradingNotes?.length > 0) || (oldData.goals?.length > 0);
-        if (hasContent) {
-          await UserDataBackup.create({ userId, data: existing.data });
-          lastBackupTime.set(userId, now);
-          const backups = await UserDataBackup.find({ userId }).sort({ createdAt: -1 }).skip(10);
-          if (backups.length > 0) {
-            await UserDataBackup.deleteMany({ _id: { $in: backups.map((b: any) => b._id) } });
+    const clean: Record<string, any> = {};
+    for (const [key, val] of Object.entries(data)) {
+      if (key.startsWith("$") || key.includes(".")) continue;
+      clean[key] = sanitizeMongoInput(val);
+    }
+    return clean;
+  }
+
+  function verifyDataIntegrity(existingData: any, incomingData: any): { safe: boolean; reason?: string } {
+    if (!existingData || typeof existingData !== "object") return { safe: true };
+    if (!incomingData || typeof incomingData !== "object") return { safe: false, reason: "Невалидный формат данных" };
+
+    const existingTasks = Array.isArray(existingData.todayTasks) ? existingData.todayTasks.length : 0;
+    const existingGoals = Array.isArray(existingData.goals) ? existingData.goals.length : 0;
+    const existingNotes = Array.isArray(existingData.dayNotes) ? existingData.dayNotes.length : 0;
+
+    const incomingTasks = Array.isArray(incomingData.todayTasks) ? incomingData.todayTasks.length : 0;
+    const incomingGoals = Array.isArray(incomingData.goals) ? incomingData.goals.length : 0;
+    const incomingNotes = Array.isArray(incomingData.dayNotes) ? incomingData.dayNotes.length : 0;
+
+    const dbTotal = existingTasks + existingGoals + existingNotes;
+    const incomingTotal = incomingTasks + incomingGoals + incomingNotes;
+
+    if (dbTotal > 5 && incomingTotal === 0) {
+      return {
+        safe: false,
+        reason: "Попытка записать пустые данные поверх существующих записей заблокирована для защиты БД."
+      };
+    }
+
+    return { safe: true };
+  }
+
+  async function saveWithBackup(userId: string, data: any) {
+    const cleanData = sanitizeMongoInput(data);
+    const existing = await UserData.findOne({ userId });
+
+    if (existing?.data) {
+      const integrity = verifyDataIntegrity(existing.data, cleanData);
+      if (!integrity.safe) {
+        console.warn(`[DATA INTEGRITY GUARD] Rejected save for user ${userId}: ${integrity.reason}`);
+        throw new Error(integrity.reason || "Сбой проверки целостности данных");
+      }
+
+      const now = Date.now();
+      const lastTime = lastBackupTime.get(userId) || 0;
+      if (now - lastTime > BACKUP_COOLDOWN) {
+        lastBackupTime.set(userId, now);
+        const existingCopy = existing.data;
+        setImmediate(async () => {
+          try {
+            const oldData = existingCopy as any;
+            const hasContent = (oldData.todayTasks?.length > 0) || (oldData.dayNotes?.length > 0) ||
+              (oldData.tradingNotes?.length > 0) || (oldData.goals?.length > 0);
+            if (hasContent) {
+              await UserDataBackup.create({ userId, data: existingCopy });
+              const backups = await UserDataBackup.find({ userId }).sort({ createdAt: -1 }).skip(10);
+              if (backups.length > 0) {
+                await UserDataBackup.deleteMany({ _id: { $in: backups.map((b: any) => b._id) } });
+              }
+            }
+          } catch (err) {
+            console.error("[ASYNC BACKUP ERROR]", err);
           }
-        }
+        });
       }
     }
 
     await UserData.findOneAndUpdate(
       { userId },
-      { data, updatedAt: new Date() },
+      { data: cleanData, updatedAt: new Date() },
       { upsert: true }
     );
   }

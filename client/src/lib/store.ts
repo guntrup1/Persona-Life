@@ -813,7 +813,7 @@ function scheduleServerSync(state: AppState) {
     } catch {
       syncListeners.forEach(cb => cb(false));
     }
-  }, 2500);
+  }, 800);
 }
 
 export function compressImage(dataUrl: string, maxWidth = 1200, quality = 0.82): Promise<string> {
