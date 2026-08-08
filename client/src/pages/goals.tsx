@@ -412,7 +412,7 @@ function GoalCard({ goal, childGoals, onToggle, onDelete, onUpdate, onAddChild }
   onUpdate: (id: string, g: any) => void;
   onAddChild: (parentId: string, parentType: GoalType) => void;
 }) {
-  const { state } = useStore();
+  const { state, actions } = useStore();
   const { toast } = useToast();
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(true);
@@ -507,7 +507,7 @@ function GoalCard({ goal, childGoals, onToggle, onDelete, onUpdate, onAddChild }
         {/* Plan Section */}
         <PlanSection goal={goal} onUpdate={onUpdate} />
 
-        {/* Child sub-goals list */}
+        {/* Child sub-goals list for Year / Month goals */}
         {(goal.type === "year" || goal.type === "month") && (
           <div className="pt-2">
             <div className="flex items-center justify-between mb-2">
@@ -582,6 +582,61 @@ function GoalCard({ goal, childGoals, onToggle, onDelete, onUpdate, onAddChild }
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Linked Daily Tasks sub-items list for Week goals */}
+        {goal.type === "week" && (
+          <div className="pt-2">
+            {(() => {
+              const linkedTasks = state.todayTasks.filter(t => t.weekGoalId === goal.id || t.goalId === goal.id);
+              return (
+                <div>
+                  <button
+                    onClick={() => setExpanded(e => !e)}
+                    className="w-full flex items-center justify-between text-xs font-display font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground mb-2"
+                  >
+                    <span className="flex items-center gap-1">
+                      <Milestone className="w-3.5 h-3.5 text-primary" />
+                      <span>Привязанные дневные задачи ({linkedTasks.length})</span>
+                    </span>
+                    {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                  </button>
+
+                  {expanded && (
+                    <div className="space-y-1.5 pl-3 border-l-2 border-primary/20">
+                      {linkedTasks.length === 0 ? (
+                        <p className="text-xs text-muted-foreground italic py-1">Привязанных дневных задач пока нет</p>
+                      ) : (
+                        linkedTasks.map(task => (
+                          <div key={task.id} className="flex items-center justify-between text-xs py-1 px-2 rounded bg-muted/20 border border-border/40">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <button onClick={() => actions.toggleTask(task.id)}>
+                                {task.completed ? (
+                                  <CheckCircle className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                                ) : (
+                                  <Circle className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                                )}
+                              </button>
+                              <span className={`truncate font-medium ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                                {task.name}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <span className="font-mono text-[10px] text-muted-foreground">{task.date}</span>
+                              <Badge variant="outline" className={`text-[9px] ${LIFE_AREA_COLORS[task.category]}`}>
+                                {task.category}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         )}
       </div>
