@@ -29,7 +29,26 @@ let onCompleteCallback: ((session: {
 }) => void) | null = null;
 
 const listeners = new Set<() => void>();
-function notify() { listeners.forEach(l => l()); }
+function notify(broadcast = true) {
+  listeners.forEach(l => l());
+  if (broadcast && channel) {
+    try {
+      channel.postMessage({ type: "TIMER_STATE_SYNC", state });
+    } catch {}
+  }
+}
+
+// ─── Cross-Window BroadcastChannel Sync ───────────────────────────────
+const channel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("persona_timer_channel") : null;
+
+if (channel) {
+  channel.onmessage = (event) => {
+    if (event.data && event.data.type === "TIMER_STATE_SYNC") {
+      state = event.data.state;
+      notify(false); // Update local listeners without echoing back
+    }
+  };
+}
 
 export function getTimerState(): Readonly<TimerState> { return state; }
 export function subscribeTimer(cb: () => void) {
@@ -86,54 +105,76 @@ function runInterval() {
   }, 1000);
 }
 
-// ─── PiP Window (Document Picture-in-Picture only) ────────────────────
-// If Document PiP is not available, returns false and caller shows
-// the in-browser overlay instead. NEVER falls back to window.open().
+// ─── PiP / Popout Window Launcher ─────────────────────────────────────
+let externalWin: Window | null = null;
 
-let pipWin: Window | null = null;
-let pipUpdateInterval: ReturnType<typeof setInterval> | null = null;
-
-export function isPipOpen(): boolean { return !!pipWin; }
+export function isPipOpen(): boolean {
+  return !!externalWin && !externalWin.closed;
+}
 
 export async function tryOpenPip(): Promise<boolean> {
-  if (pipWin) { pipWin.focus(); return true; }
-  if (!("documentPictureInPicture" in window)) return false;
+  if (externalWin && !externalWin.closed) {
+    externalWin.focus();
+    return true;
+  }
 
-  try {
-    const pip: Window = await (window as any).documentPictureInPicture.requestWindow({
-      width: 280, height: 260,
-    });
+  // 1. Try Document Picture-in-Picture API (Chrome/Edge native PiP)
+  if ("documentPictureInPicture" in window) {
+    try {
+      const pip: Window = await (window as any).documentPictureInPicture.requestWindow({
+        width: 280, height: 270,
+      });
 
-    pip.document.documentElement.style.cssText = "background:#09090b;margin:0;padding:0";
-    pip.document.body.style.cssText = "background:#09090b;color:#fafafa;margin:0;padding:0;overflow:hidden;font-family:system-ui,-apple-system,sans-serif;user-select:none";
+      pip.document.documentElement.style.cssText = "background:#09090b;margin:0;padding:0";
+      pip.document.body.style.cssText = "background:#09090b;color:#fafafa;margin:0;padding:0;overflow:hidden;font-family:system-ui,-apple-system,sans-serif;user-select:none";
 
-    pip.document.body.innerHTML = buildPipHTML();
-    attachPipListeners(pip);
-    startPipUpdater(pip);
+      // Inject styles and HTML
+      Array.from(document.querySelectorAll("style, link[rel='stylesheet']")).forEach((node: Element) => {
+        pip.document.head.appendChild(node.cloneNode(true));
+      });
 
-    pip.addEventListener("pagehide", () => {
+      pip.document.body.innerHTML = buildPipHTML();
+      attachPipListeners(pip);
+      startPipUpdater(pip);
+
+      pip.addEventListener("pagehide", () => {
+        cleanupPip();
+        notify();
+      });
+
+      externalWin = pip;
+      notify();
+      return true;
+    } catch (e) {
+      console.warn("Document PiP request failed, using popout window:", e);
+    }
+  }
+
+  // 2. Fallback: Open clean desktop popout window /timer-pip
+  const pop = window.open("/timer-pip", "PersonaTimerWin", "width=280,height=270,resizable=yes,scrollbars=no,menubar=no,toolbar=no,location=no,status=no");
+  if (pop) {
+    pop.addEventListener("beforeunload", () => {
       cleanupPip();
       notify();
     });
-
-    pipWin = pip;
+    externalWin = pop;
     notify();
     return true;
-  } catch (e) {
-    console.warn("Document PiP not available:", e);
-    return false;
   }
+
+  return false;
 }
 
 export function closePip() {
-  if (pipWin) { try { pipWin.close(); } catch {} }
+  if (externalWin && !externalWin.closed) {
+    try { externalWin.close(); } catch {}
+  }
   cleanupPip();
   notify();
 }
 
 function cleanupPip() {
-  pipWin = null;
-  if (pipUpdateInterval) { clearInterval(pipUpdateInterval); pipUpdateInterval = null; }
+  externalWin = null;
 }
 
 function buildPipHTML(): string {
@@ -180,9 +221,8 @@ function attachPipListeners(pip: Window) {
 }
 
 function startPipUpdater(pip: Window) {
-  if (pipUpdateInterval) clearInterval(pipUpdateInterval);
-  pipUpdateInterval = setInterval(() => {
-    if (!pipWin) { if (pipUpdateInterval) clearInterval(pipUpdateInterval); return; }
+  setInterval(() => {
+    if (!externalWin || externalWin.closed) return;
     const s = state;
     const m = Math.floor(s.timeLeft / 60);
     const sec = s.timeLeft % 60;
@@ -204,14 +244,12 @@ function startPipUpdater(pip: Window) {
       if (s.completed) xpEl.textContent = `+${xpForFocus(s.duration)} XP!`;
     }
 
-    // Update mode buttons highlight
     pip.document.querySelectorAll(".mb").forEach(btn => {
       const bMode = (btn as HTMLElement).dataset.mode;
       (btn as HTMLElement).style.background = bMode === s.mode ? "#ef4444" : "transparent";
       (btn as HTMLElement).style.color = bMode === s.mode ? "#fff" : "#888";
     });
 
-    // Sync note input (only if not focused)
     const noteEl = pip.document.getElementById("pip-note") as HTMLInputElement | null;
     if (noteEl && pip.document.activeElement !== noteEl) {
       noteEl.value = s.note;
