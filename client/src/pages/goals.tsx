@@ -402,6 +402,105 @@ function PlanSection({ goal, onUpdate }: { goal: Goal; onUpdate: (id: string, g:
   );
 }
 
+// ─── Week Sub-Items Section (Unified with Daily Tasks) ───────────────
+
+function WeekSubItemsSection({ goal }: { goal: Goal }) {
+  const { state, actions } = useStore();
+  const [newSubItemName, setNewSubItemName] = useState("");
+  const [expanded, setExpanded] = useState(true);
+
+  const linkedTasks = state.todayTasks.filter(t => t.weekGoalId === goal.id || t.goalId === goal.id);
+  const allDone = linkedTasks.length > 0 && linkedTasks.every(t => t.completed);
+  const doneCount = linkedTasks.filter(t => t.completed).length;
+
+  const handleAddSubItem = () => {
+    if (!newSubItemName.trim()) return;
+    actions.addTodayTask({
+      name: newSubItemName.trim(),
+      category: goal.category,
+      difficulty: "medium",
+      xp: 25,
+      type: "today",
+      date: getTodayDate(),
+      weekGoalId: goal.id,
+      noDeadline: true,
+    });
+    setNewSubItemName("");
+  };
+
+  return (
+    <div className="mt-3 pt-3 border-t border-border/50">
+      <button
+        className="w-full flex items-center justify-between text-[11px] font-display uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors mb-2"
+        onClick={() => setExpanded(e => !e)}
+      >
+        <span className="flex items-center gap-1.5">
+          <ListChecks className="w-3.5 h-3.5 text-primary" />
+          Подпункты / Дневные задачи
+          {linkedTasks.length > 0 && (
+            <span className={`font-mono ml-1 ${allDone ? "text-primary" : "text-muted-foreground"}`}>
+              {doneCount}/{linkedTasks.length}
+            </span>
+          )}
+        </span>
+        {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+      </button>
+
+      {expanded && (
+        <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
+          {linkedTasks.length === 0 ? (
+            <p className="text-[11px] text-muted-foreground italic px-1">Подпунктов пока нет — добавьте первый ниже</p>
+          ) : (
+            linkedTasks.map(task => (
+              <div key={task.id} className="flex items-center justify-between text-xs py-1 px-2 rounded bg-muted/20 border border-border/40 group">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <button onClick={() => actions.toggleTask(task.id)}>
+                    {task.completed ? (
+                      <CheckCircle className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                    ) : (
+                      <Circle className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                    )}
+                  </button>
+                  <span className={`truncate font-medium ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                    {task.name}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="font-mono text-[10px] text-muted-foreground">{task.date}</span>
+                  <Badge variant="outline" className={`text-[9px] ${LIFE_AREA_COLORS[task.category]}`}>
+                    {task.category}
+                  </Badge>
+                  <button
+                    onClick={() => actions.deleteTask(task.id)}
+                    className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 p-0.5 transition-all"
+                    title="Удалить подпункт"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+
+          <div className="flex gap-1.5 pt-1">
+            <Input
+              value={newSubItemName}
+              onChange={e => setNewSubItemName(e.target.value)}
+              placeholder="Добавить подпункт / дневную задачу..."
+              className="text-xs h-7"
+              onKeyDown={e => e.key === "Enter" && (e.preventDefault(), handleAddSubItem())}
+            />
+            <Button size="sm" variant="ghost" onClick={handleAddSubItem} className="h-7 px-2 text-xs">
+              <Plus className="w-3 h-3" />
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Goal Card Component ───────────────────────────────────────────────
 
 function GoalCard({ goal, childGoals, onToggle, onDelete, onUpdate, onAddChild }: {
@@ -504,8 +603,8 @@ function GoalCard({ goal, childGoals, onToggle, onDelete, onUpdate, onAddChild }
           <Progress value={progress.percent} className="h-1.5" />
         </div>
 
-        {/* Plan Section */}
-        <PlanSection goal={goal} onUpdate={onUpdate} />
+        {/* Plan Section only for Year and Month goals */}
+        {goal.type !== "week" && <PlanSection goal={goal} onUpdate={onUpdate} />}
 
         {/* Child sub-goals list for Year / Month goals */}
         {(goal.type === "year" || goal.type === "month") && (
@@ -585,59 +684,9 @@ function GoalCard({ goal, childGoals, onToggle, onDelete, onUpdate, onAddChild }
           </div>
         )}
 
-        {/* Linked Daily Tasks sub-items list for Week goals */}
+        {/* Unified Sub-items / Daily Tasks list for Week goals */}
         {goal.type === "week" && (
-          <div className="pt-2">
-            {(() => {
-              const linkedTasks = state.todayTasks.filter(t => t.weekGoalId === goal.id || t.goalId === goal.id);
-              return (
-                <div>
-                  <button
-                    onClick={() => setExpanded(e => !e)}
-                    className="w-full flex items-center justify-between text-xs font-display font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground mb-2"
-                  >
-                    <span className="flex items-center gap-1">
-                      <Milestone className="w-3.5 h-3.5 text-primary" />
-                      <span>Привязанные дневные задачи ({linkedTasks.length})</span>
-                    </span>
-                    {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                  </button>
-
-                  {expanded && (
-                    <div className="space-y-1.5 pl-3 border-l-2 border-primary/20">
-                      {linkedTasks.length === 0 ? (
-                        <p className="text-xs text-muted-foreground italic py-1">Привязанных дневных задач пока нет</p>
-                      ) : (
-                        linkedTasks.map(task => (
-                          <div key={task.id} className="flex items-center justify-between text-xs py-1 px-2 rounded bg-muted/20 border border-border/40">
-                            <div className="flex items-center gap-2 min-w-0 flex-1">
-                              <button onClick={() => actions.toggleTask(task.id)}>
-                                {task.completed ? (
-                                  <CheckCircle className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                                ) : (
-                                  <Circle className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                                )}
-                              </button>
-                              <span className={`truncate font-medium ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
-                                {task.name}
-                              </span>
-                            </div>
-
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                              <span className="font-mono text-[10px] text-muted-foreground">{task.date}</span>
-                              <Badge variant="outline" className={`text-[9px] ${LIFE_AREA_COLORS[task.category]}`}>
-                                {task.category}
-                              </Badge>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-          </div>
+          <WeekSubItemsSection goal={goal} />
         )}
       </div>
     </Card>
