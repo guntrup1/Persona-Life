@@ -8,45 +8,23 @@ import { User, UserData, UserDataBackup, ResetToken, UserSettings } from "./mong
 
 // ── Brevo email helper ──
 async function sendEmail(to: string, subject: string, html: string) {
-  const apiKey = process.env.BREVO_API_KEY;
-  const senderEmail = process.env.BREVO_SENDER_EMAIL || "hermandmytro62@gmail.com";
-  
-  if (!apiKey) {
-    console.error("[sendEmail] BREVO_API_KEY is not configured in process.env!");
-    throw new Error("BREVO_API_KEY environment variable is missing.");
+  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "api-key": process.env.BREVO_API_KEY!,
+    },
+    body: JSON.stringify({
+      sender: { name: "Trade Persona", email: process.env.BREVO_SENDER_EMAIL || "hermandmytro62@gmail.com" },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+    }),
+  });
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Brevo error: ${err}`);
   }
-
-  try {
-    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "api-key": apiKey,
-      },
-      body: JSON.stringify({
-        sender: { name: "Persona Life", email: senderEmail },
-        to: [{ email: to }],
-        subject,
-        htmlContent: html,
-      }),
-    });
-    if (!response.ok) {
-      const err = await response.text();
-      console.error("[sendEmail] Brevo API responded with error:", err);
-      throw new Error(`Brevo error: ${err}`);
-    }
-    console.log("[sendEmail] Email successfully sent to:", to);
-  } catch (err) {
-    console.error("[sendEmail] Exception caught during sending:", err);
-    throw err;
-  }
-}
-
-function getBaseUrl(req: Request): string {
-  if (process.env.APP_URL) return process.env.APP_URL;
-  const host = req.headers.host || "localhost:5000";
-  const proto = req.headers["x-forwarded-proto"] || (req.secure ? "https" : "http");
-  return `${proto}://${host}`;
 }
 
 // ── Zod схемы валидации ──
@@ -58,7 +36,7 @@ const registerSchema = z.object({
     .max(100, "Email слишком длинный")
     .toLowerCase(),
   password: z.string()
-    .min(8, "Пароль должен быть не менее 8 символов")
+    .min(6, "Пароль должен быть не менее 6 символов")
     .max(100, "Пароль слишком длинный"),
 });
 
@@ -70,7 +48,7 @@ const loginSchema = z.object({
 const resetPasswordSchema = z.object({
   token: z.string().min(32).max(128),
   password: z.string()
-    .min(8, "Пароль должен быть не менее 8 символов")
+    .min(6, "Пароль должен быть не менее 6 символов")
     .max(100, "Пароль слишком длинный"),
 });
 
@@ -80,17 +58,13 @@ const forgotPasswordSchema = z.object({
 });
 
 export function setupAuth(app: Express) {
-  if (process.env.NODE_ENV === "production" && !process.env.SESSION_SECRET) {
-    throw new Error("CRITICAL SECURITY ERROR: SESSION_SECRET environment variable is required in production");
-  }
-
   app.use(
     session({
       store: MongoStore.create({
         mongoUrl: process.env.MONGODB_URI,
         collectionName: "sessions",
       }),
-      secret: process.env.SESSION_SECRET || "lifeos-dev-session-secret-change-me",
+      secret: process.env.SESSION_SECRET || "lifeos-secret-key",
       resave: false,
       saveUninitialized: false,
       cookie: {
@@ -147,7 +121,7 @@ export function registerAuthRoutes(app: Express) {
       await UserData.create({ userId: user._id, data: {} });
 
       // Отправляем письмо верификации через Brevo
-      const verifyUrl = `${getBaseUrl(req)}/verify-email?token=${verifyToken}`;
+      const verifyUrl = `${process.env.APP_URL || "https://persona-life.onrender.com"}/verify-email?token=${verifyToken}`;
       try {
         const isEn = lang === "en";
         const subject = isEn ? "Verify email — Persona Life" : "Подтверди email — Persona Life";
@@ -422,7 +396,7 @@ export function registerAuthRoutes(app: Express) {
       await ResetToken.deleteMany({ userId: user._id });
       await ResetToken.create({ userId: user._id, token, expiresAt });
 
-      const resetUrl = `${getBaseUrl(req)}/reset-password?token=${token}`;
+      const resetUrl = `${process.env.APP_URL || "https://persona-life.onrender.com"}/reset-password?token=${token}`;
 
       const isEn = lang === "en";
       const subject = isEn ? "Password Reset — Persona Life" : "Сброс пароля — Persona Life";
