@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SlidersHorizontal, Clock, ChevronDown, ChevronUp, Globe, Calendar } from "lucide-react";
+import { SlidersHorizontal, Clock, ChevronDown, ChevronUp, Globe } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/lib/i18n";
 
@@ -22,19 +22,9 @@ interface UserSettings {
   restEnd: number;
   sleepStart: number;
   sleepEnd: number;
-  workDays?: number[];
   tradingSessions: TradingSession[];
+  workDays: number[];
 }
-
-const WEEKDAYS = [
-  { id: 1, label: "Пн" },
-  { id: 2, label: "Вт" },
-  { id: 3, label: "Ср" },
-  { id: 4, label: "Чт" },
-  { id: 5, label: "Пт" },
-  { id: 6, label: "Сб" },
-  { id: 0, label: "Вс" },
-];
 
 const DEFAULT_SESSIONS: TradingSession[] = [
   { name: "Азия", start: 3, end: 8, enabled: true },
@@ -46,13 +36,6 @@ const DEFAULT_SESSIONS: TradingSession[] = [
 const UTC_OFFSETS = Array.from({ length: 27 }, (_, i) => i - 12);
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const H = (h: number) => `${String(h).padStart(2, "0")}:00`;
-
-const STATUS_ROWS = [
-  { emoji: "😴", key: "sleep",  label: "Сон",     startKey: "sleepStart", endKey: "sleepEnd" },
-  { emoji: "💪", key: "work",   label: "Работа",  startKey: "workStart",  endKey: "workEnd"  },
-  { emoji: "☕", key: "rest",   label: "Отдых",   startKey: "restStart",  endKey: "restEnd"  },
-  { emoji: "🌙", key: "evening",label: "Вечер",   startKey: "restEnd",    endKey: "sleepStart"},
-] as const;
 
 function Row({ label, startVal, endVal, onStart, onEnd }: {
   label: string;
@@ -82,14 +65,15 @@ export default function SettingsPage() {
   const { t, lang, setLang } = useI18n();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [showSessions, setShowSessions] = useState(false);
+  const [showWorkSection, setShowWorkSection] = useState(true);
+  const [showSessions, setShowSessions] = useState(true);
   const [settings, setSettings] = useState<UserSettings>({
     utcOffset: 1,
     workStart: 9, workEnd: 18,
     restStart: 18, restEnd: 23,
     sleepStart: 23, sleepEnd: 7,
-    workDays: [1, 2, 3, 4, 5],
     tradingSessions: DEFAULT_SESSIONS,
+    workDays: [1, 2, 3, 4, 5],
   });
 
   useEffect(() => {
@@ -103,6 +87,9 @@ export default function SettingsPage() {
             tradingSessions: data.settings.tradingSessions?.length
               ? data.settings.tradingSessions
               : DEFAULT_SESSIONS,
+            workDays: data.settings.workDays?.length
+              ? data.settings.workDays
+              : [1, 2, 3, 4, 5],
           }));
         }
       })
@@ -161,6 +148,16 @@ export default function SettingsPage() {
 
   const { utcOffset } = settings;
 
+  const DAYS = [
+    { label: "Пн", day: 1 },
+    { label: "Вт", day: 2 },
+    { label: "Ср", day: 3 },
+    { label: "Чт", day: 4 },
+    { label: "Пт", day: 5 },
+    { label: "Сб", day: 6 },
+    { label: "Вс", day: 0 },
+  ];
+
   return (
     <div className="h-full overflow-auto">
       <div className="max-w-lg mx-auto p-4 space-y-3">
@@ -208,57 +205,69 @@ export default function SettingsPage() {
           </Select>
         </Card>
 
-        {/* Рабочие дни */}
-        <Card className="p-3 border-card-border rounded-2xl space-y-2">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-3.5 h-3.5 text-primary" />
-            <span className="font-display text-xs font-bold uppercase tracking-wider">Рабочие дни</span>
-          </div>
-          <div className="flex items-center justify-between gap-1 pt-1">
-            {WEEKDAYS.map(day => {
-              const activeWorkDays = settings.workDays || [1, 2, 3, 4, 5];
-              const isSelected = activeWorkDays.includes(day.id);
-              return (
-                <button
-                  key={day.id}
-                  type="button"
-                  onClick={() => {
-                    const current = settings.workDays || [1, 2, 3, 4, 5];
-                    const next = current.includes(day.id)
-                      ? current.filter(d => d !== day.id)
-                      : [...current, day.id];
-                    set("workDays", next);
-                  }}
-                  className={`flex-1 py-1.5 rounded-lg font-display text-xs font-bold transition-all ${
-                    isSelected
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "bg-muted/40 text-muted-foreground hover:bg-muted/80"
-                  }`}
-                >
-                  {day.label}
-                </button>
-              );
-            })}
-          </div>
-          <p className="text-[10px] text-muted-foreground">В нерабочие дни торговые сессии отключаются и выводится «Отдохни ;3»</p>
+        {/* Рабочие дни и статусы (Сворачиваемый блок) */}
+        <Card className="p-3 border-card-border rounded-2xl space-y-3">
+          <button
+            className="w-full flex items-center justify-between"
+            onClick={() => setShowWorkSection(s => !s)}
+          >
+            <span className="font-display text-xs font-bold uppercase tracking-wider">🗓️ Рабочие дни и статусы</span>
+            {showWorkSection
+              ? <ChevronUp className="w-4 h-4 text-muted-foreground" />
+              : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+          </button>
+
+          {showWorkSection && (
+            <div className="space-y-4 pt-1 animate-in fade-in slide-in-from-top-1 duration-150">
+              {/* Выбор рабочих дней */}
+              <div className="space-y-1.5">
+                <span className="text-xs text-muted-foreground font-display font-medium">Рабочие дни недели:</span>
+                <div className="flex gap-1.5 flex-wrap">
+                  {DAYS.map(({ label, day }) => {
+                    const active = (settings.workDays || [1, 2, 3, 4, 5]).includes(day);
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => {
+                          const current = settings.workDays || [1, 2, 3, 4, 5];
+                          const next = active
+                            ? current.filter(d => d !== day)
+                            : [...current, day];
+                          set("workDays", next);
+                        }}
+                        className={`px-3 py-1.5 text-xs rounded-xl font-display font-bold transition-all border ${
+                          active
+                            ? "bg-primary text-white border-primary shadow-sm"
+                            : "bg-muted/30 text-muted-foreground border-border hover:border-primary/40"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Статусы дня */}
+              <div className="space-y-1 border-t border-border/50 pt-3">
+                <div className="font-display text-xs font-bold uppercase tracking-wider mb-1 text-muted-foreground">{t.settings.statuses}</div>
+                <div className="divide-y divide-border/50">
+                  <Row label={`😴 ${t.settings.sleep}`}    startVal={settings.sleepStart} endVal={settings.sleepEnd}
+                    onStart={v => set("sleepStart", v)} onEnd={v => set("sleepEnd", v)} />
+                  <Row label={`💪 ${t.settings.work}`} startVal={settings.workStart}  endVal={settings.workEnd}
+                    onStart={v => set("workStart", v)}  onEnd={v => set("workEnd", v)} />
+                  <Row label={`☕ ${t.settings.rest}`}  startVal={settings.restStart}  endVal={settings.restEnd}
+                    onStart={v => set("restStart", v)}  onEnd={v => set("restEnd", v)} />
+                  <Row label={`🌙 ${t.settings.evening}`}  startVal={settings.restEnd}  endVal={settings.sleepStart}
+                    onStart={v => set("restEnd", v)}  onEnd={v => set("sleepStart", v)} />
+                </div>
+              </div>
+            </div>
+          )}
         </Card>
 
-        {/* Статусы */}
-        <Card className="p-3 border-card-border rounded-2xl">
-          <div className="font-display text-xs font-bold uppercase tracking-wider mb-2">{t.settings.statuses}</div>
-          <div className="divide-y divide-border/50">
-            <Row label={`😴 ${t.settings.sleep}`}    startVal={settings.sleepStart} endVal={settings.sleepEnd}
-              onStart={v => set("sleepStart", v)} onEnd={v => set("sleepEnd", v)} />
-            <Row label={`💪 ${t.settings.work}`} startVal={settings.workStart}  endVal={settings.workEnd}
-              onStart={v => set("workStart", v)}  onEnd={v => set("workEnd", v)} />
-            <Row label={`☕ ${t.settings.rest}`}  startVal={settings.restStart}  endVal={settings.restEnd}
-              onStart={v => set("restStart", v)}  onEnd={v => set("restEnd", v)} />
-            <Row label={`🌙 ${t.settings.evening}`}  startVal={settings.restEnd}  endVal={settings.sleepStart}
-              onStart={v => set("restEnd", v)}  onEnd={v => set("sleepStart", v)} />
-          </div>
-        </Card>
-
-        {/* Торговые сессии */}
+        {/* Торговые сессии (Сворачиваемый блок) */}
         <Card className="p-3 border-card-border rounded-2xl">
           <button
             className="w-full flex items-center justify-between"
@@ -271,7 +280,7 @@ export default function SettingsPage() {
           </button>
 
           {showSessions && (
-            <div className="mt-3 space-y-2">
+            <div className="mt-3 space-y-2 animate-in fade-in slide-in-from-top-1 duration-150">
               {settings.tradingSessions.map((s, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <button

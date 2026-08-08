@@ -70,6 +70,7 @@ const userSettingsSchema = new mongoose.Schema({
       { name: "Нью-Йорк",  start: 14, end: 17, enabled: true },
     ],
   },
+  workDays: { type: [Number], default: [1, 2, 3, 4, 5] },
   updatedAt: { type: Date, default: Date.now },
 });
 

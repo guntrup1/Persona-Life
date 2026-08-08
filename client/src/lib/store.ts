@@ -310,7 +310,6 @@ function loadState(): AppState {
     const loadedState: AppState = {
       ...DEFAULT_STATE,
       ...parsed,
-      goals: Array.isArray(parsed.goals) ? parsed.goals : DEFAULT_STATE.goals,
       simulations: safeSims,
       dailyBiases: parsed.dailyBiases || [],
       dayNotes: parsed.dayNotes || [],
@@ -386,34 +385,13 @@ const SESSION_COLORS = [
   "text-cyan-400",
 ];
 
-export const PLEASANT_REST_PHRASES = [
-  "Отдохни ;3",
-  "Время восстановить силы ☕",
-  "Выходные! Наслаждайся жизнью 🌟",
-  "Перезагрузка 🍃",
-  "Позволь себе отдых ✨",
-  "Отличный день для отдыха 🧘",
-  "Вне рынка. Наполнись энергией 🔋",
-  "Гармония и покой 🕊️",
-  "Заслуженный отдых 🛋️",
-  "Отдыхай и радуйся моменту 🌸",
-];
-
 export function getMarketSession(): { name: string; active: boolean; color: string } {
   const settings = loadUserSettings();
   const now = getUserTime();
 
-  // Check work days (1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat, 0=Sun)
   const workDays = settings.workDays || [1, 2, 3, 4, 5];
-  const currentDay = now.getDay();
-
-  if (!workDays.includes(currentDay)) {
-    const phraseIdx = (now.getDate() + now.getMonth()) % PLEASANT_REST_PHRASES.length;
-    return {
-      name: PLEASANT_REST_PHRASES[phraseIdx],
-      active: false,
-      color: "text-amber-400 font-bold",
-    };
+  if (!workDays.includes(now.getDay())) {
+    return { name: "Отдых", active: false, color: "text-muted-foreground" };
   }
 
   const totalMin = now.getHours() * 60 + now.getMinutes();
@@ -449,8 +427,8 @@ export interface UserSettings {
   restEnd: number;
   sleepStart: number;
   sleepEnd: number;
-  workDays?: number[]; // [1, 2, 3, 4, 5] (1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat, 0=Sun)
   tradingSessions?: { name: string; start: number; end: number; enabled: boolean }[];
+  workDays?: number[];
 }
 
 const STATE_EMOJIS: Record<string, string[]> = {
@@ -482,7 +460,10 @@ export function loadUserSettings(): UserSettings {
         });
         localStorage.setItem("userSettings", JSON.stringify(parsed));
       }
-      return parsed;
+      return {
+        ...parsed,
+        workDays: parsed.workDays || [1, 2, 3, 4, 5],
+      };
     }
   } catch {}
   return {

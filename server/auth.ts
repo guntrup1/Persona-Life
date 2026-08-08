@@ -412,11 +412,11 @@ export function registerAuthRoutes(app: Express) {
   });
 
   app.put("/api/user/settings", requireAuth, async (req, res) => {
-    const { utcOffset, workStart, workEnd, restStart, restEnd, sleepStart, sleepEnd } = req.body;
+    const { utcOffset, workStart, workEnd, restStart, restEnd, sleepStart, sleepEnd, tradingSessions, workDays } = req.body;
     try {
       const settings = await UserSettings.findOneAndUpdate(
         { userId: req.session.userId },
-        { utcOffset, workStart, workEnd, restStart, restEnd, sleepStart, sleepEnd, updatedAt: new Date() },
+        { utcOffset, workStart, workEnd, restStart, restEnd, sleepStart, sleepEnd, tradingSessions, workDays, updatedAt: new Date() },
         { upsert: true, new: true }
       );
       return res.json({ settings });
