@@ -63,7 +63,7 @@ function AddTaskDialog({ onAdd, taskToEdit, open: externalOpen, onOpenChange }: 
 
   const { state } = useStore();
   const { t } = useI18n();
-  const weekGoals = state.goals.filter(g => g.type === "week" && !g.completed);
+  const weekGoals = state.goals.filter(g => g.type === "week" && !g.completed && g.status !== "failed");
 
   useEffect(() => {
     if (taskToEdit && open) {
@@ -296,7 +296,7 @@ function AddRoutineDialog({ onAdd, routineToEdit, open: externalOpen, onOpenChan
 
   const { state } = useStore();
   const { t } = useI18n();
-  const goals = state.goals.filter(g => !g.completed);
+  const weekGoals = state.goals.filter(g => g.type === "week" && !g.completed && g.status !== "failed");
 
   useEffect(() => {
     if (routineToEdit && open) {
@@ -424,7 +424,7 @@ function AddRoutineDialog({ onAdd, routineToEdit, open: externalOpen, onOpenChan
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">{t.tasks.noGoal}</SelectItem>
-                {goals.map(g => (
+                {weekGoals.map(g => (
                   <SelectItem key={g.id} value={g.id}>{g.title}</SelectItem>
                 ))}
               </SelectContent>
