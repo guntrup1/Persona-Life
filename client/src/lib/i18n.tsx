@@ -104,10 +104,10 @@ export const translations = {
       errReg: "Ошибка регистрации",
       errSend: "Ошибка отправки",
       created: "Аккаунт создан!",
-      createdDesc: "Проверь почту и подтверди email.",
+      createdDesc: "Проверь почту и подтверди email (проверь папку СПАМ, если письма нет).",
       enterEmail: "Введите email в поле выше",
       sending: "Отправляем...",
-      sent: "✅ Письмо отправлено! Проверь почту.",
+      sent: "✅ Письмо отправлено! Проверь почту (и папку СПАМ).",
     },
 
     // ── Sidebar ──
@@ -547,7 +547,7 @@ export const translations = {
       resendLink: "Получить новую ссылку:",
       yourEmail: "Ваш email",
       enterEmail: "Введите email",
-      sendEmailSuccess: "Письмо отправлено! Проверьте почту.",
+      sendEmailSuccess: "Письмо отправлено! Проверьте почту (и папку СПАМ).",
       sendError: "Ошибка отправки",
       netError: "Ошибка сети",
       sendNewLink: "Отправить новую ссылку",
@@ -666,10 +666,10 @@ export const translations = {
       errReg: "Registration error",
       errSend: "Sending error",
       created: "Account created!",
-      createdDesc: "Check your email and verify it.",
+      createdDesc: "Check your email and verify it (check SPAM folder if missing).",
       enterEmail: "Enter email in the field above",
       sending: "Sending...",
-      sent: "✅ Email sent! Check your inbox.",
+      sent: "✅ Email sent! Check your inbox (and SPAM folder).",
     },
 
     // ── Sidebar ──
@@ -1108,7 +1108,7 @@ export const translations = {
       resendLink: "Get new link:",
       yourEmail: "Your email",
       enterEmail: "Enter email",
-      sendEmailSuccess: "Email sent! Check your inbox.",
+      sendEmailSuccess: "Email sent! Check your inbox (and SPAM folder).",
       sendError: "Error sending email",
       netError: "Network error",
       sendNewLink: "Send new link",

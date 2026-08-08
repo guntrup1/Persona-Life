@@ -130,6 +130,8 @@ export function registerAuthRoutes(app: Express) {
         const btn = isEn ? "VERIFY EMAIL" : "ПОДТВЕРДИТЬ EMAIL";
         const footer = isEn ? "Link is valid for 24 hours. If you didn't register, ignore this email." : "Ссылка действует 24 часа. Если ты не регистрировался — просто проигнорируй письмо.";
 
+        const spamNote = isEn ? "⚠️ If you don't see the email in your Inbox, please check your SPAM folder." : "⚠️ Если письма нет во «Входящих» — обязательно проверьте папку «СПАМ».";
+
         await sendEmail(
           user.email,
           subject,
@@ -141,6 +143,7 @@ export function registerAuthRoutes(app: Express) {
               style="display:inline-block;margin:24px 0;padding:12px 32px;background:#E11D48;color:#fff;text-decoration:none;font-weight:bold;letter-spacing:0.1em;">
               ${btn}
             </a>
+            <p style="color:#ffb703;font-size:13px;font-weight:bold;margin-top:16px;">${spamNote}</p>
             <p style="color:#666;font-size:12px;">${footer}</p>
           </div>
           `
@@ -155,7 +158,7 @@ export function registerAuthRoutes(app: Express) {
 
       return res.json({
         ok: true,
-        message: "Аккаунт создан! Проверь почту и подтверди email.",
+        message: "Аккаунт создан! Проверь почту и подтверди email. (Если письма нет во Входящих — проверь папку СПАМ).",
         needsVerification: true,
       });
     } catch (err) {
@@ -406,18 +409,21 @@ export function registerAuthRoutes(app: Express) {
       const btn = isEn ? "Reset Password" : "Сбросить пароль";
       const footer = isEn ? "If you didn't request a reset, ignore this email." : "Если ты не запрашивал сброс — просто проигнорируй это письмо.";
 
+      const spamNote = isEn ? "⚠️ If you don't see the email in your Inbox, please check your SPAM folder." : "⚠️ Если письма нет во «Входящих» — обязательно проверьте папку «СПАМ».";
+
       await sendEmail(
         user.email,
         subject,
         `
-        <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
-          <h2>${title}</h2>
-          <p>${desc1}</p>
-          <p>${desc2}</p>
-          <a href="${resetUrl}" style="display:inline-block;padding:12px 24px;background:#ef4444;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;">
+        <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; background:#0a0a0a; color:#fff; padding:32px;">
+          <h2 style="color:#ef4444;">${title}</h2>
+          <p style="color:#aaa;">${desc1}</p>
+          <p style="color:#aaa;">${desc2}</p>
+          <a href="${resetUrl}" style="display:inline-block;margin:16px 0;padding:12px 24px;background:#ef4444;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;">
             ${btn}
           </a>
-          <p style="color:#888;font-size:12px;margin-top:24px;">${footer}</p>
+          <p style="color:#ffb703;font-size:13px;font-weight:bold;margin-top:16px;">${spamNote}</p>
+          <p style="color:#666;font-size:12px;margin-top:24px;">${footer}</p>
         </div>
         `
       );
@@ -535,17 +541,20 @@ app.get("/api/auth/verify-email", async (req, res) => {
       const btn = isEn ? "VERIFY" : "ПОДТВЕРДИТЬ";
       const footer = isEn ? "Link is valid for 24 hours." : "Ссылка действует 24 часа.";
 
+      const spamNote = isEn ? "⚠️ If you don't see the email in your Inbox, please check your SPAM folder." : "⚠️ Если письма нет во «Входящих» — обязательно проверьте папку «СПАМ».";
+
       await sendEmail(
         user.email,
         subject,
         `
-        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;">
+        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;background:#0a0a0a;color:#fff;padding:32px;">
           <h2 style="color:#E11D48;">${title}</h2>
-          <p>${desc}</p>
-          <a href="${verifyUrl}" style="display:inline-block;padding:12px 24px;background:#E11D48;color:#fff;text-decoration:none;font-weight:bold;">
+          <p style="color:#aaa;">${desc}</p>
+          <a href="${verifyUrl}" style="display:inline-block;margin:16px 0;padding:12px 24px;background:#E11D48;color:#fff;text-decoration:none;font-weight:bold;">
             ${btn}
           </a>
-          <p style="color:#888;font-size:12px;">${footer}</p>
+          <p style="color:#ffb703;font-size:13px;font-weight:bold;margin-top:16px;">${spamNote}</p>
+          <p style="color:#666;font-size:12px;">${footer}</p>
         </div>
         `
       );

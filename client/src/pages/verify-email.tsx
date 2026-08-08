@@ -51,6 +51,9 @@ function ResendForm() {
       >
         {loading ? t.authPages.sendingLink : t.authPages.sendNewLink}
       </button>
+      <p className="text-[11px] text-amber-400/90 font-mono text-center pt-1">
+        ⚠️ Письмо с подтверждением может попасть в папку «СПАМ».
+      </p>
     </div>
   );
 }

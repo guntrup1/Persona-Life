@@ -41,6 +41,9 @@ export default function ForgotPasswordPage() {
             <p className="text-sm text-muted-foreground">
               {t.authPages?.forgotSent || "Если аккаунт с таким email существует — письмо отправлено."}
             </p>
+            <p className="text-xs text-yellow-400 font-mono bg-yellow-500/10 p-2 rounded border border-yellow-500/20">
+              ⚠️ Если письма нет во Входящих — обязательно проверьте папку «СПАМ».
+            </p>
             <Link href="/">
               <Button variant="outline" className="w-full">{t.authPages.back}</Button>
             </Link>
