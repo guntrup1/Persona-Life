@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { CheckCircle, Circle, Plus, Trash2, Milestone, ChevronRight, ChevronDown, Edit2, Archive, RotateCcw, ListChecks, AlertTriangle, Calendar, Clock, AlertCircle } from "lucide-react";
+import { CheckCircle, Circle, Plus, Trash2, Milestone, ChevronRight, ChevronDown, Edit2, Archive, RotateCcw, ListChecks, AlertTriangle, Calendar, AlertCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
@@ -100,8 +100,6 @@ function EditGoalDialog({ goal, onUpdate }: { goal: Goal; onUpdate: (id: string,
   const [timeLimitType, setTimeLimitType] = useState<"current_period" | "from_now" | "custom">(goal.timeLimitType || "current_period");
   const [customStart, setCustomStart] = useState(goal.startDate || getTodayDate());
   const [customEnd, setCustomEnd] = useState(goal.endDate || "");
-
-  const typeLabels: Record<GoalType, string> = { year: t.goals.yearTab, month: t.goals.monthTab, week: t.goals.weekTab };
 
   const possibleParents = state.goals.filter(g => {
     if (g.status === "failed") return false;
@@ -310,60 +308,199 @@ function AddGoalDialog({ parentId, parentType, onAdd, forcedType }: { parentId?:
   );
 }
 
-// ─── Plan Section ──────────────────────────────────────────────────────
+// ─── Single Unified Sub-Items Section (Used for All Goals) ────────────
 
-function PlanSection({ goal, onUpdate }: { goal: Goal; onUpdate: (id: string, g: any) => void }) {
-  const { t } = useI18n();
-  const [newItem, setNewItem] = useState("");
-  const [planOpen, setPlanOpen] = useState(false);
-  const plan: PlanItem[] = goal.plan || [];
-  const allDone = plan.length > 0 && plan.every(p => p.done);
-  const doneCount = plan.filter(p => p.done).length;
+function UnifiedSubItemsSection({ goal, childGoals }: {
+  goal: Goal;
+  childGoals: Goal[];
+}) {
+  const { state, actions } = useStore();
+  const { toast } = useToast();
+  const [expanded, setExpanded] = useState(true);
+  const [newTitle, setNewTitle] = useState("");
 
-  const addItem = () => {
-    if (!newItem.trim()) return;
-    const updated: PlanItem[] = [...plan, { id: crypto.randomUUID(), text: newItem.trim(), done: false }];
-    onUpdate(goal.id, { plan: updated });
-    setNewItem("");
+  const isYear = goal.type === "year";
+  const isMonth = goal.type === "month";
+  const isWeek = goal.type === "week";
+
+  // Daily tasks for week goals
+  const linkedTasks = isWeek
+    ? state.todayTasks.filter(t => t.weekGoalId === goal.id || t.goalId === goal.id)
+    : [];
+
+  // Freeform plan items for any goal
+  const planItems = goal.plan || [];
+
+  // Total & completed count
+  const totalCount = isWeek
+    ? linkedTasks.length + planItems.length
+    : childGoals.length + planItems.length;
+
+  const doneCount = isWeek
+    ? linkedTasks.filter(t => t.completed).length + planItems.filter(p => p.done).length
+    : childGoals.filter(c => c.completed).length + planItems.filter(p => p.done).length;
+
+  const allDone = totalCount > 0 && doneCount === totalCount;
+
+  // Add new sub-item
+  const handleAdd = () => {
+    if (!newTitle.trim()) return;
+
+    if (isWeek) {
+      // Add a daily task linked to this week goal
+      actions.addTodayTask({
+        name: newTitle.trim(),
+        category: goal.category,
+        difficulty: "medium",
+        xp: 25,
+        type: "today",
+        date: getTodayDate(),
+        weekGoalId: goal.id,
+        noDeadline: true,
+      });
+    } else {
+      // Add a child goal (Month for Year, Week for Month)
+      const childType: GoalType = isYear ? "month" : "week";
+      actions.addGoal({
+        type: childType,
+        title: newTitle.trim(),
+        category: goal.category,
+        parentId: goal.id,
+        timeLimitType: "current_period",
+      });
+    }
+    setNewTitle("");
   };
 
-  const toggleItem = (itemId: string) => {
-    const updated = plan.map(p => p.id === itemId ? { ...p, done: !p.done } : p);
-    onUpdate(goal.id, { plan: updated });
+  const togglePlanItem = (itemId: string) => {
+    const updated = planItems.map(p => p.id === itemId ? { ...p, done: !p.done } : p);
+    actions.updateGoal(goal.id, { plan: updated });
   };
 
-  const deleteItem = (itemId: string) => {
-    const updated = plan.filter(p => p.id !== itemId);
-    onUpdate(goal.id, { plan: updated });
+  const deletePlanItem = (itemId: string) => {
+    const updated = planItems.filter(p => p.id !== itemId);
+    actions.updateGoal(goal.id, { plan: updated });
   };
+
+  const placeholderText = isYear
+    ? "Добавить месячную под-цель..."
+    : isMonth
+    ? "Добавить недельную под-цель..."
+    : "Добавить дневную задачу...";
 
   return (
     <div className="mt-3 pt-3 border-t border-border/50">
       <button
         className="w-full flex items-center justify-between text-[11px] font-display uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors mb-2"
-        onClick={() => setPlanOpen(o => !o)}
+        onClick={() => setExpanded(e => !e)}
       >
         <span className="flex items-center gap-1.5">
-          <ListChecks className="w-3.5 h-3.5" />
-          Чек-лист / Подпункты
-          {plan.length > 0 && (
+          <ListChecks className="w-3.5 h-3.5 text-primary" />
+          ПОДПУНКТЫ
+          {totalCount > 0 && (
             <span className={`font-mono ml-1 ${allDone ? "text-primary" : "text-muted-foreground"}`}>
-              {doneCount}/{plan.length}
+              {doneCount}/{totalCount}
             </span>
           )}
         </span>
-        {planOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+        {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
       </button>
 
-      {planOpen && (
+      {expanded && (
         <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
-          {plan.length === 0 && (
-            <p className="text-[11px] text-muted-foreground italic px-1">{t.goals.noPlan}</p>
+          {totalCount === 0 && (
+            <p className="text-[11px] text-muted-foreground italic px-1">Подпунктов пока нет — добавьте первый ниже</p>
           )}
-          {plan.map(item => (
-            <div key={item.id} className="flex items-center justify-between text-xs py-0.5 group">
+
+          {/* Child Goals (for Year / Month) */}
+          {(isYear || isMonth) && childGoals.map(child => {
+            const isFailed = child.status === "failed";
+            return (
+              <div key={child.id} className="flex items-center justify-between text-xs py-1 px-2 rounded bg-muted/20 border border-border/40">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <button
+                    onClick={() => {
+                      const chk = canCompleteGoal(child, state);
+                      if (!chk.allowed && !child.completed) {
+                        toast({ title: "Невозможно завершить под-цель", description: chk.reason, variant: "destructive" });
+                        return;
+                      }
+                      actions.toggleGoal(child.id);
+                    }}
+                  >
+                    {child.completed ? (
+                      <CheckCircle className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                    ) : (
+                      <Circle className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                    )}
+                  </button>
+                  <span className={`truncate font-medium ${child.completed ? "line-through text-muted-foreground" : isFailed ? "text-red-400" : "text-foreground"}`}>
+                    {child.title}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {isFailed ? (
+                    <div className="flex items-center gap-1">
+                      <Badge variant="destructive" className="text-[10px] gap-1">
+                        <AlertTriangle className="w-2.5 h-2.5" /> Просрочено
+                      </Badge>
+                      <RestoreGoalDialog goal={child} />
+                    </div>
+                  ) : (
+                    <Badge variant="outline" className={`text-[9px] ${LIFE_AREA_COLORS[child.category]}`}>
+                      {child.category}
+                    </Badge>
+                  )}
+                  <button
+                    onClick={() => actions.deleteGoal(child.id)}
+                    className="text-muted-foreground hover:text-red-400 p-0.5 transition-colors"
+                    title="Удалить под-цель"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Linked Daily Tasks (for Week) */}
+          {isWeek && linkedTasks.map(task => (
+            <div key={task.id} className="flex items-center justify-between text-xs py-1 px-2 rounded bg-muted/20 border border-border/40 group">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <button onClick={() => actions.toggleTask(task.id)}>
+                  {task.completed ? (
+                    <CheckCircle className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                  ) : (
+                    <Circle className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                  )}
+                </button>
+                <span className={`truncate font-medium ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                  {task.name}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <span className="font-mono text-[10px] text-muted-foreground">{task.date}</span>
+                <Badge variant="outline" className={`text-[9px] ${LIFE_AREA_COLORS[task.category]}`}>
+                  {task.category}
+                </Badge>
+                <button
+                  onClick={() => actions.deleteTask(task.id)}
+                  className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 p-0.5 transition-all"
+                  title="Удалить задачу"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {/* Freeform Plan items (if any exist) */}
+          {planItems.map(item => (
+            <div key={item.id} className="flex items-center justify-between text-xs py-1 px-2 rounded bg-muted/20 border border-border/40 group">
               <button
-                onClick={() => toggleItem(item.id)}
+                onClick={() => togglePlanItem(item.id)}
                 className={`flex items-center gap-2 text-left transition-colors flex-1 ${
                   item.done ? "line-through text-muted-foreground" : "text-foreground"
                 }`}
@@ -376,7 +513,7 @@ function PlanSection({ goal, onUpdate }: { goal: Goal; onUpdate: (id: string, g:
                 <span>{item.text}</span>
               </button>
               <button
-                onClick={() => deleteItem(item.id)}
+                onClick={() => deletePlanItem(item.id)}
                 className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 p-0.5 transition-all"
               >
                 <Trash2 className="w-3 h-3" />
@@ -384,114 +521,16 @@ function PlanSection({ goal, onUpdate }: { goal: Goal; onUpdate: (id: string, g:
             </div>
           ))}
 
+          {/* Quick Add Sub-item Input */}
           <div className="flex gap-1.5 pt-1">
             <Input
-              value={newItem}
-              onChange={e => setNewItem(e.target.value)}
-              placeholder="Добавить шаг плана..."
+              value={newTitle}
+              onChange={e => setNewTitle(e.target.value)}
+              placeholder={placeholderText}
               className="text-xs h-7"
-              onKeyDown={e => e.key === "Enter" && (e.preventDefault(), addItem())}
+              onKeyDown={e => e.key === "Enter" && (e.preventDefault(), handleAdd())}
             />
-            <Button size="sm" variant="ghost" onClick={addItem} className="h-7 px-2 text-xs">
-              <Plus className="w-3 h-3" />
-            </Button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Week Sub-Items Section (Unified with Daily Tasks) ───────────────
-
-function WeekSubItemsSection({ goal }: { goal: Goal }) {
-  const { state, actions } = useStore();
-  const [newSubItemName, setNewSubItemName] = useState("");
-  const [expanded, setExpanded] = useState(true);
-
-  const linkedTasks = state.todayTasks.filter(t => t.weekGoalId === goal.id || t.goalId === goal.id);
-  const allDone = linkedTasks.length > 0 && linkedTasks.every(t => t.completed);
-  const doneCount = linkedTasks.filter(t => t.completed).length;
-
-  const handleAddSubItem = () => {
-    if (!newSubItemName.trim()) return;
-    actions.addTodayTask({
-      name: newSubItemName.trim(),
-      category: goal.category,
-      difficulty: "medium",
-      xp: 25,
-      type: "today",
-      date: getTodayDate(),
-      weekGoalId: goal.id,
-      noDeadline: true,
-    });
-    setNewSubItemName("");
-  };
-
-  return (
-    <div className="mt-3 pt-3 border-t border-border/50">
-      <button
-        className="w-full flex items-center justify-between text-[11px] font-display uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors mb-2"
-        onClick={() => setExpanded(e => !e)}
-      >
-        <span className="flex items-center gap-1.5">
-          <ListChecks className="w-3.5 h-3.5 text-primary" />
-          Подпункты / Дневные задачи
-          {linkedTasks.length > 0 && (
-            <span className={`font-mono ml-1 ${allDone ? "text-primary" : "text-muted-foreground"}`}>
-              {doneCount}/{linkedTasks.length}
-            </span>
-          )}
-        </span>
-        {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-      </button>
-
-      {expanded && (
-        <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
-          {linkedTasks.length === 0 ? (
-            <p className="text-[11px] text-muted-foreground italic px-1">Подпунктов пока нет — добавьте первый ниже</p>
-          ) : (
-            linkedTasks.map(task => (
-              <div key={task.id} className="flex items-center justify-between text-xs py-1 px-2 rounded bg-muted/20 border border-border/40 group">
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <button onClick={() => actions.toggleTask(task.id)}>
-                    {task.completed ? (
-                      <CheckCircle className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                    ) : (
-                      <Circle className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                    )}
-                  </button>
-                  <span className={`truncate font-medium ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
-                    {task.name}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="font-mono text-[10px] text-muted-foreground">{task.date}</span>
-                  <Badge variant="outline" className={`text-[9px] ${LIFE_AREA_COLORS[task.category]}`}>
-                    {task.category}
-                  </Badge>
-                  <button
-                    onClick={() => actions.deleteTask(task.id)}
-                    className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 p-0.5 transition-all"
-                    title="Удалить подпункт"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-
-          <div className="flex gap-1.5 pt-1">
-            <Input
-              value={newSubItemName}
-              onChange={e => setNewSubItemName(e.target.value)}
-              placeholder="Добавить подпункт / дневную задачу..."
-              className="text-xs h-7"
-              onKeyDown={e => e.key === "Enter" && (e.preventDefault(), handleAddSubItem())}
-            />
-            <Button size="sm" variant="ghost" onClick={handleAddSubItem} className="h-7 px-2 text-xs">
+            <Button size="sm" variant="ghost" onClick={handleAdd} className="h-7 px-2 text-xs">
               <Plus className="w-3 h-3" />
             </Button>
           </div>
@@ -503,21 +542,18 @@ function WeekSubItemsSection({ goal }: { goal: Goal }) {
 
 // ─── Goal Card Component ───────────────────────────────────────────────
 
-function GoalCard({ goal, childGoals, onToggle, onDelete, onUpdate, onAddChild }: {
+function GoalCard({ goal, childGoals, onToggle, onDelete, onUpdate }: {
   goal: Goal;
   childGoals: Goal[];
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
   onUpdate: (id: string, g: any) => void;
-  onAddChild: (parentId: string, parentType: GoalType) => void;
 }) {
-  const { state, actions } = useStore();
+  const { state } = useStore();
   const { toast } = useToast();
   const { t } = useI18n();
-  const [expanded, setExpanded] = useState(true);
 
   const progress = getGoalProgress(goal, state);
-  const childType: GoalType = goal.type === "year" ? "month" : "week";
 
   const handleToggleClick = () => {
     const check = canCompleteGoal(goal, state);
@@ -603,91 +639,8 @@ function GoalCard({ goal, childGoals, onToggle, onDelete, onUpdate, onAddChild }
           <Progress value={progress.percent} className="h-1.5" />
         </div>
 
-        {/* Plan Section only for Year and Month goals */}
-        {goal.type !== "week" && <PlanSection goal={goal} onUpdate={onUpdate} />}
-
-        {/* Child sub-goals list for Year / Month goals */}
-        {(goal.type === "year" || goal.type === "month") && (
-          <div className="pt-2">
-            <div className="flex items-center justify-between mb-2">
-              <button
-                onClick={() => setExpanded(e => !e)}
-                className="flex items-center gap-1 text-xs font-display font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
-              >
-                <Milestone className="w-3.5 h-3.5 text-primary" />
-                <span>{goal.type === "year" ? "Месячные цели" : "Недельные цели"} ({childGoals.length})</span>
-                {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-              </button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-6 px-2 text-[11px] gap-1 text-primary"
-                onClick={() => onAddChild(goal.id, goal.type)}
-                data-testid={`button-add-child-goal-${goal.id}`}
-              >
-                <Plus className="w-3 h-3" />
-                Добавить под-цель
-              </Button>
-            </div>
-
-            {expanded && (
-              <div className="space-y-1.5 pl-3 border-l-2 border-primary/20">
-                {childGoals.length === 0 ? (
-                  <p className="text-xs text-muted-foreground italic py-1">Под-целей пока нет</p>
-                ) : (
-                  childGoals.map(child => {
-                    const isFailed = child.status === "failed";
-                    return (
-                      <div key={child.id} className="flex items-center justify-between text-xs py-1 px-2 rounded bg-muted/20 border border-border/40">
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <button
-                            onClick={() => {
-                              const chk = canCompleteGoal(child, state);
-                              if (!chk.allowed && !child.completed) {
-                                toast({ title: "Невозможно завершить под-цель", description: chk.reason, variant: "destructive" });
-                                return;
-                              }
-                              onToggle(child.id);
-                            }}
-                          >
-                            {child.completed ? (
-                              <CheckCircle className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                            ) : (
-                              <Circle className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                            )}
-                          </button>
-                          <span className={`truncate font-medium ${child.completed ? "line-through text-muted-foreground" : isFailed ? "text-red-400" : "text-foreground"}`}>
-                            {child.title}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          {isFailed ? (
-                            <div className="flex items-center gap-1">
-                              <Badge variant="destructive" className="text-[10px] gap-1">
-                                <AlertTriangle className="w-2.5 h-2.5" /> Просрочено
-                              </Badge>
-                              <RestoreGoalDialog goal={child} />
-                            </div>
-                          ) : (
-                            <Badge variant="outline" className={`text-[9px] ${LIFE_AREA_COLORS[child.category]}`}>
-                              {child.category}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Unified Sub-items / Daily Tasks list for Week goals */}
-        {goal.type === "week" && (
-          <WeekSubItemsSection goal={goal} />
-        )}
+        {/* Single Unified Sub-Items Section for ALL Goal types */}
+        <UnifiedSubItemsSection goal={goal} childGoals={childGoals} />
       </div>
     </Card>
   );
@@ -700,7 +653,6 @@ export default function GoalsPage() {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<GoalType | "archive">("week");
   const [archiveFilter, setArchiveFilter] = useState<GoalType | "all">("all");
-  const [addingChildFor, setAddingChildFor] = useState<{ parentId: string; parentType: GoalType } | null>(null);
 
   const activeGoals = state.goals.filter(g => g.status !== "failed");
   const failedGoals = state.goals.filter(g => g.status === "failed");
@@ -765,7 +717,6 @@ export default function GoalsPage() {
                   onToggle={actions.toggleGoal}
                   onDelete={actions.deleteGoal}
                   onUpdate={actions.updateGoal}
-                  onAddChild={(parentId, parentType) => setAddingChildFor({ parentId, parentType })}
                 />
               ))
             )}
@@ -788,7 +739,6 @@ export default function GoalsPage() {
                   onToggle={actions.toggleGoal}
                   onDelete={actions.deleteGoal}
                   onUpdate={actions.updateGoal}
-                  onAddChild={(parentId, parentType) => setAddingChildFor({ parentId, parentType })}
                 />
               ))
             )}
@@ -811,7 +761,6 @@ export default function GoalsPage() {
                   onToggle={actions.toggleGoal}
                   onDelete={actions.deleteGoal}
                   onUpdate={actions.updateGoal}
-                  onAddChild={() => {}}
                 />
               ))
             )}
@@ -884,19 +833,6 @@ export default function GoalsPage() {
             )}
           </TabsContent>
         </Tabs>
-
-        {/* Modal when adding a child goal directly from parent */}
-        {addingChildFor && (
-          <AddGoalDialog
-            parentId={addingChildFor.parentId}
-            parentType={addingChildFor.parentType}
-            forcedType={addingChildFor.parentType === "year" ? "month" : "week"}
-            onAdd={(g) => {
-              actions.addGoal(g);
-              setAddingChildFor(null);
-            }}
-          />
-        )}
       </div>
     </div>
   );
