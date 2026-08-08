@@ -633,6 +633,11 @@ export default function TasksPage() {
   const { t } = useI18n();
   const [editingTask, setEditingTask] = useState<TodayTask | null>(null);
   const [editingRoutine, setEditingRoutine] = useState<RoutineTemplate | null>(null);
+
+  const hasWeekPool = state.goals.some(g =>
+    g.type === "week" && g.status !== "failed" && !g.completed &&
+    state.todayTasks.some(t => t.weekGoalId === g.id || t.goalId === g.id)
+  );
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -724,80 +729,22 @@ export default function TasksPage() {
               </div>
             </div>
 
-            {(() => { const hasPool = state.goals.some(g => g.type === "week" && g.status !== "failed" && !g.completed && state.todayTasks.some(t => t.weekGoalId === g.id || t.goalId === g.id)); return (<>
-            <div className={hasPool ? "grid grid-cols-1 lg:grid-cols-3 gap-4" : ""}>
-
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleTodayDragEnd}>
-            {routineTasks.length > 0 && (
-              <div>
-                <div className="text-xs font-display uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-1">
-                  <Repeat className="w-3 h-3" />
-                  {t.hub.routine}
-                </div>
-                <SortableContext items={routineTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-2">
-                    {routineTasks.map(task => (
-                      <SortableTaskRow 
-                        key={task.id} 
-                        task={task} 
-                        onToggle={handleToggle} 
-                        onDelete={actions.deleteTask}
-                        onEdit={() => setEditingTask(task)}
-                        onReschedule={handleReschedule}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-              </div>
-            )}
-
-            {unlinkedTasks.length > 0 && (
-              <div>
-                <div className="text-xs font-display uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-1">
-                  <Zap className="w-3 h-3" />
-                  {t.nav.tasks.toUpperCase()}
-                </div>
-                <SortableContext items={unlinkedTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-2">
-                    {unlinkedTasks.map(task => (
-                      <SortableTaskRow 
-                        key={task.id} 
-                        task={task} 
-                        onToggle={handleToggle} 
-                        onDelete={actions.deleteTask}
-                        onEdit={() => setEditingTask(task)}
-                        onReschedule={handleReschedule}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-              </div>
-            )}
-
-            {Object.keys(goalGroups).length > 0 && Object.entries(goalGroups).map(([goalId, tasks]) => {
-              const goal = state.goals.find(g => g.id === goalId);
-              const isCollapsed = collapsedGoals[goalId];
-              const completedCount = tasks.filter(t => t.completed).length;
-              return (
-                <div key={goalId}>
-                  <button
-                    className="w-full text-xs font-display uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-1 hover:text-foreground transition-colors"
-                    onClick={() => toggleGoalCollapse(goalId)}
-                    data-testid={`goal-group-toggle-${goalId}`}
-                  >
-                    {isCollapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                    <Milestone className="w-3 h-3 text-primary" />
-                    {goal?.title || t.goals.title}
-                    <span className="font-mono text-[10px] ml-1 text-primary">{completedCount}/{tasks.length}</span>
-                  </button>
-                  {!isCollapsed && (
-                    <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
-                      <div className="space-y-2 pl-1 border-l-2 border-primary/20 ml-1">
-                        {tasks.map(task => (
-                          <SortableTaskRow
-                            key={task.id}
-                            task={task}
-                            onToggle={handleToggle}
+            <div className={hasWeekPool ? "grid grid-cols-1 lg:grid-cols-3 gap-4" : "space-y-3"}>
+              <div className={hasWeekPool ? "lg:col-span-2 space-y-3" : "space-y-3"}>
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleTodayDragEnd}>
+                {routineTasks.length > 0 && (
+                  <div>
+                    <div className="text-xs font-display uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-1">
+                      <Repeat className="w-3 h-3" />
+                      {t.hub.routine}
+                    </div>
+                    <SortableContext items={routineTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                      <div className="space-y-2">
+                        {routineTasks.map(task => (
+                          <SortableTaskRow 
+                            key={task.id} 
+                            task={task} 
+                            onToggle={handleToggle} 
                             onDelete={actions.deleteTask}
                             onEdit={() => setEditingTask(task)}
                             onReschedule={handleReschedule}
@@ -805,28 +752,84 @@ export default function TasksPage() {
                         ))}
                       </div>
                     </SortableContext>
-                  )}
-                </div>
-              );
-            })}
+                  </div>
+                )}
 
-            {todayTasks.length === 0 && (
-              <Card className="p-8 text-center border-dashed border-border">
-                <Zap className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-30" />
-                <p className="font-display text-sm text-muted-foreground">{t.tasks.noTasksToday}</p>
-                <p className="text-xs text-muted-foreground mt-1">{t.tasks.noTasksDesc}</p>
-              </Card>
-            )}
-            </DndContext>
-            </div>
+                {unlinkedTasks.length > 0 && (
+                  <div>
+                    <div className="text-xs font-display uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-1">
+                      <Zap className="w-3 h-3" />
+                      {t.nav.tasks.toUpperCase()}
+                    </div>
+                    <SortableContext items={unlinkedTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                      <div className="space-y-2">
+                        {unlinkedTasks.map(task => (
+                          <SortableTaskRow 
+                            key={task.id} 
+                            task={task} 
+                            onToggle={handleToggle} 
+                            onDelete={actions.deleteTask}
+                            onEdit={() => setEditingTask(task)}
+                            onReschedule={handleReschedule}
+                          />
+                        ))}
+                      </div>
+                    </SortableContext>
+                  </div>
+                )}
 
-            {hasPool && (
-              <div className="lg:col-span-1">
-                <WeekSubTasksPoolSidebar />
+                {Object.keys(goalGroups).length > 0 && Object.entries(goalGroups).map(([goalId, tasks]) => {
+                  const goal = state.goals.find(g => g.id === goalId);
+                  const isCollapsed = collapsedGoals[goalId];
+                  const completedCount = tasks.filter(t => t.completed).length;
+                  return (
+                    <div key={goalId}>
+                      <button
+                        className="w-full text-xs font-display uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-1 hover:text-foreground transition-colors"
+                        onClick={() => toggleGoalCollapse(goalId)}
+                        data-testid={`goal-group-toggle-${goalId}`}
+                      >
+                        {isCollapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                        <Milestone className="w-3 h-3 text-primary" />
+                        {goal?.title || t.goals.title}
+                        <span className="font-mono text-[10px] ml-1 text-primary">{completedCount}/{tasks.length}</span>
+                      </button>
+                      {!isCollapsed && (
+                        <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                          <div className="space-y-2 pl-1 border-l-2 border-primary/20 ml-1">
+                            {tasks.map(task => (
+                              <SortableTaskRow
+                                key={task.id}
+                                task={task}
+                                onToggle={handleToggle}
+                                onDelete={actions.deleteTask}
+                                onEdit={() => setEditingTask(task)}
+                                onReschedule={handleReschedule}
+                              />
+                            ))}
+                          </div>
+                        </SortableContext>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {todayTasks.length === 0 && (
+                  <Card className="p-8 text-center border-dashed border-border">
+                    <Zap className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-30" />
+                    <p className="font-display text-sm text-muted-foreground">{t.tasks.noTasksToday}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{t.tasks.noTasksDesc}</p>
+                  </Card>
+                )}
+                </DndContext>
               </div>
-            )}
-            </div>
-            </> ); })()} 
+
+              {hasWeekPool && (
+                <div className="lg:col-span-1">
+                  <WeekSubTasksPoolSidebar />
+                </div>
+              )}
+            </div> 
           </TabsContent>
 
           <TabsContent value="routine" className="mt-4 space-y-3 animate-slide-in-up">
