@@ -471,13 +471,15 @@ function AppShell() {
     );
   }
 
-if (!user) {
   const path = window.location.pathname;
-  if (path === "/forgot-password") return <ForgotPasswordPage />;
-  if (path === "/reset-password") return <ResetPasswordPage />;
-  if (path === "/verify-email") return <VerifyEmailPage />;
-  return <LoginPage />;
-}
+  if (path === "/timer-pip" || location === "/timer-pip") return <TimerPipPage />;
+
+  if (!user) {
+    if (path === "/forgot-password") return <ForgotPasswordPage />;
+    if (path === "/reset-password") return <ResetPasswordPage />;
+    if (path === "/verify-email") return <VerifyEmailPage />;
+    return <LoginPage />;
+  }
 
   const sidebarStyle = {
     "--sidebar-width": "13rem",
