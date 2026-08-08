@@ -17,8 +17,9 @@ import {
   setTimerNote,
   toggleTimer,
   resetTimer as resetTimerState,
-  openPipWindow,
-  getPipWindow,
+  tryOpenPip,
+  isPipOpen,
+  closePip,
 } from "@/lib/timer-state";
 
 const getModes = (t: any): { key: TimerMode; label: string; duration: number; xp: number; color: string }[] => [
@@ -59,12 +60,12 @@ function TimerRing({ progress, radius, stroke }: { progress: number; radius: num
 }
 
 export default function TimerPage() {
-  const { state } = useStore();
+  const { state, actions } = useStore();
   const { t, lang } = useI18n();
 
   // Read from shared timer state
   const ts = useSyncExternalStore(subscribeTimer, getTimerState, getTimerState);
-  const pip = useSyncExternalStore(subscribeTimer, getPipWindow, getPipWindow);
+  const isPinned = useSyncExternalStore(subscribeTimer, isPipOpen, isPipOpen);
 
   const [customMinutes, setCustomMinutes] = useState(60);
   const [historyOpen, setHistoryOpen] = useState(true);
@@ -90,7 +91,6 @@ export default function TimerPage() {
     }
   };
 
-  const isPinned = !!pip;
 
   const todayXP = state.focusSessions
     .filter(s => s.date === getTodayDate())
@@ -107,18 +107,25 @@ export default function TimerPage() {
             <Brain className="w-5 h-5 text-primary" />
             {t.nav.timer.toUpperCase()}
           </h1>
-          {/* Pin Widget button — calls openPipWindow DIRECTLY in click handler */}
           <Button
             variant="outline"
             size="sm"
             onClick={async () => {
-              await openPipWindow();
+              if (isPinned || state.timerWidgetOpen) {
+                closePip();
+                actions.setTimerWidgetOpen(false);
+              } else {
+                const ok = await tryOpenPip();
+                if (!ok) {
+                  actions.setTimerWidgetOpen(true);
+                }
+              }
             }}
-            className={`gap-1.5 border-primary/40 font-display text-xs ${isPinned ? "bg-primary/20 text-primary" : ""}`}
+            className={`gap-1.5 border-primary/40 font-display text-xs ${(isPinned || state.timerWidgetOpen) ? "bg-primary/20 text-primary" : ""}`}
             data-testid="button-toggle-floating-timer"
           >
             <Pin className="w-3.5 h-3.5" />
-            {isPinned ? "Виджет прикреплён" : "Прикрепить виджет"}
+            {(isPinned || state.timerWidgetOpen) ? "Виджет прикреплён" : "Прикрепить виджет"}
           </Button>
         </div>
 
