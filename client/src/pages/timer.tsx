@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Play, Pause, RotateCcw, Brain, Check, Flame, Zap, FileText, ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
+import { Play, Pause, RotateCcw, Brain, Check, Flame, Zap, FileText, ChevronDown, ChevronRight, ExternalLink, Pin } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/lib/i18n";
@@ -138,8 +138,8 @@ export default function TimerPage() {
             className={`gap-1.5 border-primary/40 font-display text-xs ${state.timerWidgetOpen ? "bg-primary/20 text-primary" : ""}`}
             data-testid="button-toggle-floating-timer"
           >
-            <ExternalLink className="w-3.5 h-3.5" />
-            {state.timerWidgetOpen ? "Плавающий виджет (включен)" : "Плавающий виджет"}
+            <Pin className="w-3.5 h-3.5" />
+            {state.timerWidgetOpen ? "Виджет прикреплён" : "Прикрепить виджет"}
           </Button>
         </div>
 
