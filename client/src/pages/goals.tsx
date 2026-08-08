@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { CheckCircle, Circle, Plus, Trash2, Target, ChevronRight, ChevronDown, Trophy, Edit2, Archive, RotateCcw, ListChecks, AlertTriangle } from "lucide-react";
+import { CheckCircle, Circle, Plus, Trash2, Milestone, ChevronRight, ChevronDown, Trophy, Edit2, Archive, RotateCcw, ListChecks, AlertTriangle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
@@ -243,7 +243,7 @@ function CollapsibleTasks({ tasks }: { tasks: TodayTask[] }) {
         onClick={() => setOpen(o => !o)}
       >
         <span className="flex items-center gap-1.5">
-          <Target className="w-3.5 h-3.5" />
+          <Milestone className="w-3.5 h-3.5" />
           {t.goals.linkedTasks}
           <span className={`font-mono ml-1 ${completedCount === tasks.length ? "text-primary" : "text-muted-foreground"}`}>
             {completedCount}/{tasks.length}
@@ -431,7 +431,7 @@ function ArchivedGoalCard({ goal, state, onRestore, onDelete }: { goal: Goal; st
               {linkedTasks.length > 0 && (
                 <div className="space-y-1">
                   <div className="text-[10px] font-display uppercase tracking-wider text-muted-foreground flex items-center gap-1 mb-1">
-                    <Target className="w-3 h-3" /> {t.goals.linkedTasks}
+                    <Milestone className="w-3 h-3" /> {t.goals.linkedTasks}
                   </div>
                   {linkedTasks.map((task: TodayTask) => (
                     <div key={task.id} className="flex items-center justify-between text-[11px] gap-2">
@@ -488,7 +488,7 @@ export default function GoalsPage() {
       <div className="max-w-4xl mx-auto p-4 space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h1 className="font-display text-xl font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
-            <Target className="w-5 h-5 text-primary" />{t.nav.goals.toUpperCase()}
+            <Milestone className="w-5 h-5 text-primary" />{t.nav.goals.toUpperCase()}
           </h1>
           <div className="flex gap-2">
             <AddGoalDialog onAdd={actions.addGoal} forcedType="year" />
@@ -575,7 +575,7 @@ function EmptyGoals({ type, onAdd }: { type: GoalType, onAdd: (g: any) => void }
   const labels: Record<GoalType, string> = { year: t.goals.typeYear, month: t.goals.typeMonth, week: t.goals.typeWeek };
   return (
     <Card className="p-10 text-center border-dashed border-border">
-      <Target className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-30" />
+      <Milestone className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-30" />
       <p className="font-display text-sm text-muted-foreground">{t.goals.noGoals}</p>
       <p className="text-xs text-muted-foreground mt-1">{t.goals.createFirst.replace("{type}", labels[type])}</p>
       <div className="mt-4"><AddGoalDialog onAdd={onAdd} forcedType={type} /></div>

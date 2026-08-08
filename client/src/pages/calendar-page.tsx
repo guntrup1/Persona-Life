@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { ChevronLeft, ChevronRight, Plus, CalendarDays, CheckCircle, Circle, ArrowUpCircle, ArrowDownCircle, MinusCircle, FileText, TrendingUp, Edit2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Hourglass, CheckCircle, Circle, ArrowUpCircle, ArrowDownCircle, MinusCircle, FileText, CandlestickChart, Edit2 } from "lucide-react";
 import { getTodayDate } from "@/lib/store";
 
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
@@ -195,7 +195,7 @@ export default function CalendarPage() {
       <div className="max-w-4xl mx-auto p-4 space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h1 className="font-display text-xl font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
-            <CalendarDays className="w-5 h-5 text-primary" />
+            <Hourglass className="w-5 h-5 text-primary" />
             {t.nav.calendar}
           </h1>
           <div className="flex gap-1">
@@ -568,7 +568,7 @@ function DayDetails({ selectedDate }: { selectedDate: string }) {
       {dailyBiases.length > 0 && (
         <Card className="p-4 border-card-border">
           <div className="flex items-center gap-2 mb-3">
-            <TrendingUp className="w-4 h-4 text-primary" />
+            <CandlestickChart className="w-4 h-4 text-primary" />
             <h3 className="font-display font-bold text-sm uppercase tracking-wider">{t.calendar.dailyBias}</h3>
           </div>
           <div className="space-y-3">
@@ -606,7 +606,7 @@ function DayDetails({ selectedDate }: { selectedDate: string }) {
       {tradingNotes.length > 0 && (
         <Card className="p-4 border-card-border">
           <div className="flex items-center gap-2 mb-3">
-            <TrendingUp className="w-4 h-4 text-primary" />
+            <CandlestickChart className="w-4 h-4 text-primary" />
             <h3 className="font-display font-bold text-sm uppercase tracking-wider">{t.calendar.tradingNotes}</h3>
           </div>
           <div className="space-y-3">

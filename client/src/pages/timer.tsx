@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Play, Pause, RotateCcw, Timer, Check, Flame, Zap } from "lucide-react";
+import { Play, Pause, RotateCcw, Brain, Check, Flame, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/lib/i18n";
 import { getTodayDate } from "@/lib/store";
@@ -121,7 +121,7 @@ export default function TimerPage() {
     <div className="h-full overflow-auto">
       <div className="max-w-2xl mx-auto p-4 space-y-4">
         <h1 className="font-display text-xl font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
-          <Timer className="w-5 h-5 text-primary" />
+          <Brain className="w-5 h-5 text-primary" />
           {t.nav.timer.toUpperCase()}
         </h1>
 

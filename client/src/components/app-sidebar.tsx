@@ -5,8 +5,7 @@ import {
   SidebarFooter, SidebarHeader,
 } from "@/components/ui/sidebar";
 import {
-  LayoutDashboard, CheckSquare, Target, Timer,
-  BarChart3, TrendingUp, Lightbulb, Newspaper, CalendarDays, LogOut, Download, Settings,
+  Fingerprint, Zap, Milestone, Hourglass, Puzzle, Brain, CandlestickChart, Radio, Dna, SlidersHorizontal, LogOut, Download, ChevronDown
 } from "lucide-react";
 import { useStore, getUserTime, loadUserSettings, getMarketSession, getLevelFromXP } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
@@ -42,17 +41,23 @@ const SidebarClock = memo(function SidebarClock() {
   );
 });
 
-const navItems = [
-  { id: "home",    url: "/",         icon: LayoutDashboard, testId: "nav-hub" },
-  { id: "tasks",     url: "/tasks",    icon: CheckSquare,     testId: "nav-tasks" },
-  { id: "goals",       url: "/goals",    icon: Target,          testId: "nav-goals" },
-  { id: "timer",      url: "/timer",    icon: Timer,           testId: "nav-timer" },
-  { id: "stats", url: "/stats",    icon: BarChart3,       testId: "nav-stats" },
-  { id: "trading",   url: "/notes",    icon: TrendingUp,      testId: "nav-notes" },
-  { id: "ideas",       url: "/ideas",    icon: Lightbulb,       testId: "nav-ideas" },
-  { id: "news",    url: "/news",     icon: Newspaper,       testId: "nav-news" },
-  { id: "calendar",  url: "/calendar", icon: CalendarDays,    testId: "nav-calendar" },
-  { id: "settings",  url: "/settings", icon: Settings,        testId: "nav-settings" },
+const liveItems = [
+  { id: "home",     url: "/",         icon: Fingerprint,       testId: "nav-hub" },
+  { id: "tasks",    url: "/tasks",    icon: Zap,               testId: "nav-tasks" },
+  { id: "goals",    url: "/goals",    icon: Milestone,         testId: "nav-goals" },
+  { id: "calendar", url: "/calendar", icon: Hourglass,         testId: "nav-calendar" },
+  { id: "ideas",    url: "/ideas",    icon: Puzzle,            testId: "nav-ideas" },
+] as const;
+
+const workItems = [
+  { id: "timer",    url: "/timer",    icon: Brain,             testId: "nav-timer" },
+  { id: "trading",  url: "/notes",    icon: CandlestickChart,  testId: "nav-notes" },
+  { id: "news",     url: "/news",     icon: Radio,             testId: "nav-news" },
+] as const;
+
+const otherItems = [
+  { id: "stats",    url: "/stats",    icon: Dna,               testId: "nav-stats" },
+  { id: "settings", url: "/settings", icon: SlidersHorizontal, testId: "nav-settings" },
 ] as const;
 
 export function AppSidebar() {
@@ -91,11 +96,29 @@ export function AppSidebar() {
       </SidebarHeader>
 
       {/* ── Навигация ── */}
-      <SidebarContent className="flex-1 overflow-y-auto overflow-x-hidden py-2">
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu className="space-y-0.5">
-              {navItems.map((item) => {
+      <SidebarContent className="flex-1 overflow-y-auto overflow-x-hidden py-2 space-y-4">
+        {(() => {
+          const [expandedGroups, setExpandedGroups] = useState(() => {
+            try {
+              const saved = localStorage.getItem("sidebar_groups");
+              if (saved) return JSON.parse(saved);
+            } catch {}
+            return { live: true, work: true, other: true };
+          });
+
+          const toggleGroup = (groupKey: "live" | "work" | "other") => {
+            setExpandedGroups((prev: Record<string, boolean>) => {
+              const next = { ...prev, [groupKey]: !prev[groupKey] };
+              try {
+                localStorage.setItem("sidebar_groups", JSON.stringify(next));
+              } catch {}
+              return next;
+            });
+          };
+
+          const renderGroupItems = (items: typeof liveItems | typeof workItems | typeof otherItems) => (
+            <SidebarMenu className="space-y-0.5 animate-in fade-in-30 slide-in-from-top-1 duration-150">
+              {items.map((item) => {
                 const isActive = location === item.url;
                 return (
                   <SidebarMenuItem key={item.id}>
@@ -127,8 +150,48 @@ export function AppSidebar() {
                 );
               })}
             </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+          );
+
+          const renderGroupHeader = (title: string, groupKey: "live" | "work" | "other", isExpanded: boolean) => (
+            <div 
+              onClick={() => toggleGroup(groupKey)}
+              className="flex items-center justify-between px-3 py-1.5 cursor-pointer group/hdr select-none hover:bg-white/5 transition-colors duration-150 mb-1 border-b border-white/5"
+            >
+              <div className="flex items-center gap-1.5">
+                <div className="w-1 h-2.5 bg-primary transform -skew-x-12" />
+                <span className="font-display text-[10px] tracking-[0.25em] font-black text-zinc-400 group-hover/hdr:text-primary transition-colors">
+                  {title}
+                </span>
+              </div>
+              <ChevronDown className={`w-3 h-3 text-zinc-500 transition-transform duration-200 ${isExpanded ? "rotate-0" : "-rotate-90 text-zinc-600"}`} />
+            </div>
+          );
+
+          return (
+            <>
+              <SidebarGroup className="py-0">
+                <SidebarGroupContent>
+                  {renderGroupHeader("LIVE", "live", expandedGroups.live)}
+                  {expandedGroups.live && renderGroupItems(liveItems)}
+                </SidebarGroupContent>
+              </SidebarGroup>
+
+              <SidebarGroup className="py-0">
+                <SidebarGroupContent>
+                  {renderGroupHeader("WORK", "work", expandedGroups.work)}
+                  {expandedGroups.work && renderGroupItems(workItems)}
+                </SidebarGroupContent>
+              </SidebarGroup>
+
+              <SidebarGroup className="py-0">
+                <SidebarGroupContent>
+                  {renderGroupHeader("OTHER", "other", expandedGroups.other)}
+                  {expandedGroups.other && renderGroupItems(otherItems)}
+                </SidebarGroupContent>
+              </SidebarGroup>
+            </>
+          );
+        })()}
       </SidebarContent>
 
       {/* ── Футер ── */}

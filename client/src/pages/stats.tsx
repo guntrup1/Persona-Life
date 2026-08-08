@@ -4,7 +4,7 @@ import { useStore, LIFE_AREAS, LIFE_AREA_COLORS, LIFE_AREA_BG, getTodayDate, get
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, Zap, Flame, Target, CheckCircle, Trophy, Clock } from "lucide-react";
+import { Dna, Zap, Flame, Milestone, CheckCircle, Trophy, Clock } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from "recharts";
 
 type Period = "day" | "week" | "month" | "all";
@@ -91,7 +91,7 @@ export default function StatsPage() {
       <div className="max-w-4xl mx-auto p-4 space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h1 className="font-display text-xl font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-primary" />
+            <Dna className="w-5 h-5 text-primary" />
             {t.nav.stats.toUpperCase()}
           </h1>
           <div className="flex gap-1">

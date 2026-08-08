@@ -19,7 +19,7 @@ import {
 import {
   Popover, PopoverContent, PopoverTrigger
 } from "@/components/ui/popover";
-import { CheckCircle, Circle, Plus, Trash2, RefreshCw, CheckSquare, Repeat, Zap, Pencil, Clock, ChevronDown, ChevronRight, CalendarDays, Target, GripVertical } from "lucide-react";
+import { CheckCircle, Circle, Plus, Trash2, RefreshCw, Repeat, Zap, Pencil, Clock, ChevronDown, ChevronRight, Hourglass, Milestone, GripVertical } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/lib/i18n";
 import {
@@ -585,7 +585,7 @@ export default function TasksPage() {
       <div className="max-w-4xl mx-auto p-4 space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h1 className="font-display text-xl font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
-            <CheckSquare className="w-5 h-5 text-primary" />
+            <Zap className="w-5 h-5 text-primary" />
             {t.nav.tasks.toUpperCase()}
           </h1>
         </div>
@@ -675,7 +675,7 @@ export default function TasksPage() {
                     data-testid={`goal-group-toggle-${goalId}`}
                   >
                     {isCollapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                    <Target className="w-3 h-3 text-primary" />
+                    <Milestone className="w-3 h-3 text-primary" />
                     {goal?.title || t.goals.title}
                     <span className="font-mono text-[10px] ml-1 text-primary">{completedCount}/{tasks.length}</span>
                   </button>
@@ -701,7 +701,7 @@ export default function TasksPage() {
 
             {todayTasks.length === 0 && (
               <Card className="p-8 text-center border-dashed border-border">
-                <CheckSquare className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-30" />
+                <Zap className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-30" />
                 <p className="font-display text-sm text-muted-foreground">{t.tasks.noTasksToday}</p>
                 <p className="text-xs text-muted-foreground mt-1">{t.tasks.noTasksDesc}</p>
               </Card>
@@ -898,7 +898,7 @@ function TaskRow({ task, onToggle, onDelete, onEdit, onReschedule, dragHandlePro
                   onClick={(e) => { e.stopPropagation(); }}
                   data-testid={`task-reschedule-${task.id}`}
                 >
-                  <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
+                  <Hourglass className="w-3.5 h-3.5 text-muted-foreground" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-56 p-2 space-y-2" onClick={(e) => e.stopPropagation()}>
@@ -910,7 +910,7 @@ function TaskRow({ task, onToggle, onDelete, onEdit, onReschedule, dragHandlePro
                   onClick={() => { onReschedule(task.id, getNextDay()); setRescheduleOpen(false); }}
                   data-testid={`task-reschedule-tomorrow-${task.id}`}
                 >
-                  <CalendarDays className="w-3 h-3" />
+                  <Hourglass className="w-3 h-3" />
                   {t.tasks.tomorrow}
                 </Button>
                 <div className="flex gap-1">

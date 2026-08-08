@@ -13,7 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { MonteCarloSimulator } from "@/components/MonteCarloSimulator";
-import { FileText, Plus, Trash2, Clock, TrendingUp, ArrowUpRight, ArrowDownRight, MoveRight, Camera, X, Pencil, Lightbulb, CheckCircle, Circle } from "lucide-react";
+import { FileText, Plus, Trash2, Clock, CandlestickChart, ArrowUpRight, ArrowDownRight, MoveRight, Camera, X, Pencil, Puzzle, CheckCircle, Circle } from "lucide-react";
 
 const ASSETS: TradeAsset[] = ["GER40", "EUR", "XAU", "GBP"];
 const TIMEFRAMES = ["M1", "M5", "M15", "M30", "H1", "H4", "D1"];
@@ -382,7 +382,7 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
             <div className="flex items-center justify-between py-1">
               <div className="space-y-0.5">
                 <Label htmlFor="trading-idea-toggle" className="text-yellow-400 flex items-center gap-1">
-                  <Lightbulb className="w-3.5 h-3.5" />
+                  <Puzzle className="w-3.5 h-3.5" />
                   Торговая идея
                 </Label>
                 <div className="text-[10px] text-muted-foreground">{t.notes.tradingIdeaDesc}</div>
@@ -478,7 +478,7 @@ export default function NotesPage() {
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="font-display text-lg font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-primary" />
+              <CandlestickChart className="w-5 h-5 text-primary" />
               {t.notes.dailyBias.toUpperCase()}
             </h2>
             <AddBiasDialog onAdd={actions.addDailyBias} />
@@ -713,7 +713,7 @@ function TradingIdeasSection() {
     <section className="space-y-3 pt-4 border-t border-border">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="font-display text-lg font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
-          <Lightbulb className="w-5 h-5 text-yellow-400" />
+          <Puzzle className="w-5 h-5 text-yellow-400" />
           {t.notes.tradingIdeas || 'Торговые идеи'}
         </h2>
         <div className="flex items-center gap-3">

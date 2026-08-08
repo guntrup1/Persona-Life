@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Lightbulb, ExternalLink, Pencil, Trash2, Filter, Calendar } from "lucide-react";
+import { Puzzle, ExternalLink, Pencil, Trash2, Filter, Calendar } from "lucide-react";
 
 type SortMode = "newest" | "oldest" | "category";
 
@@ -220,7 +220,7 @@ export default function IdeasPage() {
       <div className="max-w-3xl mx-auto p-4 space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h1 className="font-display text-xl font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
-            <Lightbulb className="w-5 h-5 text-yellow-400" />
+            <Puzzle className="w-5 h-5 text-yellow-400" />
             {t.nav.ideas}
           </h1>
           <div className="text-xs text-muted-foreground font-mono">
@@ -268,7 +268,7 @@ export default function IdeasPage() {
 
         {ideas.length === 0 ? (
           <Card className="p-8 text-center border-dashed border-border rounded-xl">
-            <Lightbulb className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-30" />
+            <Puzzle className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-30" />
             <p className="font-display text-sm text-muted-foreground">{t.ideas.noIdeas}</p>
             <p className="text-xs text-muted-foreground mt-1">{t.ideas.noIdeasDesc}</p>
           </Card>

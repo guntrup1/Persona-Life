@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Newspaper, AlertTriangle, Clock, RefreshCw, Loader2, CalendarDays } from "lucide-react";
+import { Radio, AlertTriangle, Clock, RefreshCw, Loader2, Hourglass } from "lucide-react";
 import { getUserTime, loadUserSettings } from "@/lib/store";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -177,7 +177,7 @@ export default function NewsPage() {
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h1 className="font-display text-xl font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
-            <Newspaper className="w-5 h-5 text-primary" />
+            <Radio className="w-5 h-5 text-primary" />
             Forex Factory
           </h1>
           <div className="flex items-center gap-2">
@@ -238,7 +238,7 @@ export default function NewsPage() {
                 <SkeletonRows />
               ) : todayItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 gap-2 text-center">
-                  <Newspaper className="w-7 h-7 opacity-15" />
+                  <Radio className="w-7 h-7 opacity-15" />
                   <p className="text-sm text-muted-foreground font-display">{t.news.noNewsToday}</p>
                 </div>
               ) : (
@@ -252,7 +252,7 @@ export default function NewsPage() {
             {/* Date header */}
             {!isLoading && nextStr && (
               <div className="flex items-center gap-3 px-1">
-                <CalendarDays className="w-4 h-4 text-primary flex-shrink-0" />
+                <Hourglass className="w-4 h-4 text-primary flex-shrink-0" />
                 <div>
                   <div className="font-display text-sm font-bold text-foreground capitalize">{nextDate.weekday}</div>
                   <div className="text-xs text-muted-foreground font-mono">{nextDate.full}</div>
@@ -265,7 +265,7 @@ export default function NewsPage() {
                 <SkeletonRows />
               ) : nextItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 gap-2 text-center">
-                  <Newspaper className="w-7 h-7 opacity-15" />
+                  <Radio className="w-7 h-7 opacity-15" />
                   <p className="text-sm text-muted-foreground font-display">{t.news.noNewsNext}</p>
                 </div>
               ) : (

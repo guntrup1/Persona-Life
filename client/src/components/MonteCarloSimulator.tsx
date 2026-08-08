@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
-import { Trash2, Save, Activity, CalendarDays, Eye, Download, Share2, TrendingUp, ShieldAlert, BarChart3, Plus, X, Info } from "lucide-react";
+import { Trash2, Save, Activity, Hourglass, Eye, Download, Share2, CandlestickChart, ShieldAlert, Dna, Plus, X, Info } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import html2canvas from "html2canvas";
@@ -825,7 +825,7 @@ export function MonteCarloSimulator() {
         {res.monthlyIncome !== null && (
           <Card className="p-4 bg-background/50 border-white/5">
             <div className="flex items-center gap-2 mb-3">
-              <CalendarDays className="w-4 h-4 text-green-400" />
+              <Hourglass className="w-4 h-4 text-green-400" />
               <h4 className="font-semibold">{t.simulator.timeProjections || "Временные проекции"}</h4>
             </div>
             <div className="space-y-2 text-sm">
@@ -1117,7 +1117,7 @@ export function MonteCarloSimulator() {
               <div className="md:col-span-3 space-y-6">
                 <div className="flex items-center justify-between border-b border-white/10 pb-3">
                   <div className="flex items-center gap-2">
-                    <BarChart3 className="w-5 h-5 text-emerald-400" />
+                    <Dna className="w-5 h-5 text-emerald-400" />
                     <h4 className="font-bold text-base text-zinc-300">Активы в портфеле</h4>
                   </div>
                   <Button size="sm" variant="outline" className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 rounded-xl px-4 py-2" onClick={handleAddAsset}>
@@ -1307,7 +1307,7 @@ export function MonteCarloSimulator() {
                       {/* Assets detail list in archive */}
                       <div className="mt-6 bg-black/30 border border-white/5 p-5 rounded-2xl space-y-4">
                         <h4 className="text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2">
-                          <BarChart3 className="w-4 h-4 text-red-500" />
+                          <Dna className="w-4 h-4 text-red-500" />
                           {lang === "ru" ? "Симулируемые активы и параметры бэктеста" : "Simulated Assets & Backtest Parameters"}
                         </h4>
                         <div className="overflow-x-auto">
@@ -1368,7 +1368,7 @@ export function MonteCarloSimulator() {
                     </div>
                   ) : (
                     <div className="h-full flex flex-col items-center justify-center text-zinc-500 py-32 border border-dashed border-white/10 rounded-2xl bg-black/10">
-                       <TrendingUp className="w-16 h-16 mb-4 opacity-50 text-red-500" />
+                       <CandlestickChart className="w-16 h-16 mb-4 opacity-50 text-red-500" />
                        <p className="text-lg font-bold text-white">Выберите сессию из списка слева</p>
                        <p className="text-sm opacity-70">для просмотра деталей и статистики</p>
                     </div>

@@ -10,7 +10,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { CheckCircle, Circle, Trash2, RefreshCw, Flame, Zap, Target, Clock, FileText, TrendingUp, ChevronDown, Star, GripVertical } from "lucide-react";
+import { CheckCircle, Circle, Trash2, RefreshCw, Flame, Zap, Milestone, FileText, Dna, ChevronDown, Star, GripVertical } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/lib/i18n";
 import {
@@ -290,7 +290,7 @@ export default function HubPage() {
             <div className="hidden md:flex md:flex-col gap-3">
               <CollapsibleBlock
               title={t.hub.weekTasks}
-              icon={<Target className="w-4 h-4 text-primary" />}
+              icon={<Milestone className="w-4 h-4 text-primary" />}
               badge={weekGoals.length > 0 && <Badge variant="secondary" className="font-mono text-[10px] h-4 px-1.5 rounded-full">{weekGoals.length}</Badge>}
             >
               {weekGoals.length === 0 ? (
@@ -315,7 +315,7 @@ export default function HubPage() {
 
               <CollapsibleBlock
               title={t.hub.weekProgress}
-              icon={<TrendingUp className="w-4 h-4 text-primary" />}
+              icon={<Dna className="w-4 h-4 text-primary" />}
             >
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -381,7 +381,7 @@ export default function HubPage() {
             {/* {t.hub.todayTasks} */}
             <CollapsibleBlock
               title={t.hub.todayTasks}
-              icon={<Clock className="w-4 h-4 text-primary" />}
+              icon={<Zap className="w-4 h-4 text-primary" />}
               badge={totalToday > 0 && <Badge variant="secondary" className="font-mono text-[10px] h-4 px-1.5 rounded-full">{completedToday}/{totalToday}</Badge>}
             >
               <div className="space-y-2 mb-3">
@@ -421,7 +421,7 @@ export default function HubPage() {
 
               {todayTasks.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  <Target className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                  <Zap className="w-8 h-8 mx-auto mb-2 opacity-30" />
                   <p className="font-display text-sm">{t.hub.emptyTasks}</p>
                   <p className="text-xs mt-1 opacity-70">{t.hub.emptyTasksDesc}</p>
                 </div>

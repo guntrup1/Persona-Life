@@ -31,8 +31,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Textarea } from "@/components/ui/textarea";
 import {
   FileText, RefreshCw, AlertTriangle, Menu, X,
-  LayoutDashboard, CheckSquare, Target, Timer,
-  BarChart3, Newspaper, CalendarDays, LogOut, Lightbulb, TrendingUp, Settings,
+  Fingerprint, Zap, Milestone, Brain, Dna, CandlestickChart, Puzzle, Radio, Hourglass, SlidersHorizontal, LogOut,
   ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -231,7 +230,7 @@ function NewsIndicator() {
     return (
       <Link href="/news" data-testid="header-news-block">
         <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-muted/30 border border-border hover:bg-muted/50 transition-colors cursor-pointer">
-          <Newspaper className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+          <Radio className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
           <span className="font-display text-xs text-muted-foreground whitespace-nowrap">
             {t.newsNext(formatNextDate(nextDateStr))}
           </span>
@@ -247,16 +246,16 @@ function NewsIndicator() {
 }
 
 const mobileNavItems = [
-  { id: "home", url: "/", icon: LayoutDashboard },
-  { id: "tasks", url: "/tasks", icon: CheckSquare },
-  { id: "goals", url: "/goals", icon: Target },
-  { id: "timer", url: "/timer", icon: Timer },
-  { id: "stats", url: "/stats", icon: BarChart3 },
-  { id: "trading", url: "/notes", icon: TrendingUp },
-  { id: "ideas", url: "/ideas", icon: Lightbulb },
-  { id: "news", url: "/news", icon: Newspaper },
-  { id: "calendar", url: "/calendar", icon: CalendarDays },
-  { id: "settings", url: "/settings", icon: Settings },
+  { id: "home", url: "/", icon: Fingerprint },
+  { id: "tasks", url: "/tasks", icon: Zap },
+  { id: "goals", url: "/goals", icon: Milestone },
+  { id: "timer", url: "/timer", icon: Brain },
+  { id: "stats", url: "/stats", icon: Dna },
+  { id: "trading", url: "/notes", icon: CandlestickChart },
+  { id: "ideas", url: "/ideas", icon: Puzzle },
+  { id: "news", url: "/news", icon: Radio },
+  { id: "calendar", url: "/calendar", icon: Hourglass },
+  { id: "settings", url: "/settings", icon: SlidersHorizontal },
 ] as const;
 
 function MobileNav() {
@@ -525,7 +524,7 @@ if (!user) {
               className="h-9 w-9 flex items-center justify-center hover:text-primary transition-colors flex-shrink-0"
               data-testid="button-settings"
             >
-              <Settings className="w-[18px] h-[18px] text-muted-foreground hover:text-primary transition-colors" />
+              <SlidersHorizontal className="w-[18px] h-[18px] text-muted-foreground hover:text-primary transition-colors" />
             </button>
           </Link>
         </div>

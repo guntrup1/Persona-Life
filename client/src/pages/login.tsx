@@ -8,10 +8,10 @@ import { Link } from "wouter";
 import { useI18n, LangToggle } from "@/lib/i18n";
 import { Badge } from "@/components/ui/badge";
 import { 
-  TrendingUp, Activity, BarChart3, Newspaper, 
+  CandlestickChart, Activity, Dna, Radio, 
   Calendar, ShieldAlert, Award, FileText, 
-  CheckCircle2, ChevronRight, LayoutDashboard, 
-  Target, Timer, Lightbulb, Settings, Lock, X,
+  CheckCircle2, ChevronRight, Fingerprint, 
+  Milestone, Brain, Puzzle, SlidersHorizontal, Lock, X,
   Terminal, AlertTriangle, Play
 } from "lucide-react";
 
@@ -1002,7 +1002,7 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
   const tabs: ModuleTab[] = [
     {
       id: "hub",
-      icon: LayoutDashboard,
+      icon: Fingerprint,
       titleRu: "Главный Хаб",
       titleEn: "Main Hub",
       noteRu: "то, чего тебе не хватало",
@@ -1024,7 +1024,7 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
     },
     {
       id: "trading",
-      icon: TrendingUp,
+      icon: CandlestickChart,
       titleRu: "Торговля",
       titleEn: "Trading",
       noteRu: "сделки которые ты не записывал",
@@ -1035,7 +1035,7 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
     },
     {
       id: "news",
-      icon: Newspaper,
+      icon: Radio,
       titleRu: "Мониторинг Новостей",
       titleEn: "News Monitor",
       noteRu: "новости которые ты пропустил",
@@ -1046,7 +1046,7 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
     },
     {
       id: "goals",
-      icon: Target,
+      icon: Milestone,
       titleRu: "Декомпозиция целей",
       titleEn: "Goals Decomposition",
       noteRu: "то, куда ты не дошёл",
@@ -1057,7 +1057,7 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
     },
     {
       id: "ideas",
-      icon: Lightbulb,
+      icon: Puzzle,
       titleRu: "Банк Торговых Идей",
       titleEn: "Ideas Vault",
       noteRu: "идеи что ты забыл проверить",
@@ -1068,7 +1068,7 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
     },
     {
       id: "timer",
-      icon: Timer,
+      icon: Brain,
       titleRu: "Таймер Фокуса",
       titleEn: "Focus Timer",
       noteRu: "время, которое ты тратил впустую",
@@ -1079,7 +1079,7 @@ function ModulesShowcaseSlider({ lang }: { lang: "ru" | "en" }) {
     },
     {
       id: "settings",
-      icon: Settings,
+      icon: SlidersHorizontal,
       titleRu: "Калибровка Сессий",
       titleEn: "Session Calibration",
       noteRu: "время когда ты торговал не в своё окно",
@@ -1790,7 +1790,7 @@ export default function LoginPage() {
             
             <div className="space-y-6">
               <div className="flex items-center gap-2 text-red-500">
-                <TrendingUp className="w-5 h-5 animate-pulse" />
+                <CandlestickChart className="w-5 h-5 animate-pulse" />
                 <span className="text-xs font-bold uppercase tracking-widest font-display">{isRu ? "Основа платформы" : "Platform core"}</span>
               </div>
               <h2 className="text-3xl sm:text-4xl font-black text-white leading-tight uppercase font-display cursor-default">

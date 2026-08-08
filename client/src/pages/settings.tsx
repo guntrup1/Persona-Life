@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Settings, Clock, ChevronDown, ChevronUp, Globe } from "lucide-react";
+import { SlidersHorizontal, Clock, ChevronDown, ChevronUp, Globe } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/lib/i18n";
 
@@ -155,7 +155,7 @@ export default function SettingsPage() {
 
         {/* Заголовок */}
         <div className="flex items-center gap-2">
-          <Settings className="w-5 h-5 text-primary" />
+          <SlidersHorizontal className="w-5 h-5 text-primary" />
           <h1 className="font-display text-lg font-bold uppercase tracking-wider">{t.settings.title}</h1>
         </div>
 
