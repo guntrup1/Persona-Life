@@ -938,7 +938,7 @@ function TaskRow({ task, onToggle, onDelete, onEdit, onReschedule, dragHandlePro
   };
 
   return (
-    <Card className={`p-3 border-card-border hover-elevate bg-card relative ${task.completed ? "opacity-60 bg-muted/20" : ""}`} data-testid={`task-${task.id}`}>
+    <Card className={`p-3 border-card-border hover-elevate bg-card relative group ${task.completed ? "opacity-60 bg-muted/20" : ""}`} data-testid={`task-${task.id}`}>
       {isHighPriority && (
         <div className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]" />
       )}
@@ -1059,19 +1059,21 @@ function TaskRow({ task, onToggle, onDelete, onEdit, onReschedule, dragHandlePro
           <Button
             size="icon"
             variant="ghost"
-            className="h-8 w-8 invisible group-hover:visible"
+            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
             onClick={(e) => { e.stopPropagation(); onEdit(); }}
             data-testid={`task-edit-${task.id}`}
           >
             <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
           </Button>
-          <button
-            className="invisible group-hover:visible text-muted-foreground p-1"
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/10"
             onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
             data-testid={`task-delete-${task.id}`}
           >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
+            <Trash2 className="w-3.5 h-3.5 text-muted-foreground hover:text-red-400" />
+          </Button>
         </div>
       </div>
     </Card>
