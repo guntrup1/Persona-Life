@@ -530,8 +530,11 @@ function WeekSubTasksPoolSidebar() {
   const [collapsed, setCollapsed] = useState(false);
 
   const activeWeekGoals = state.goals.filter(g => g.type === "week" && g.status !== "failed" && !g.completed);
+  const allSubTasks = activeWeekGoals.flatMap(g =>
+    state.todayTasks.filter(t => t.weekGoalId === g.id || t.goalId === g.id)
+  );
 
-  if (activeWeekGoals.length === 0) return null;
+  if (activeWeekGoals.length === 0 || allSubTasks.length === 0) return null;
 
   const todayStr = getTodayDate();
 
@@ -687,7 +690,7 @@ export default function TasksPage() {
 
   return (
     <div className="h-full overflow-auto">
-      <div className="max-w-4xl mx-auto p-4 space-y-4">
+      <div className="max-w-7xl mx-auto p-4 space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h1 className="font-display text-xl font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
             <Zap className="w-5 h-5 text-primary" />
@@ -721,8 +724,8 @@ export default function TasksPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="lg:col-span-2 space-y-3">
+            {(() => { const hasPool = state.goals.some(g => g.type === "week" && g.status !== "failed" && !g.completed && state.todayTasks.some(t => t.weekGoalId === g.id || t.goalId === g.id)); return (<>
+            <div className={hasPool ? "grid grid-cols-1 lg:grid-cols-3 gap-4" : ""}>
 
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleTodayDragEnd}>
             {routineTasks.length > 0 && (
@@ -815,12 +818,15 @@ export default function TasksPage() {
               </Card>
             )}
             </DndContext>
-              </div>
+            </div>
 
+            {hasPool && (
               <div className="lg:col-span-1">
                 <WeekSubTasksPoolSidebar />
               </div>
+            )}
             </div>
+            </> ); })()} 
           </TabsContent>
 
           <TabsContent value="routine" className="mt-4 space-y-3 animate-slide-in-up">

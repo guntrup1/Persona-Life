@@ -217,7 +217,7 @@ export default function IdeasPage() {
 
   return (
     <div className="h-full overflow-auto">
-      <div className="max-w-3xl mx-auto p-4 space-y-4">
+      <div className="max-w-7xl mx-auto p-4 space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h1 className="font-display text-xl font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
             <Puzzle className="w-5 h-5 text-yellow-400" />
