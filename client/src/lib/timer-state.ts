@@ -162,20 +162,8 @@ export async function tryOpenPip(): Promise<boolean> {
       notify();
       return true;
     } catch (e) {
-      console.warn("Document PiP request failed, using popout window:", e);
+      console.warn("Document PiP request failed, using in-app widget:", e);
     }
-  }
-
-  // 2. Fallback: Open clean desktop popout window /timer-pip
-  const pop = window.open("/timer-pip", "PersonaTimerWin", "width=280,height=270,resizable=yes,scrollbars=no,menubar=no,toolbar=no,location=no,status=no");
-  if (pop) {
-    pop.addEventListener("beforeunload", () => {
-      cleanupPip();
-      notify();
-    });
-    externalWin = pop;
-    notify();
-    return true;
   }
 
   return false;
