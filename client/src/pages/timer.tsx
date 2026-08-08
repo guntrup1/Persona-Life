@@ -5,9 +5,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Play, Pause, RotateCcw, Brain, Check, Flame, Zap, FileText, ChevronDown, ChevronRight, Pin } from "lucide-react";
+import { Play, Pause, RotateCcw, Brain, Check, Flame, Zap, FileText, ChevronDown, ChevronRight, Pin, Volume2, Trash2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/lib/i18n";
 import { getTodayDate } from "@/lib/store";
 import {
@@ -21,11 +20,19 @@ import {
   isPipOpen,
   closePip,
 } from "@/lib/timer-state";
+import { previewTimerRingtone, type TimerSound } from "@/lib/timer-audio";
 
 const getModes = (t: any): { key: TimerMode; label: string; duration: number; xp: number; color: string }[] => [
   { key: "pomodoro", label: "Pomodoro", duration: 25, xp: 5, color: "text-red-400" },
   { key: "deep-work", label: "Deep Work", duration: 90, xp: 25, color: "text-blue-400" },
   { key: "custom", label: t.timer.customTimer, duration: 60, xp: 15, color: "text-purple-400" },
+];
+
+const SOUND_OPTIONS: { value: TimerSound; label: string; icon: string }[] = [
+  { value: "bell", label: "Колокольчик", icon: "🔔" },
+  { value: "digital", label: "Цифровой", icon: "📟" },
+  { value: "gong", label: "Гонг", icon: "🧘" },
+  { value: "none", label: "Без звука", icon: "🔇" },
 ];
 
 function TimerRing({ progress, radius, stroke }: { progress: number; radius: number; stroke: number }) {
@@ -63,7 +70,6 @@ export default function TimerPage() {
   const { state, actions } = useStore();
   const { t, lang } = useI18n();
 
-  // Read from shared timer state
   const ts = useSyncExternalStore(subscribeTimer, getTimerState, getTimerState);
   const isPinned = useSyncExternalStore(subscribeTimer, isPipOpen, isPipOpen);
 
@@ -77,6 +83,7 @@ export default function TimerPage() {
   const modeConfig = getModes(t).find(m => m.key === ts.mode)!;
   const currentDuration = ts.mode === "custom" ? customMinutes : modeConfig.duration;
   const currentXp = xpForFocus(currentDuration);
+  const activeSound = state.timerSound || "bell";
 
   const handleModeChange = (mode: TimerMode) => {
     const m = getModes(t).find(x => x.key === mode)!;
@@ -90,7 +97,6 @@ export default function TimerPage() {
       setTimerMode("custom", mins);
     }
   };
-
 
   const todayXP = state.focusSessions
     .filter(s => s.date === getTodayDate())
@@ -239,6 +245,35 @@ export default function TimerPage() {
           </div>
         </Card>
 
+        {/* Ringtone Sound Settings */}
+        <Card className="p-3 border-card-border">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <Volume2 className="w-4 h-4 text-primary" />
+              <span className="font-display text-xs font-semibold uppercase tracking-wider text-foreground">Звук окончания таймера</span>
+            </div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {SOUND_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => {
+                    actions.setTimerSound(opt.value);
+                    previewTimerRingtone(opt.value);
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-display flex items-center gap-1 border transition-all ${
+                    activeSound === opt.value
+                      ? "bg-primary/20 border-primary text-primary font-bold"
+                      : "bg-muted/30 border-border text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <span>{opt.icon}</span>
+                  <span>{opt.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </Card>
+
         {/* Stats Summary */}
         <div className="grid grid-cols-2 gap-3">
           <Card className="p-3 border-card-border text-center">
@@ -272,8 +307,8 @@ export default function TimerPage() {
 
             {historyOpen && (
               <div className="space-y-2 max-h-56 overflow-auto mt-3 animate-slide-in-up">
-                {[...state.focusSessions].reverse().slice(0, 15).map(session => (
-                  <div key={session.id} className="flex items-center justify-between text-sm py-1 border-b border-border/30 last:border-0">
+                {[...state.focusSessions].reverse().slice(0, 20).map(session => (
+                  <div key={session.id} className="flex items-center justify-between text-sm py-1 border-b border-border/30 last:border-0 group">
                     <div className="flex items-center gap-2 min-w-0">
                       <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
                         session.mode === "pomodoro" ? "bg-red-400" :
@@ -303,6 +338,14 @@ export default function TimerPage() {
                       <span className="font-mono text-xs text-muted-foreground">
                         {new Date(session.completedAt).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', { day: "2-digit", month: "short" })}
                       </span>
+                      <button
+                        onClick={() => actions.deleteFocusSession(session.id)}
+                        className="text-muted-foreground hover:text-red-400 transition-colors p-1 opacity-0 group-hover:opacity-100"
+                        title="Удалить из истории"
+                        data-testid={`delete-session-${session.id}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 ))}

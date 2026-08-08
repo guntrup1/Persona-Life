@@ -1,4 +1,5 @@
 import { getTodayDate, xpForFocus, type TimerMode } from "./store";
+import { playTimerRingtone, type TimerSound } from "./timer-audio";
 
 // ─── Single Source of Truth for Timer Countdown ───────────────────────
 
@@ -93,6 +94,21 @@ function runInterval() {
       const xp = xpForFocus(state.duration);
       state = { ...state, timeLeft: 0, running: false, completed: true };
       notify();
+      
+      // Play completion ringtone
+      try {
+        const rawStore = localStorage.getItem("lifeos_v2");
+        if (rawStore) {
+          const parsed = JSON.parse(rawStore);
+          const sound = (parsed.timerSound || "bell") as TimerSound;
+          playTimerRingtone(sound);
+        } else {
+          playTimerRingtone("bell");
+        }
+      } catch {
+        playTimerRingtone("bell");
+      }
+
       onCompleteCallback?.({
         duration: state.duration, mode: state.mode, xp,
         date: getTodayDate(), completedAt: new Date().toISOString(),

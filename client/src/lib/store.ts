@@ -235,6 +235,7 @@ export interface AppState {
   xp: XPData;
   routineLoadedDates: string[];
   timerWidgetOpen?: boolean;
+  timerSound?: "bell" | "digital" | "gong" | "none";
   simulations?: SimulationSession[];
   _deletedIds?: string[];
 }
@@ -1158,6 +1159,22 @@ export function useStore() {
 
     addFocusSession: useCallback((session: Omit<FocusSession, "id">) => {
       mutate(s => ({ ...s, focusSessions: [...s.focusSessions, { ...session, id: crypto.randomUUID() }] }));
+    }, []),
+
+    deleteFocusSession: useCallback((id: string) => {
+      mutate(s => {
+        const nextSessions = s.focusSessions.filter(f => f.id !== id);
+        const nextState = { ...s, focusSessions: nextSessions };
+        return {
+          ...nextState,
+          xp: recalcXP(nextState),
+          _deletedIds: [...(s._deletedIds || []), id].slice(-200),
+        };
+      });
+    }, []),
+
+    setTimerSound: useCallback((sound: "bell" | "digital" | "gong" | "none") => {
+      mutate(s => ({ ...s, timerSound: sound }));
     }, []),
 
     setTimerWidgetOpen: useCallback((open: boolean) => {
