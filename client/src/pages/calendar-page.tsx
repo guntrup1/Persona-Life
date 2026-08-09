@@ -48,6 +48,7 @@ export default function CalendarPage() {
   const [noDeadline, setNoDeadline] = useState(true);
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("10:00");
+  const [addToGoogleCalendar, setAddToGoogleCalendar] = useState(false);
 
   const [editingTask, setEditingTask] = useState<TodayTask | null>(null);
 
@@ -118,6 +119,7 @@ export default function CalendarPage() {
       noDeadline,
       startTime: noDeadline ? undefined : startTime,
       endTime: noDeadline ? undefined : endTime,
+      addToGoogleCalendar,
     };
 
     if (editingTask) {
@@ -139,6 +141,7 @@ export default function CalendarPage() {
     setNoDeadline(true);
     setStartTime("09:00");
     setEndTime("10:00");
+    setAddToGoogleCalendar(false);
     setEditingTask(null);
   };
 
@@ -152,6 +155,7 @@ export default function CalendarPage() {
     setNoDeadline(task.noDeadline ?? true);
     setStartTime(task.startTime || "09:00");
     setEndTime(task.endTime || "10:00");
+    setAddToGoogleCalendar(!!task.googleCalendarEventId || !!task.addToGoogleCalendar);
     setAddTaskOpen(true);
   };
 
@@ -482,6 +486,20 @@ export default function CalendarPage() {
                               ))}
                             </SelectContent>
                           </Select>
+                        </div>
+
+                        <div className="flex items-center justify-between py-1 border-t border-border/40 pt-2">
+                          <div className="space-y-0.5">
+                            <Label htmlFor="calendar-google-toggle" className="text-xs font-display flex items-center gap-1.5">
+                              📅 Добавить в Google Календарь
+                            </Label>
+                            <div className="text-[10px] text-muted-foreground">Отправить событием в ваш Google Calendar</div>
+                          </div>
+                          <Switch
+                            id="calendar-google-toggle"
+                            checked={addToGoogleCalendar}
+                            onCheckedChange={setAddToGoogleCalendar}
+                          />
                         </div>
 
                         <div className="space-y-3">
