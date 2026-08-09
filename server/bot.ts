@@ -64,15 +64,76 @@ interface AIResponse {
   trading_notes?: BotTradingNoteResult[];
 }
 
-// ── State: track which type the user selected ──
-const userState = new Map<number, { type: RecordType; messageId?: number; promptMessageId?: number }>();
+// ── State: track which type the user selected and key input state ──
+const userState = new Map<number, {
+  type: RecordType;
+  messageId?: number;
+  promptMessageId?: number;
+  awaitingKeyInput?: boolean;
+}>();
 
 // ── Main Menu Keyboard (Persistent Reply Keyboard) ──
 function getMainMenuKeyboard() {
   return Markup.keyboard([
     ["➕ Добавить запись", "📜 История ГС"],
-    ["ℹ️ Статус аккаунта", "❓ Помощь"],
+    ["🔑 Gemini API Ключ", "ℹ️ Статус аккаунта"],
+    ["❓ Помощь"],
   ]).resize();
+}
+
+// ── Validate Gemini API Key ──
+async function validateGeminiApiKey(apiKey: string): Promise<boolean> {
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey.trim());
+    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+    await model.generateContent("ping");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ── Friendly Error Formatter for Gemini API & Quota limits ──
+function formatFriendlyErrorMessage(err: any): string {
+  const errMsg = err?.message || String(err || "");
+
+  // Rate Limit / Quota Exceeded (429 / RESOURCE_EXHAUSTED / Quota exceeded)
+  if (
+    errMsg.includes("429") ||
+    errMsg.includes("RESOURCE_EXHAUSTED") ||
+    errMsg.includes("Quota exceeded") ||
+    errMsg.includes("Too Many Requests")
+  ) {
+    const secondsMatch =
+      errMsg.match(/(?:retry in|wait)\s*([0-9.]+)\s*s/i) ||
+      errMsg.match(/([0-9.]+)\s*seconds/i) ||
+      errMsg.match(/in\s*([0-9.]+)\s*s/i);
+
+    const retrySec = secondsMatch ? Math.ceil(parseFloat(secondsMatch[1])) : 35;
+
+    return (
+      `⏳ *Превышен временный лимит частоты запросов ИИ.*\n\n` +
+      `Пожалуйста, подожди **${retrySec} сек.** и отправь голосовое сообщение ещё раз.\n\n` +
+      `_Это стандартное ограничение бесплатного тарифа Gemini API (15 запросов в минуту)._`
+    );
+  }
+
+  // Missing or Invalid API Key
+  if (
+    errMsg.includes("API_KEY_MISSING") ||
+    errMsg.includes("API_KEY_INVALID") ||
+    errMsg.includes("API key not valid") ||
+    errMsg.includes("API key required")
+  ) {
+    return (
+      `🔑 *Не настроен или недействителен Gemini API Ключ.*\n\n` +
+      `Для работы бота необходим личный API ключ Gemini.\n` +
+      `Нажми кнопку ниже *«🔑 Gemini API Ключ»* для быстрой инструкции и ввода ключа.`
+    );
+  }
+
+  // Fallback generic friendly message
+  return `⚠️ *Не удалось обработать запись.*\n\nПроизошла временная ошибка при обращении к ИИ. Попробуй надиктовать сообщение ещё раз.`;
 }
 
 // ── Save Voice History metadata to MongoDB (No audio stored on server) ──
@@ -383,9 +444,15 @@ async function processVoiceWithAI(
   audioBuffer: Buffer,
   recordType: RecordType,
   utcOffset = 2,
-  activeGoals: Array<{ id: string; title: string; type: string; category: string }> = []
+  activeGoals: Array<{ id: string; title: string; type: string; category: string }> = [],
+  userApiKey?: string | null
 ): Promise<AIResponse> {
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+  const apiKey = userApiKey?.trim() || process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("API_KEY_MISSING: Gemini API key not provided");
+  }
+
+  const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
   const prompt = buildPrompt(recordType, utcOffset, activeGoals);
@@ -879,14 +946,81 @@ export function createBot(): Telegraf | null {
     }
   };
 
+  // ── Helper: Show API Key Instruction ──
+  const showApiKeyInstruction = async (ctx: any) => {
+    const text =
+      `📖 *Как получить свой бесплатный Gemini API Ключ за 1 минуту:*\n\n` +
+      `1️⃣ Перейди на официальный сайт Google AI Studio:\n` +
+      `👉 https://aistudio.google.com/app/apikey\n\n` +
+      `2️⃣ Войди под любым своим аккаунтом Google.\n\n` +
+      `3️⃣ Нажми синюю кнопку *«Create API key»* (Создать API ключ).\n\n` +
+      `4️⃣ Скопируй сгенерированный ключ (он начинается на \`AIzaSy...\`).\n\n` +
+      `5️⃣ Вернись в этот чат Telegram и просто отправь скопированный ключ обычным текстовым сообщением!\n\n` +
+      `🔒 *Безопасность:* Твой API ключ привязывается исключительно к твоему личному аккаунту Trade Persona и используется только для обработки твоих голосовых сообщений. Никто другой не имеет к нему доступа.`;
+
+    const inlineKb = Markup.inlineKeyboard([
+      [Markup.button.url("🌐 Открыть Google AI Studio", "https://aistudio.google.com/app/apikey")],
+      [Markup.button.callback("✏️ Ввести API Ключ", "key_input")],
+    ]);
+
+    return ctx.reply(text, { parse_mode: "Markdown", ...inlineKb });
+  };
+
+  // ── Helper: Show API Key Menu ──
+  const showApiKeyMenu = async (ctx: any) => {
+    const user = await User.findOne({ telegramId: String(ctx.from.id) });
+    if (!user) {
+      return ctx.reply("🔗 Сначала привяжи аккаунт Trade Persona.", getMainMenuKeyboard());
+    }
+
+    const key = user.geminiApiKey;
+    const maskedKey = key ? `${key.substring(0, 8)}...${key.substring(key.length - 4)}` : null;
+
+    let text = "";
+    if (maskedKey) {
+      text =
+        `🔑 *Твой Gemini API Ключ:* \`${maskedKey}\` (активен ✅)\n\n` +
+        `Все твои голосовые сообщения обрабатываются через твой личный API ключ.\n\n` +
+        `Если ты хочешь обновить или проверить ключ, нажми кнопки ниже.`;
+    } else {
+      text =
+        `⚠️ *Gemini API Ключ не настроен.*\n\n` +
+        `Для распознавания голосовых сообщений необходим личный бесплатный API ключ Gemini.\n\n` +
+        `Нажми кнопку *«🔑 Инструкция»* ниже, чтобы узнать, как легко получить ключ за 1 минуту!`;
+    }
+
+    const buttons = [
+      [Markup.button.callback("🔑 Инструкция: Как получить ключ", "key_help")],
+      [Markup.button.callback(maskedKey ? "✏️ Изменить API Ключ" : "✏️ Ввести API Ключ", "key_input")],
+    ];
+    if (maskedKey) {
+      buttons.push([Markup.button.callback("🗑 Удалить мой API ключ", "key_delete")]);
+    }
+
+    return ctx.reply(text, {
+      parse_mode: "Markdown",
+      ...Markup.inlineKeyboard(buttons),
+    });
+  };
+
   // ── Helper: Show Status ──
   const showStatus = async (ctx: any) => {
     const user = await User.findOne({ telegramId: String(ctx.from.id) });
     if (user) {
-      return ctx.reply(`✅ *Аккаунт привязан:* \`${user.email}\``, {
-        parse_mode: "Markdown",
-        ...getMainMenuKeyboard(),
-      });
+      const keyStatus = user.geminiApiKey
+        ? `\`${user.geminiApiKey.substring(0, 8)}...${user.geminiApiKey.substring(user.geminiApiKey.length - 4)}\` (активен ✅)`
+        : "❌ Не настроен (нажми «🔑 Gemini API Ключ»)";
+
+      return ctx.reply(
+        `👤 *Статус аккаунта Trade Persona*\n\n` +
+        `• *Email:* \`${user.email}\`\n` +
+        `• *Gemini API Key:* ${keyStatus}\n` +
+        `• *Статус бота:* Подключен ✅`,
+        {
+          parse_mode: "Markdown",
+          ...getMainMenuKeyboard(),
+        }
+      );
     }
     return ctx.reply(
       "❌ *Аккаунт не привязан.*\n\nЗайди в настройки Trade Persona на сайте и нажми «Подключить Telegram».",
@@ -897,12 +1031,16 @@ export function createBot(): Telegraf | null {
   // ── Helper: Show Help ──
   const showHelp = async (ctx: any) => {
     return ctx.reply(
-      "*📖 Инструкция по работе с ботом:*\n\n" +
-      "1. Нажми кнопку *➕ Добавить запись*\n" +
-      "2. Выбери тип (*Задача*, *Заметка* или *Цель*)\n" +
-      "3. Запиши и отправь голосовое сообщение\n" +
-      "4. ИИ распознает контекст, время и даты, и добавит запись в твой аккаунт Trade Persona!\n\n" +
-      "📜 *История ГС*: просмотр созданных записей с возможностью переслушать оригинал прямо в чате.",
+      "📖 *Инструкция и лимиты работы с ботом:*\n\n" +
+      "1️⃣ Нажми кнопку *➕ Добавить запись*\n" +
+      "2️⃣ Выбери тип (*Задачи*, *Заметки* или *Цели*)\n" +
+      "3️⃣ Запиши и отправь голосовое сообщение\n" +
+      "4️⃣ ИИ автоматически распознает контекст, создаст задачи и привяжет их при необходимости!\n\n" +
+      "📊 *Лимиты бесплатной нейросети Gemini API:*\n" +
+      "• *15 запросов в минуту (RPM)* — пауза между ГС всего ~4 секунды.\n" +
+      "• *1 500 запросов в день (RPD)* — до 1500 голосовых сообщений в сутки.\n" +
+      "• *Личный API Ключ:* Твой ключ полностью независим от других пользователей.\n\n" +
+      "_Если ИИ выдаёт сообщение о паузе (например, подожди 35 секунд), это встроенное ограничение бесплатного тарифа Google. Просто подожди указанное время и отправь сообщение повторно._",
       { parse_mode: "Markdown", ...getMainMenuKeyboard() }
     );
   };
@@ -919,6 +1057,35 @@ export function createBot(): Telegraf | null {
     } catch {
       await ctx.reply("⚠️ Не удалось найти исходное голосовое сообщение в этом чате.");
     }
+  });
+
+  // ── Action: API Key callbacks ──
+  bot.action("key_help", async (ctx) => {
+    await ctx.answerCbQuery();
+    await showApiKeyInstruction(ctx);
+  });
+
+  bot.action("key_input", async (ctx) => {
+    await ctx.answerCbQuery();
+    userState.set(ctx.from!.id, { type: "task", awaitingKeyInput: true });
+    await ctx.reply(
+      "✏️ *Введи твой Gemini API Ключ*\n\n" +
+      "Скопируй ключ из Google AI Studio (начинается на `AIzaSy...`) и отправь его сообщением в этот чат.",
+      { parse_mode: "Markdown" }
+    );
+  });
+
+  bot.action("key_delete", async (ctx) => {
+    await ctx.answerCbQuery();
+    const user = await User.findOne({ telegramId: String(ctx.from!.id) });
+    if (user) {
+      await User.findByIdAndUpdate(user._id, { geminiApiKey: null });
+      await UserSettings.findOneAndUpdate({ userId: user._id }, { geminiApiKey: null });
+    }
+    await ctx.reply("🗑 *Gemini API Ключ удалён.*", {
+      parse_mode: "Markdown",
+      ...getMainMenuKeyboard(),
+    });
   });
 
   // ── /start — account linking & welcome ──
@@ -953,10 +1120,24 @@ export function createBot(): Telegraf | null {
           telegramLinkExpires: null,
         });
 
-        return ctx.reply(
-          `✅ *Аккаунт успешно привязан!*\n\nТвой Telegram связан с аккаунтом \`${user.email}\`.\n\nИспользуй меню снизу для добавления записей!`,
-          { parse_mode: "Markdown", ...getMainMenuKeyboard() }
-        );
+        const hasKey = !!user.geminiApiKey;
+        let welcomeMsg = `✅ *Аккаунт успешно привязан!*\n\nТвой Telegram связан с аккаунтом \`${user.email}\`.\n\n`;
+
+        if (!hasKey) {
+          welcomeMsg +=
+            `🔑 *Важный шаг:* Для работы бота укажи свой личный бесплатный Gemini API ключ.\n\n` +
+            `Нажми кнопку ниже для простой 1-минутной инструкции!`;
+
+          const inlineKb = Markup.inlineKeyboard([
+            [Markup.button.callback("🔑 Инструкция: Как получить API ключ", "key_help")],
+            [Markup.button.callback("✏️ Ввести API Ключ", "key_input")],
+          ]);
+
+          return ctx.reply(welcomeMsg, { parse_mode: "Markdown", ...inlineKb });
+        } else {
+          welcomeMsg += `Используй меню снизу для добавления записей!`;
+          return ctx.reply(welcomeMsg, { parse_mode: "Markdown", ...getMainMenuKeyboard() });
+        }
       } catch (err) {
         console.error("[bot] Link error:", err);
         return ctx.reply("❌ Ошибка при привязке аккаунта. Попробуй позже.", getMainMenuKeyboard());
@@ -976,6 +1157,7 @@ export function createBot(): Telegraf | null {
   bot.command("history", showHistory);
   bot.command("status", showStatus);
   bot.command("help", showHelp);
+  bot.command("apikey", showApiKeyMenu);
 
   // ── Inline callback buttons — set record type ──
   bot.action("type_task", async (ctx) => {
@@ -1053,7 +1235,10 @@ export function createBot(): Telegraf | null {
         .filter((g: any) => g.status !== "completed")
         .map((g: any) => ({ id: g.id, title: g.title, type: g.type, category: g.category }));
 
-      const aiResult = await processVoiceWithAI(audioBuffer, state.type, utcOffset, activeGoals);
+      // Fetch user's API key
+      const userApiKey = user.geminiApiKey || settings?.geminiApiKey;
+
+      const aiResult = await processVoiceWithAI(audioBuffer, state.type, utcOffset, activeGoals, userApiKey);
 
       let savedNames: string[] = [];
 
@@ -1114,9 +1299,20 @@ export function createBot(): Telegraf | null {
       try {
         await ctx.telegram.deleteMessage(ctx.chat.id, processingMsg.message_id);
       } catch {}
+
+      const friendlyText = formatFriendlyErrorMessage(err);
+
       await ctx.reply(
-        `❌ Ошибка обработки: ${err.message || "Неизвестная ошибка"}\n\nПопробуй отправить голосовое сообщение ещё раз.`,
-        getMainMenuKeyboard()
+        friendlyText,
+        {
+          parse_mode: "Markdown",
+          ...(!user?.geminiApiKey
+            ? Markup.inlineKeyboard([
+                [Markup.button.callback("🔑 Инструкция: Как получить API ключ", "key_help")],
+                [Markup.button.callback("✏️ Ввести API Ключ", "key_input")],
+              ])
+            : getMainMenuKeyboard()),
+        }
       );
     }
   });
@@ -1126,9 +1322,52 @@ export function createBot(): Telegraf | null {
     const txt = ctx.message.text.trim();
     if (txt === "➕ Добавить запись") return showAddMenu(ctx);
     if (txt === "📜 История ГС") return showHistory(ctx);
+    if (txt === "🔑 Gemini API Ключ") return showApiKeyMenu(ctx);
     if (txt === "ℹ️ Статус аккаунта") return showStatus(ctx);
     if (txt === "❓ Помощь") return showHelp(ctx);
     if (txt.startsWith("/")) return;
+
+    const state = userState.get(ctx.from.id);
+
+    // Handle Gemini API Key Input (if awaitingKeyInput OR text matches API Key structure AIzaSy...)
+    if (state?.awaitingKeyInput || txt.startsWith("AIzaSy") || (txt.length >= 35 && txt.length <= 45 && !txt.includes(" "))) {
+      const user = await User.findOne({ telegramId: String(ctx.from.id) });
+      if (!user) {
+        return ctx.reply("🔗 Сначала привяжи аккаунт Trade Persona.", getMainMenuKeyboard());
+      }
+
+      const testingMsg = await ctx.reply("🔄 *Проверяю API ключ...*", { parse_mode: "Markdown" });
+
+      const isValid = await validateGeminiApiKey(txt);
+      try {
+        await ctx.telegram.deleteMessage(ctx.chat.id, testingMsg.message_id);
+      } catch {}
+
+      if (isValid) {
+        await User.findByIdAndUpdate(user._id, { geminiApiKey: txt });
+        await UserSettings.findOneAndUpdate({ userId: user._id }, { geminiApiKey: txt }, { upsert: true });
+
+        userState.delete(ctx.from.id);
+
+        return ctx.reply(
+          `✅ *Gemini API Ключ успешно сохранён и проверен!*\n\n` +
+          `Теперь твои голосовые сообщения будут обрабатываться через твой личный бесплатный API ключ.`,
+          { parse_mode: "Markdown", ...getMainMenuKeyboard() }
+        );
+      } else {
+        return ctx.reply(
+          `❌ *Введённый API ключ недействителен или не работает.*\n\n` +
+          `Убедись, что скопировал ключ полностью из Google AI Studio (начинается на \`AIzaSy...\`) и попробуй ещё раз.\n\n` +
+          `Нажми *«🔑 Инструкция»*, если нужна помощь.`,
+          {
+            parse_mode: "Markdown",
+            ...Markup.inlineKeyboard([
+              [Markup.button.callback("🔑 Инструкция: Как получить ключ", "key_help")],
+            ]),
+          }
+        );
+      }
+    }
 
     return ctx.reply(
       "🎙 Выбери действие из меню снизу или нажми *➕ Добавить запись*.",

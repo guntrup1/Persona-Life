@@ -26,6 +26,7 @@ const userSchema = new mongoose.Schema({
   telegramId: { type: String, default: null, unique: true, sparse: true },
   telegramLinkToken: { type: String, default: null },
   telegramLinkExpires: { type: Date, default: null },
+  geminiApiKey: { type: String, default: null },
 }, { timestamps: true });
 
 const userDataSchema = new mongoose.Schema({
@@ -53,6 +54,7 @@ export const ResetToken = mongoose.model("ResetToken", resetTokenSchema);
 const userSettingsSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, unique: true },
   utcOffset: { type: Number, default: 1 },
+  geminiApiKey: { type: String, default: null },
   workStart: { type: Number, default: 9 },
   workEnd: { type: Number, default: 18 },
   restStart: { type: Number, default: 18 },
