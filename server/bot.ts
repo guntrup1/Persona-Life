@@ -283,6 +283,20 @@ function buildPrompt(
 
   const VALID_CATEGORIES = "Body, Mind, Hard Skills, Soft Skills, Creativity, Mission, Finance";
 
+  const categoryFreq: Record<string, number> = {};
+  for (const g of activeGoals) {
+    if (g.category) {
+      categoryFreq[g.category] = (categoryFreq[g.category] || 0) + 1;
+    }
+  }
+  const topCategories = Object.entries(categoryFreq)
+    .sort((a, b) => b[1] - a[1])
+    .map(([cat]) => cat);
+
+  const categoryHint = topCategories.length > 0
+    ? `\n💡 Предпочтительный баланс категорий пользователя: ${topCategories.join(", ")} (учитывай эти приоритеты при выборе категории).\n`
+    : "";
+
   const goalsContext = activeGoals && activeGoals.length > 0
     ? `\n━━━ СУЩЕСТВУЮЩИЕ АКТИВНЫЕ ЦЕЛИ ПОЛЬЗОВАТЕЛЯ ━━━\n` +
       activeGoals.map(g => `• [${g.type.toUpperCase()}] "${g.title}" (Категория: ${g.category})`).join("\n") + "\n"
@@ -525,6 +539,64 @@ async function processVoiceWithAI(
   throw lastError || new Error("Не удалось обработать голосовую запись нейросетью.");
 }
 
+// ── Helper: Fuzzy Match Goal Title ──
+function findFuzzyMatchingGoal(
+  searchTitle: string,
+  existingGoals: any[],
+  targetType?: "week" | "month" | "year"
+): any | undefined {
+  if (!searchTitle || !searchTitle.trim()) return undefined;
+
+  const normalizeStr = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const cleanSearch = normalizeStr(searchTitle);
+  const searchTokens = cleanSearch.split(" ").filter(w => w.length > 2);
+
+  let bestMatch: any = undefined;
+  let highestScore = 0;
+
+  for (const goal of existingGoals) {
+    if (goal.status === "completed") continue;
+    if (targetType && goal.type !== targetType) continue;
+
+    const cleanGoalTitle = normalizeStr(goal.title);
+
+    // 1. Direct substring match
+    if (cleanGoalTitle.includes(cleanSearch) || cleanSearch.includes(cleanGoalTitle)) {
+      return goal;
+    }
+
+    // 2. Token overlap score
+    const goalTokens = cleanGoalTitle.split(" ").filter(w => w.length > 2);
+    if (searchTokens.length === 0 || goalTokens.length === 0) continue;
+
+    let overlapCount = 0;
+    for (const st of searchTokens) {
+      for (const gt of goalTokens) {
+        if (st.includes(gt) || gt.includes(st)) {
+          overlapCount++;
+          break;
+        }
+      }
+    }
+
+    const score = overlapCount / Math.max(searchTokens.length, goalTokens.length);
+
+    // Require at least 50% token overlap for fuzzy match
+    if (score >= 0.5 && score > highestScore) {
+      highestScore = score;
+      bestMatch = goal;
+    }
+  }
+
+  return bestMatch;
+}
+
 // ── Save data to MongoDB ──
 async function saveTasksToUser(userId: string, tasks: BotTaskResult[]): Promise<string[]> {
   const userData = await UserData.findOne({ userId });
@@ -536,15 +608,10 @@ async function saveTasksToUser(userId: string, tasks: BotTaskResult[]): Promise<
   const createdNames: string[] = [];
 
   for (const task of tasks) {
-    // Find matching active week goal if weekGoalTitle is specified
+    // Find matching active week goal if weekGoalTitle is specified using fuzzy matching
     let matchedWeekGoalId: string | undefined = undefined;
     if (task.weekGoalTitle) {
-      const searchTitle = task.weekGoalTitle.trim().toLowerCase();
-      const matchedGoal = existingGoals.find((g: any) =>
-        g.type === "week" &&
-        g.status !== "completed" &&
-        (g.title.toLowerCase().includes(searchTitle) || searchTitle.includes(g.title.toLowerCase()))
-      );
+      const matchedGoal = findFuzzyMatchingGoal(task.weekGoalTitle, existingGoals, "week");
       if (matchedGoal) matchedWeekGoalId = matchedGoal.id;
     }
 
@@ -707,14 +774,9 @@ async function saveGoalsToUser(userId: string, goals: BotGoalResult[], utcOffset
     // Month goal -> Year goal parent
     let parentId: string | undefined = undefined;
     if (goal.parentGoalTitle) {
-      const parentSearch = goal.parentGoalTitle.trim().toLowerCase();
       const expectedParentType = goalType === "week" ? "month" : goalType === "month" ? "year" : undefined;
       if (expectedParentType) {
-        const parentMatch = existingGoals.find((g: any) =>
-          g.type === expectedParentType &&
-          g.status !== "completed" &&
-          (g.title.toLowerCase().includes(parentSearch) || parentSearch.includes(g.title.toLowerCase()))
-        );
+        const parentMatch = findFuzzyMatchingGoal(goal.parentGoalTitle, existingGoals, expectedParentType);
         if (parentMatch) parentId = parentMatch.id;
       }
     }
