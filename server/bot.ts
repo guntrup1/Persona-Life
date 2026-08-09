@@ -27,6 +27,7 @@ interface BotTaskResult {
   startTime?: string;
   endTime?: string;
   noDeadline?: boolean;
+  weekGoalTitle?: string;
 }
 
 interface BotNoteResult {
@@ -43,6 +44,7 @@ interface BotGoalResult {
   description?: string;
   plan?: Array<{ text: string; done: boolean }>;
   timeLimitType?: "current_period" | "next_period" | "from_now" | "custom";
+  parentGoalTitle?: string;
 }
 
 interface BotTradingNoteResult {
@@ -172,17 +174,41 @@ function sanitizeMongoInput(data: any): any {
 }
 
 // ── Build Gemini prompt ──
-function buildPrompt(recordType: RecordType, utcOffset = 2): string {
+function buildPrompt(
+  recordType: RecordType,
+  utcOffset = 2,
+  activeGoals: Array<{ id: string; title: string; type: string; category: string }> = []
+): string {
   const today = getTodayDate(utcOffset);
   const tomorrow = getTomorrowDate(utcOffset);
   const dayOfWeek = getDayOfWeek(utcOffset);
 
   const VALID_CATEGORIES = "Body, Mind, Hard Skills, Soft Skills, Creativity, Mission, Finance";
 
+  const goalsContext = activeGoals && activeGoals.length > 0
+    ? `\n━━━ СУЩЕСТВУЮЩИЕ АКТИВНЫЕ ЦЕЛИ ПОЛЬЗОВАТЕЛЯ ━━━\n` +
+      activeGoals.map(g => `• [${g.type.toUpperCase()}] "${g.title}" (Категория: ${g.category})`).join("\n") + "\n"
+    : "";
+
   const baseContext = `
 Ты — высококвалифицированный ИИ-ассистент приложения Trade Persona.
 Задача: точно анализировать голосовые сообщения и превращать их в структурированные данные.
 Текущая дата: ${today} (${dayOfWeek}). Часовой пояс: UTC+${utcOffset}. Завтра: ${tomorrow}.
+${goalsContext}
+━━━ СТРОГИЕ ПРАВИЛА ИЕРАРХИИ И СВЯЗЫВАНИЯ ━━━
+1. ДНЕВНЫЕ ЗАДАЧИ → НЕДЕЛЬНАЯ ЦЕЛЬ:
+   — Если создаваемая задача логически относится к одной из существующих недельных целей (или к новой недельной цели из этого же сообщения), укажи "weekGoalTitle": "название недельной цели".
+   — Дневные задачи привязываются ТОЛЬКО к недельной цели!
+
+2. НЕДЕЛЬНЫЕ ЦЕЛИ → МЕСЯЧНАЯ ЦЕЛЬ:
+   — Если недельная цель относится к существенной месячной цели, укажи "parentGoalTitle": "название месячной цели".
+   — Недельные цели привязываются ТОЛЬКО к месячным целям!
+
+3. МЕСЯЧНЫЕ ЦЕЛИ → ГОДОВАЯ ЦЕЛЬ:
+   — Если месячная цель относится к существующей или новой годовой цели, укажи "parentGoalTitle": "название годовой цели".
+   — Месячные цели привязываются ТОЛЬКО к годовым целям!
+
+4. ГОДОВЫЕ ЦЕЛИ: не имеют родительских целей.
 
 ━━━ ПРАВИЛА РАСПОЗНАВАНИЯ ДАТ ━━━
 • "завтра" → ${tomorrow}
@@ -223,6 +249,7 @@ function buildPrompt(recordType: RecordType, utcOffset = 2): string {
 - startTime: HH:MM если указано конкретное время
 - endTime: HH:MM (если есть startTime и нет endTime → +1 час)
 - noDeadline: true если нет конкретного времени начала
+- weekGoalTitle: название существующей или новой недельной цели (если задача к ней относится)
 
 ФОРМАТ:
 {
@@ -236,7 +263,8 @@ function buildPrompt(recordType: RecordType, utcOffset = 2): string {
       "date": "YYYY-MM-DD",
       "startTime": "HH:MM",
       "endTime": "HH:MM",
-      "noDeadline": true
+      "noDeadline": true,
+      "weekGoalTitle": "..."
     }
   ]
 }`;
@@ -327,6 +355,7 @@ function buildPrompt(recordType: RecordType, utcOffset = 2): string {
 - description: детальное описание цели и ожидаемого результата
 - plan: [{text, done}] (ТОЛЬКО явно названные шаги ИЛИ пункты составной цели, иначе [])
 - timeLimitType: "current_period" | "next_period" | "from_now"
+- parentGoalTitle: название существующей родительской цели (для week → название month цели; для month → название year цели)
 
 ФОРМАТ:
 {
@@ -338,7 +367,8 @@ function buildPrompt(recordType: RecordType, utcOffset = 2): string {
       "goalType": "week" | "month" | "year",
       "description": "...",
       "plan": [],
-      "timeLimitType": "current_period" | "next_period" | "from_now"
+      "timeLimitType": "current_period" | "next_period" | "from_now",
+      "parentGoalTitle": "..."
     }
   ]
 }`;
@@ -348,12 +378,13 @@ function buildPrompt(recordType: RecordType, utcOffset = 2): string {
 async function processVoiceWithAI(
   audioBuffer: Buffer,
   recordType: RecordType,
-  utcOffset?: number
+  utcOffset = 2,
+  activeGoals: Array<{ id: string; title: string; type: string; category: string }> = []
 ): Promise<AIResponse> {
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
   const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
-  const prompt = buildPrompt(recordType, utcOffset);
+  const prompt = buildPrompt(recordType, utcOffset, activeGoals);
 
   const audioPart = {
     inlineData: {
@@ -383,9 +414,22 @@ async function saveTasksToUser(userId: string, tasks: BotTaskResult[]): Promise<
 
   const existingData = (userData.data as any) || {};
   const existingTasks = Array.isArray(existingData.todayTasks) ? existingData.todayTasks : [];
+  const existingGoals = Array.isArray(existingData.goals) ? existingData.goals : [];
   const createdNames: string[] = [];
 
   for (const task of tasks) {
+    // Find matching active week goal if weekGoalTitle is specified
+    let matchedWeekGoalId: string | undefined = undefined;
+    if (task.weekGoalTitle) {
+      const searchTitle = task.weekGoalTitle.trim().toLowerCase();
+      const matchedGoal = existingGoals.find((g: any) =>
+        g.type === "week" &&
+        g.status !== "completed" &&
+        (g.title.toLowerCase().includes(searchTitle) || searchTitle.includes(g.title.toLowerCase()))
+      );
+      if (matchedGoal) matchedWeekGoalId = matchedGoal.id;
+    }
+
     const newTask = sanitizeMongoInput({
       id: crypto.randomUUID(),
       name: task.name,
@@ -399,6 +443,8 @@ async function saveTasksToUser(userId: string, tasks: BotTaskResult[]): Promise<
       startTime: task.startTime || undefined,
       endTime: task.endTime || undefined,
       noDeadline: task.noDeadline ?? (!task.startTime),
+      weekGoalId: matchedWeekGoalId,
+      goalId: matchedWeekGoalId,
     });
     existingTasks.push(newTask);
     createdNames.push(task.name);
@@ -538,6 +584,23 @@ async function saveGoalsToUser(userId: string, goals: BotGoalResult[], utcOffset
     const periods = getCalendarPeriod(goalType, utcOffset);
     const goalId = crypto.randomUUID();
 
+    // Strict Hierarchy Parent Linking:
+    // Week goal -> Month goal parent
+    // Month goal -> Year goal parent
+    let parentId: string | undefined = undefined;
+    if (goal.parentGoalTitle) {
+      const parentSearch = goal.parentGoalTitle.trim().toLowerCase();
+      const expectedParentType = goalType === "week" ? "month" : goalType === "month" ? "year" : undefined;
+      if (expectedParentType) {
+        const parentMatch = existingGoals.find((g: any) =>
+          g.type === expectedParentType &&
+          g.status !== "completed" &&
+          (g.title.toLowerCase().includes(parentSearch) || parentSearch.includes(g.title.toLowerCase()))
+        );
+        if (parentMatch) parentId = parentMatch.id;
+      }
+    }
+
     const planItems = (goal.plan || []).map(p => ({
       id: crypto.randomUUID(),
       text: p.text,
@@ -552,6 +615,7 @@ async function saveGoalsToUser(userId: string, goals: BotGoalResult[], utcOffset
       completed: false,
       xp: xpForGoal(goalType),
       linkedTaskIds: [],
+      parentId,
       description: goal.description || "",
       plan: [], // Avoid duplicates — sub-tasks go into todayTasks
       timeLimitType: timeLimitType === "next_period" ? "custom" : timeLimitType,
@@ -978,7 +1042,14 @@ export function createBot(): Telegraf | null {
       const settings = await (await import("./mongodb")).UserSettings?.findOne({ userId: user._id });
       const utcOffset = settings?.utcOffset ?? 2;
 
-      const aiResult = await processVoiceWithAI(audioBuffer, state.type, utcOffset);
+      // Fetch active goals to pass to AI for smart linking
+      const userData = await UserData.findOne({ userId: user._id });
+      const rawGoals = Array.isArray((userData?.data as any)?.goals) ? (userData?.data as any).goals : [];
+      const activeGoals = rawGoals
+        .filter((g: any) => g.status !== "completed")
+        .map((g: any) => ({ id: g.id, title: g.title, type: g.type, category: g.category }));
+
+      const aiResult = await processVoiceWithAI(audioBuffer, state.type, utcOffset, activeGoals);
 
       let savedNames: string[] = [];
 
