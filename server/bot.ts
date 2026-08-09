@@ -856,16 +856,42 @@ export function createBot(): Telegraf | null {
     { command: "help", description: "❓ Помощь" },
   ]).catch(err => console.error("[bot] Error setting commands:", err));
 
-  // ── Helper: Show Add Menu ──
-  const showAddMenu = async (ctx: any) => {
+  // ── Guard Helper: Check if user exists and has Gemini API Key ──
+  const ensureUserHasApiKey = async (ctx: any): Promise<{ user: any; ok: boolean }> => {
     const user = await User.findOne({ telegramId: String(ctx.from.id) });
+
     if (!user) {
-      return ctx.reply(
+      await ctx.reply(
         "🔗 *Сначала привяжи свой аккаунт Trade Persona.*\n\n" +
         "Зайди в настройки на сайте → «Подключить Telegram».",
         { parse_mode: "Markdown", ...getMainMenuKeyboard() }
       );
+      return { user: null, ok: false };
     }
+
+    if (!user.geminiApiKey) {
+      await ctx.reply(
+        "⛔ *Доступ к функциям ИИ ограничен.*\n\n" +
+        "У тебя не привязан личный Gemini API Ключ. Без него добавление задач, заметок, целей и просмотр истории недоступны.\n\n" +
+        "Нажми кнопку ниже для прохождения 1-минутной инструкции и ввода ключа:",
+        {
+          parse_mode: "Markdown",
+          ...Markup.inlineKeyboard([
+            [Markup.button.callback("🔑 Инструкция: Как получить API ключ", "key_help")],
+            [Markup.button.callback("✏️ Ввести API Ключ", "key_input")],
+          ]),
+        }
+      );
+      return { user, ok: false };
+    }
+
+    return { user, ok: true };
+  };
+
+  // ── Helper: Show Add Menu ──
+  const showAddMenu = async (ctx: any) => {
+    const { ok } = await ensureUserHasApiKey(ctx);
+    if (!ok) return;
 
     const prevState = userState.get(ctx.from.id);
     if (prevState?.promptMessageId) {
@@ -888,10 +914,8 @@ export function createBot(): Telegraf | null {
 
   // ── Helper: Show History ──
   const showHistory = async (ctx: any) => {
-    const user = await User.findOne({ telegramId: String(ctx.from.id) });
-    if (!user) {
-      return ctx.reply("🔗 Аккаунт не привязан. Зайди в настройки Trade Persona.", getMainMenuKeyboard());
-    }
+    const { user, ok } = await ensureUserHasApiKey(ctx);
+    if (!ok || !user) return;
 
     const userData = await UserData.findOne({ userId: user._id });
     const history: BotVoiceRecord[] = Array.isArray((userData?.data as any)?.botVoiceHistory)
@@ -1162,6 +1186,9 @@ export function createBot(): Telegraf | null {
   // ── Inline callback buttons — set record type ──
   bot.action("type_task", async (ctx) => {
     await ctx.answerCbQuery();
+    const { ok } = await ensureUserHasApiKey(ctx);
+    if (!ok) return;
+
     userState.set(ctx.from!.id, { type: "task", promptMessageId: ctx.callbackQuery.message?.message_id });
     await ctx.editMessageText(
       "📌 *Задачи на день*\n\n🎙 Отправь голосовое сообщение.\n\n" +
@@ -1176,6 +1203,9 @@ export function createBot(): Telegraf | null {
 
   bot.action("type_note", async (ctx) => {
     await ctx.answerCbQuery();
+    const { ok } = await ensureUserHasApiKey(ctx);
+    if (!ok) return;
+
     userState.set(ctx.from!.id, { type: "note", promptMessageId: ctx.callbackQuery.message?.message_id });
     await ctx.editMessageText(
       "📝 *Заметка / Идея*\n\n🎙 Отправь голосовое сообщение.\n\n" +
@@ -1190,6 +1220,9 @@ export function createBot(): Telegraf | null {
 
   bot.action("type_goal", async (ctx) => {
     await ctx.answerCbQuery();
+    const { ok } = await ensureUserHasApiKey(ctx);
+    if (!ok) return;
+
     userState.set(ctx.from!.id, { type: "goal", promptMessageId: ctx.callbackQuery.message?.message_id });
     await ctx.editMessageText(
       "🎯 *Цели на неделю/месяц*\n\n🎙 Отправь голосовое сообщение.\n\n" +
@@ -1204,17 +1237,15 @@ export function createBot(): Telegraf | null {
 
   // ── Voice message handler ──
   bot.on(message("voice"), async (ctx) => {
+    const { user, ok } = await ensureUserHasApiKey(ctx);
+    if (!ok || !user) return;
+
     const state = userState.get(ctx.from.id);
     if (!state) {
       return ctx.reply(
         "⚠️ Сначала выбери тип записи.\n\nНажми *➕ Добавить запись* в меню снизу.",
         { parse_mode: "Markdown", ...getMainMenuKeyboard() }
       );
-    }
-
-    const user = await User.findOne({ telegramId: String(ctx.from.id) });
-    if (!user) {
-      return ctx.reply("🔗 Аккаунт не привязан. Зайди в настройки Trade Persona.", getMainMenuKeyboard());
     }
 
     const processingMsg = await ctx.reply("⏳ Обрабатываю голосовое сообщение...");
