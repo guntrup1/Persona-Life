@@ -52,15 +52,28 @@ export default function CalendarPage() {
 
   const [editingTask, setEditingTask] = useState<TodayTask | null>(null);
 
-  const [googleReminderMinutes, setGoogleReminderMinutes] = useState<number>(30);
+  const [googleReminderMinutes, setGoogleReminderMinutes] = useState<number[]>([30]);
   const [googleConnected, setGoogleConnected] = useState<boolean>(false);
+
+  const REMINDER_OPTIONS = [
+    { minutes: 15, label: "⏱️ 15м" },
+    { minutes: 30, label: "⏱️ 30м" },
+    { minutes: 60, label: "⌛ 1ч" },
+    { minutes: 120, label: "⌛ 2ч" },
+    { minutes: 180, label: "⌛ 3ч" },
+    { minutes: 720, label: "🌙 12ч" },
+    { minutes: 1440, label: "📅 1 день" },
+    { minutes: 2880, label: "📅 2 дня" },
+  ];
 
   useEffect(() => {
     fetch("/api/user/settings", { credentials: "include" })
       .then(r => r.json())
       .then(data => {
         if (data.settings?.googleReminderMinutes !== undefined) {
-          setGoogleReminderMinutes(data.settings.googleReminderMinutes);
+          const val = data.settings.googleReminderMinutes;
+          if (Array.isArray(val)) setGoogleReminderMinutes(val);
+          else if (typeof val === "number") setGoogleReminderMinutes([val]);
         }
       })
       .catch(() => {});
@@ -77,13 +90,20 @@ export default function CalendarPage() {
       .catch(() => {});
   }, []);
 
-  const handleReminderChange = (minutes: number) => {
-    setGoogleReminderMinutes(minutes);
+  const toggleReminderOption = (minutes: number) => {
+    const current = new Set(googleReminderMinutes);
+    if (current.has(minutes)) {
+      if (current.size > 1) current.delete(minutes);
+    } else {
+      current.add(minutes);
+    }
+    const updated = Array.from(current).sort((a, b) => a - b);
+    setGoogleReminderMinutes(updated);
     fetch("/api/user/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ googleReminderMinutes: minutes }),
+      body: JSON.stringify({ googleReminderMinutes: updated }),
     }).catch(() => {});
   };
 
@@ -577,7 +597,7 @@ export default function CalendarPage() {
               </div>
             </Card>
 
-            {/* Google Calendar Reminder Settings Panel */}
+            {/* Google Calendar Reminder Settings Panel (Multi-Select) */}
             {googleConnected && (
               <Card className="p-3 border-card-border rounded-2xl space-y-2">
                 <div className="flex items-center gap-2 mb-1">
@@ -588,27 +608,28 @@ export default function CalendarPage() {
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
                   {lang === "ru"
-                    ? "Укажите время отправки всплывающего уведомления в Google Календаре:"
-                    : "Specify popup notification time in Google Calendar:"}
+                    ? "Выберите точки уведомлений в Google Календаре (можно выбрать несколько):"
+                    : "Select notification points in Google Calendar (multiple allowed):"}
                 </p>
-                <Select
-                  value={String(googleReminderMinutes)}
-                  onValueChange={v => handleReminderChange(Number(v))}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="15">⏱️ За 15 минут</SelectItem>
-                    <SelectItem value="30">⏱️ За 30 минут (по умолчанию)</SelectItem>
-                    <SelectItem value="60">⌛ За 1 час</SelectItem>
-                    <SelectItem value="120">⌛ За 2 часа</SelectItem>
-                    <SelectItem value="180">⌛ За 3 часа</SelectItem>
-                    <SelectItem value="720">🌙 За 12 часов</SelectItem>
-                    <SelectItem value="1440">📅 За 1 день</SelectItem>
-                    <SelectItem value="2880">📅 За 2 дня</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {REMINDER_OPTIONS.map(opt => {
+                    const isSelected = googleReminderMinutes.includes(opt.minutes);
+                    return (
+                      <button
+                        key={opt.minutes}
+                        type="button"
+                        onClick={() => toggleReminderOption(opt.minutes)}
+                        className={`text-xs py-1 px-2.5 rounded-lg font-display transition-all border ${
+                          isSelected
+                            ? "bg-primary text-primary-foreground border-primary font-bold shadow-sm"
+                            : "bg-background text-muted-foreground border-border hover:border-primary/50"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </Card>
             )}
           </div>

@@ -123,7 +123,13 @@ export async function syncTaskToGoogleCalendar(
       end = { date: nextDay.toISOString().split("T")[0] };
     }
 
-    const reminderMinutes = (user as any).googleReminderMinutes ?? 30;
+    const minutesList: number[] = Array.isArray((user as any).googleReminderMinutes)
+      ? (user as any).googleReminderMinutes
+      : typeof (user as any).googleReminderMinutes === "number"
+      ? [(user as any).googleReminderMinutes]
+      : [30];
+
+    const overrides = minutesList.map((m: number) => ({ method: "popup", minutes: m }));
 
     const eventBody = {
       summary: task.name,
@@ -132,7 +138,7 @@ export async function syncTaskToGoogleCalendar(
       end,
       reminders: {
         useDefault: false,
-        overrides: [{ method: "popup", minutes: reminderMinutes }],
+        overrides: overrides.length > 0 ? overrides : [{ method: "popup", minutes: 30 }],
       },
     };
 

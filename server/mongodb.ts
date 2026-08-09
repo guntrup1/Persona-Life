@@ -30,7 +30,7 @@ const userSchema = new mongoose.Schema({
   googleRefreshToken: { type: String, default: null },
   googleCalendarConnected: { type: Boolean, default: false },
   googleCalendarId: { type: String, default: "primary" },
-  googleReminderMinutes: { type: Number, default: 30 },
+  googleReminderMinutes: { type: [Number], default: [30] },
 }, { timestamps: true });
 
 const userDataSchema = new mongoose.Schema({
@@ -62,7 +62,7 @@ const userSettingsSchema = new mongoose.Schema({
   googleRefreshToken: { type: String, default: null },
   googleCalendarConnected: { type: Boolean, default: false },
   googleCalendarId: { type: String, default: "primary" },
-  googleReminderMinutes: { type: Number, default: 30 },
+  googleReminderMinutes: { type: [Number], default: [30] },
   workStart: { type: Number, default: 9 },
   workEnd: { type: Number, default: 18 },
   restStart: { type: Number, default: 18 },
