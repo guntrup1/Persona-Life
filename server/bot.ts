@@ -447,7 +447,7 @@ async function processVoiceWithAI(
   activeGoals: Array<{ id: string; title: string; type: string; category: string }> = [],
   userApiKey?: string | null
 ): Promise<AIResponse> {
-  const apiKey = userApiKey?.trim() || process.env.GEMINI_API_KEY;
+  const apiKey = userApiKey?.trim();
   if (!apiKey) {
     throw new Error("API_KEY_MISSING: Gemini API key not provided");
   }
