@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SlidersHorizontal, Clock, ChevronDown, ChevronUp, Globe } from "lucide-react";
+import { SlidersHorizontal, Clock, ChevronDown, ChevronUp, Globe, Bot } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/lib/i18n";
 
@@ -75,6 +75,8 @@ export default function SettingsPage() {
     tradingSessions: DEFAULT_SESSIONS,
     workDays: [1, 2, 3, 4, 5],
   });
+  const [telegramStatus, setTelegramStatus] = useState<{ linked: boolean; telegramId: string | null } | null>(null);
+  const [telegramLoading, setTelegramLoading] = useState(false);
 
   useEffect(() => {
     fetch("/api/user/settings", { credentials: "include" })
@@ -95,6 +97,15 @@ export default function SettingsPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+
+    fetch("/api/telegram/status", { credentials: "include" })
+      .then(r => r.json())
+      .then(data => {
+        if (data && typeof data.linked === "boolean") {
+          setTelegramStatus(data);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const set = <K extends keyof UserSettings>(key: K, value: UserSettings[K]) =>
@@ -137,6 +148,42 @@ export default function SettingsPage() {
       toast({ title: t.settings.noConn, variant: "destructive" });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleTelegramLink = async () => {
+    setTelegramLoading(true);
+    try {
+      const res = await fetch("/api/telegram/link", { method: "POST", credentials: "include" });
+      const data = await res.json();
+      if (data.link) {
+        window.open(data.link, "_blank");
+        toast({ title: lang === "ru" ? "Откройте Telegram и нажмите Start" : "Open Telegram and click Start" });
+      } else if (data.linked) {
+        toast({ title: lang === "ru" ? "Уже привязан" : "Already linked" });
+        setTelegramStatus({ linked: true, telegramId: data.telegramId });
+      } else {
+        toast({ title: lang === "ru" ? "Ошибка генерации ссылки" : "Error generating link", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: t.settings.noConn, variant: "destructive" });
+    } finally {
+      setTelegramLoading(false);
+    }
+  };
+
+  const handleTelegramUnlink = async () => {
+    setTelegramLoading(true);
+    try {
+      const res = await fetch("/api/telegram/unlink", { method: "DELETE", credentials: "include" });
+      if (res.ok) {
+        setTelegramStatus({ linked: false, telegramId: null });
+        toast({ title: lang === "ru" ? "Аккаунт отвязан" : "Account unlinked" });
+      }
+    } catch {
+      toast({ title: t.settings.noConn, variant: "destructive" });
+    } finally {
+      setTelegramLoading(false);
     }
   };
 
@@ -317,6 +364,53 @@ export default function SettingsPage() {
               </button>
             </div>
           )}
+        </Card>
+
+        {/* Telegram Bot */}
+        <Card className="p-3 border-card-border rounded-2xl space-y-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Bot className="w-4 h-4 text-primary" />
+            <span className="font-display text-xs font-bold uppercase tracking-wider">
+              {lang === "ru" ? "Telegram Бот" : "Telegram Bot"}
+            </span>
+          </div>
+          
+          <div className="flex flex-col gap-2">
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {lang === "ru" 
+                ? "Голосовой ИИ-ассистент: добавляйте задачи, заметки и цели голосовыми сообщениями прямо из Telegram."
+                : "Voice AI Assistant: add tasks, notes, and goals via voice messages directly from Telegram."}
+            </p>
+            
+            {telegramStatus?.linked ? (
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-xs text-emerald-400 font-medium">
+                  {lang === "ru" ? "✅ Аккаунт привязан" : "✅ Account linked"}
+                </span>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-7 text-[10px] uppercase tracking-wider"
+                  onClick={handleTelegramUnlink}
+                  disabled={telegramLoading}
+                >
+                  {lang === "ru" ? "Отвязать" : "Unlink"}
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="default"
+                size="sm"
+                className="w-full mt-1 h-8 text-xs font-display uppercase tracking-widest bg-[#2AABEE] hover:bg-[#229ED9] text-white"
+                onClick={handleTelegramLink}
+                disabled={telegramLoading || telegramStatus === null}
+              >
+                {telegramLoading 
+                  ? (lang === "ru" ? "Загрузка..." : "Loading...") 
+                  : (lang === "ru" ? "Подключить Telegram" : "Connect Telegram")}
+              </Button>
+            )}
+          </div>
         </Card>
 
         <Button
