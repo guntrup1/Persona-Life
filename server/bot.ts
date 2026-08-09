@@ -94,7 +94,7 @@ async function validateGeminiApiKey(apiKey: string): Promise<KeyValidationResult
 
   try {
     const genAI = new GoogleGenerativeAI(trimmed);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-flash-lite-latest" });
     await model.generateContent("ping");
     return { valid: true };
   } catch (err: any) {
@@ -490,8 +490,6 @@ async function processVoiceWithAI(
   }
 
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
   const prompt = buildPrompt(recordType, utcOffset, activeGoals);
 
   const audioPart = {
@@ -501,18 +499,30 @@ async function processVoiceWithAI(
     },
   };
 
-  const result = await model.generateContent([prompt, audioPart]);
-  const response = result.response;
-  const text = response.text();
+  const modelsToTry = ["gemini-flash-lite-latest", "gemini-3.5-flash", "gemini-flash-latest"];
+  let lastError: any = null;
 
-  // Clean up response — remove markdown code blocks if present
-  const cleaned = text
-    .replace(/```json\s*/gi, "")
-    .replace(/```\s*/gi, "")
-    .trim();
+  for (const modelName of modelsToTry) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent([prompt, audioPart]);
+      const response = result.response;
+      const text = response.text();
 
-  const parsed = JSON.parse(cleaned) as AIResponse;
-  return parsed;
+      const cleaned = text
+        .replace(/```json\s*/gi, "")
+        .replace(/```\s*/gi, "")
+        .trim();
+
+      const parsed = JSON.parse(cleaned) as AIResponse;
+      return parsed;
+    } catch (err: any) {
+      console.warn(`[processVoiceWithAI] Model ${modelName} failed, trying next...`, err?.message || err);
+      lastError = err;
+    }
+  }
+
+  throw lastError || new Error("Не удалось обработать голосовую запись нейросетью.");
 }
 
 // ── Save data to MongoDB ──
