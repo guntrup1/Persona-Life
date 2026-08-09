@@ -124,6 +124,7 @@ export interface TodayTask {
   endTime?: string;
   noDeadline?: boolean;
   completedAt?: string;
+  googleCalendarEventId?: string;
 }
 
 export interface PlanItem {

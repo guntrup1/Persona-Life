@@ -123,6 +123,8 @@ export async function syncTaskToGoogleCalendar(
       end = { date: nextDay.toISOString().split("T")[0] };
     }
 
+    const reminderMinutes = (user as any).googleReminderMinutes ?? 30;
+
     const eventBody = {
       summary: task.name,
       description: `${task.description || ""}\n\n📌 Сфера: ${task.category || "General"}\n🌐 Синхронизировано из Trade Persona`,
@@ -130,7 +132,7 @@ export async function syncTaskToGoogleCalendar(
       end,
       reminders: {
         useDefault: false,
-        overrides: [{ method: "popup", minutes: 30 }],
+        overrides: [{ method: "popup", minutes: reminderMinutes }],
       },
     };
 
@@ -183,5 +185,94 @@ export async function deleteGoogleCalendarEvent(userId: string, eventId: string)
   } catch (err) {
     console.error("[google-calendar] Delete event error:", err);
     return false;
+  }
+}
+
+// ── 6. 2-Way Sync: Pull Events from Google Calendar and update tasks in MongoDB ──
+export async function pullAndSyncGoogleCalendar(userId: string): Promise<{ synced: number; deleted: number }> {
+  try {
+    const { UserData } = await import("./mongodb");
+    const user = await User.findById(userId);
+    if (!user || !user.googleRefreshToken || !user.googleCalendarConnected) {
+      return { synced: 0, deleted: 0 };
+    }
+
+    const accessToken = await getAccessTokenFromRefresh(user.googleRefreshToken);
+    const calendarId = user.googleCalendarId || "primary";
+
+    // Fetch events from Google Calendar for the last 30 days and future 90 days
+    const timeMin = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?timeMin=${encodeURIComponent(timeMin)}&singleEvents=true&showDeleted=true`;
+
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (!res.ok) {
+      console.error("[google-calendar] Pull events failed:", await res.text());
+      return { synced: 0, deleted: 0 };
+    }
+
+    const data = await res.json();
+    const gEvents: Array<any> = data.items || [];
+    const gEventsMap = new Map<string, any>();
+    for (const ge of gEvents) {
+      gEventsMap.set(ge.id, ge);
+    }
+
+    const userData = await UserData.findOne({ userId });
+    if (!userData) return { synced: 0, deleted: 0 };
+
+    const existingData = (userData.data as any) || {};
+    const tasks: any[] = Array.isArray(existingData.todayTasks) ? existingData.todayTasks : [];
+
+    let syncedCount = 0;
+    let deletedCount = 0;
+
+    const updatedTasks = tasks.filter(task => {
+      if (!task.googleCalendarEventId) return true; // Keep local tasks without google sync
+
+      const gEvent = gEventsMap.get(task.googleCalendarEventId);
+      // If deleted in Google Calendar -> remove from Trade Persona
+      if (!gEvent || gEvent.status === "cancelled") {
+        deletedCount++;
+        return false;
+      }
+
+      // If updated in Google Calendar -> update task title and dates
+      if (gEvent.summary && gEvent.summary !== task.name) {
+        task.name = gEvent.summary;
+        syncedCount++;
+      }
+
+      if (gEvent.start?.date) {
+        task.date = gEvent.start.date;
+        task.noDeadline = true;
+      } else if (gEvent.start?.dateTime) {
+        const d = new Date(gEvent.start.dateTime);
+        task.date = d.toISOString().split("T")[0];
+        task.startTime = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+        task.noDeadline = false;
+        if (gEvent.end?.dateTime) {
+          const endD = new Date(gEvent.end.dateTime);
+          task.endTime = `${String(endD.getHours()).padStart(2, "0")}:${String(endD.getMinutes()).padStart(2, "0")}`;
+        }
+        syncedCount++;
+      }
+
+      return true;
+    });
+
+    if (syncedCount > 0 || deletedCount > 0) {
+      await UserData.findOneAndUpdate(
+        { userId },
+        { data: { ...existingData, todayTasks: updatedTasks }, updatedAt: new Date() }
+      );
+    }
+
+    return { synced: syncedCount, deleted: deletedCount };
+  } catch (err) {
+    console.error("[google-calendar] pullAndSyncGoogleCalendar error:", err);
+    return { synced: 0, deleted: 0 };
   }
 }

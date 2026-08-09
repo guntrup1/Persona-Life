@@ -91,7 +91,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-import { syncTaskToGoogleCalendar, deleteGoogleCalendarEvent } from "./google-calendar";
+import { syncTaskToGoogleCalendar, deleteGoogleCalendarEvent, pullAndSyncGoogleCalendar } from "./google-calendar";
 
 export function registerAuthRoutes(app: Express) {
   app.post("/api/auth/register", async (req, res) => {
@@ -362,6 +362,17 @@ export function registerAuthRoutes(app: Express) {
     }
   });
 
+  app.post("/api/calendar/full-sync", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const result = await pullAndSyncGoogleCalendar(userId);
+      return res.json({ ok: true, ...result });
+    } catch (err) {
+      console.error("[calendar/full-sync]", err);
+      return res.status(500).json({ ok: false, message: "Ошибка двусторонней синхронизации" });
+    }
+  });
+
   app.post("/api/user/data-beacon", requireAuth, async (req, res) => {
     const { data } = req.body;
     if (!data) return res.status(400).end();
@@ -498,13 +509,16 @@ export function registerAuthRoutes(app: Express) {
   });
 
   app.put("/api/user/settings", requireAuth, async (req, res) => {
-    const { utcOffset, workStart, workEnd, restStart, restEnd, sleepStart, sleepEnd, tradingSessions, workDays } = req.body;
+    const { utcOffset, workStart, workEnd, restStart, restEnd, sleepStart, sleepEnd, tradingSessions, workDays, googleReminderMinutes } = req.body;
     try {
       const settings = await UserSettings.findOneAndUpdate(
         { userId: req.session.userId },
-        { utcOffset, workStart, workEnd, restStart, restEnd, sleepStart, sleepEnd, tradingSessions, workDays, updatedAt: new Date() },
+        { utcOffset, workStart, workEnd, restStart, restEnd, sleepStart, sleepEnd, tradingSessions, workDays, googleReminderMinutes, updatedAt: new Date() },
         { upsert: true, new: true }
       );
+      if (googleReminderMinutes !== undefined) {
+        await User.findByIdAndUpdate(req.session.userId, { googleReminderMinutes });
+      }
       return res.json({ settings });
     } catch (err) {
       console.error("Save settings error:", err);

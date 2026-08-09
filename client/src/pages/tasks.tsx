@@ -983,6 +983,11 @@ function TaskRow({ task, onToggle, onDelete, onEdit, onReschedule, dragHandlePro
                 ⚡ {t.tasks.priority}
               </Badge>
             )}
+            {task.googleCalendarEventId && (
+              <Badge className="text-[10px] py-0 h-4 bg-[#4285F4]/15 text-[#4285F4] border border-[#4285F4]/40 font-medium">
+                📅 Google
+              </Badge>
+            )}
             {task.type === "routine" && <Badge variant="secondary" className="text-xs py-0 h-4">{t.hub.routine}</Badge>}
             {task.difficulty && (
               <Badge variant="outline" className={`text-xs py-0 h-4 ${
