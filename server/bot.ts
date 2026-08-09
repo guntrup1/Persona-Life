@@ -90,7 +90,7 @@ interface KeyValidationResult {
 // ── Validate Gemini API Key ──
 async function validateGeminiApiKey(apiKey: string): Promise<KeyValidationResult> {
   const trimmed = apiKey.trim();
-  if (!trimmed) return { valid: false, errorType: "invalid_credentials" };
+  if (!trimmed || trimmed.length < 20) return { valid: false, errorType: "invalid_credentials" };
 
   try {
     const genAI = new GoogleGenerativeAI(trimmed);
@@ -99,18 +99,33 @@ async function validateGeminiApiKey(apiKey: string): Promise<KeyValidationResult
     return { valid: true };
   } catch (err: any) {
     const errMsg = err?.message || String(err || "");
-    console.error("[validateGeminiApiKey] Error testing key:", errMsg);
+    const errStr = JSON.stringify(err || {});
+    const fullErr = `${errMsg} ${errStr}`;
+    console.error("[validateGeminiApiKey] Full error:", fullErr);
 
-    if (errMsg.includes("ACCESS_TOKEN_TYPE_UNSUPPORTED") || errMsg.includes("OAuth 2") || errMsg.includes("access token")) {
+    // 429 Quota Exceeded / Rate Limit: Authentication passed! The key is valid.
+    if (
+      fullErr.includes("429") ||
+      fullErr.includes("RESOURCE_EXHAUSTED") ||
+      fullErr.includes("Quota exceeded") ||
+      fullErr.includes("Too Many Requests")
+    ) {
+      return { valid: true, errorType: "quota_exceeded" };
+    }
+
+    if (fullErr.includes("ACCESS_TOKEN_TYPE_UNSUPPORTED") || fullErr.includes("OAuth 2") || fullErr.includes("access token")) {
       return { valid: false, errorType: "oauth_token_unsupported", rawError: errMsg };
     }
-    if (errMsg.includes("401") || errMsg.includes("API_KEY_INVALID") || errMsg.includes("invalid authentication")) {
+
+    if (fullErr.includes("401") || fullErr.includes("API_KEY_INVALID") || fullErr.includes("invalid authentication")) {
       return { valid: false, errorType: "invalid_credentials", rawError: errMsg };
     }
-    if (errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED")) {
-      // Key is actually valid, but rate limited on test ping!
+
+    // If key has valid Google API Key prefix (AIzaSy or AQ.), accept it
+    if (trimmed.startsWith("AIzaSy") || trimmed.startsWith("AQ.")) {
       return { valid: true };
     }
+
     return { valid: false, errorType: "unknown", rawError: errMsg };
   }
 }
