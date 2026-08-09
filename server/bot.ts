@@ -7,6 +7,17 @@ import crypto from "crypto";
 // ── Types ──
 type RecordType = "task" | "note" | "goal";
 
+export interface BotVoiceRecord {
+  id: string;
+  date: string;
+  time: string;
+  type: RecordType;
+  titles: string[];
+  messageId: number;
+  chatId: number;
+  createdAt: string;
+}
+
 interface BotTaskResult {
   name: string;
   description?: string;
@@ -43,6 +54,58 @@ interface AIResponse {
 
 // ── State: track which type the user selected ──
 const userState = new Map<number, { type: RecordType; messageId?: number }>();
+
+// ── Main Menu Keyboard (Persistent Reply Keyboard) ──
+function getMainMenuKeyboard() {
+  return Markup.keyboard([
+    ["➕ Добавить запись", "📜 История ГС"],
+    ["ℹ️ Статус аккаунта", "❓ Помощь"],
+  ]).resize();
+}
+
+// ── Save Voice History metadata to MongoDB (No audio stored on server) ──
+async function saveVoiceHistoryToUser(
+  userId: string,
+  record: {
+    type: RecordType;
+    titles: string[];
+    messageId: number;
+    chatId: number;
+    utcOffset?: number;
+  }
+) {
+  const userData = await UserData.findOne({ userId });
+  if (!userData) return;
+
+  const existingData = (userData.data as any) || {};
+  const history: BotVoiceRecord[] = Array.isArray(existingData.botVoiceHistory)
+    ? existingData.botVoiceHistory
+    : [];
+
+  const now = new Date();
+  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+  const local = new Date(utc + (record.utcOffset ?? 2) * 3600000);
+  const time = `${String(local.getHours()).padStart(2, "0")}:${String(local.getMinutes()).padStart(2, "0")}`;
+
+  const newRecord: BotVoiceRecord = sanitizeMongoInput({
+    id: crypto.randomUUID(),
+    date: getTodayDate(record.utcOffset ?? 2),
+    time,
+    type: record.type,
+    titles: record.titles,
+    messageId: record.messageId,
+    chatId: record.chatId,
+    createdAt: now.toISOString(),
+  });
+
+  history.unshift(newRecord);
+  if (history.length > 100) history.pop();
+
+  await UserData.findOneAndUpdate(
+    { userId },
+    { data: { ...existingData, botVoiceHistory: history }, updatedAt: new Date() }
+  );
+}
 
 // ── XP helpers ──
 function xpForDifficulty(d: string): number {
@@ -497,65 +560,22 @@ export function createBot(): Telegraf | null {
 
   const bot = new Telegraf(token);
 
-  // ── /start — account linking ──
-  bot.start(async (ctx) => {
-    const linkToken = ctx.startPayload;
+  // Set command menu in Telegram
+  bot.telegram.setMyCommands([
+    { command: "add", description: "➕ Добавить запись" },
+    { command: "history", description: "📜 История голосовых сообщений" },
+    { command: "status", description: "ℹ️ Статус аккаунта" },
+    { command: "help", description: "❓ Помощь" },
+  ]).catch(err => console.error("[bot] Error setting commands:", err));
 
-    if (linkToken) {
-      // User came via link with a token — link account
-      try {
-        const user = await User.findOne({
-          telegramLinkToken: linkToken,
-          telegramLinkExpires: { $gt: new Date() },
-        });
-
-        if (!user) {
-          return ctx.reply("❌ Ссылка недействительна или истекла. Сгенерируй новую в настройках Trade Persona.");
-        }
-
-        // Check if this Telegram ID is already linked to another account
-        const existingLink = await User.findOne({ telegramId: String(ctx.from.id) });
-        if (existingLink && existingLink._id.toString() !== user._id.toString()) {
-          return ctx.reply("⚠️ Этот Telegram аккаунт уже привязан к другому аккаунту Trade Persona.");
-        }
-
-        await User.findByIdAndUpdate(user._id, {
-          telegramId: String(ctx.from.id),
-          telegramLinkToken: null,
-          telegramLinkExpires: null,
-        });
-
-        return ctx.reply(
-          `✅ *Аккаунт успешно привязан!*\n\nТвой Telegram теперь связан с аккаунтом Trade Persona (${user.email}).\n\nИспользуй /add чтобы добавить запись голосом.`,
-          { parse_mode: "Markdown" }
-        );
-      } catch (err) {
-        console.error("[bot] Link error:", err);
-        return ctx.reply("❌ Ошибка при привязке аккаунта. Попробуй позже.");
-      }
-    }
-
-    // No token — show welcome message
-    return ctx.reply(
-      `👋 *Привет! Я бот Trade Persona.*\n\n` +
-      `Я помогу тебе быстро добавлять задачи, заметки и цели голосом.\n\n` +
-      `📌 *Как начать:*\n` +
-      `1. Зайди в настройки Trade Persona на сайте\n` +
-      `2. Нажми "Подключить Telegram"\n` +
-      `3. Перейди по ссылке — и мы связаны!\n\n` +
-      `После привязки используй /add чтобы добавить запись.`,
-      { parse_mode: "Markdown" }
-    );
-  });
-
-  // ── /add — show type selection ──
-  bot.command("add", async (ctx) => {
-    // Check if account is linked
+  // ── Helper: Show Add Menu ──
+  const showAddMenu = async (ctx: any) => {
     const user = await User.findOne({ telegramId: String(ctx.from.id) });
     if (!user) {
       return ctx.reply(
-        "🔗 Сначала привяжи свой аккаунт Trade Persona.\n\n" +
-        "Зайди в настройки на сайте → «Подключить Telegram»."
+        "🔗 *Сначала привяжи свой аккаунт Trade Persona.*\n\n" +
+        "Зайди в настройки на сайте → «Подключить Telegram».",
+        { parse_mode: "Markdown", ...getMainMenuKeyboard() }
       );
     }
 
@@ -566,12 +586,169 @@ export function createBot(): Telegraf | null {
     ]);
 
     return ctx.reply(
-      "📋 *Что ты хочешь добавить?*\n\nВыбери тип записи, а затем отправь голосовое сообщение.",
+      "📋 *Что ты хочешь добавить?*\n\nВыбери тип записи кнопкой ниже, а затем отправь голосовое сообщение.",
       { parse_mode: "Markdown", ...keyboard }
+    );
+  };
+
+  // ── Helper: Show History ──
+  const showHistory = async (ctx: any) => {
+    const user = await User.findOne({ telegramId: String(ctx.from.id) });
+    if (!user) {
+      return ctx.reply("🔗 Аккаунт не привязан. Зайди в настройки Trade Persona.", getMainMenuKeyboard());
+    }
+
+    const userData = await UserData.findOne({ userId: user._id });
+    const history: BotVoiceRecord[] = Array.isArray((userData?.data as any)?.botVoiceHistory)
+      ? (userData?.data as any).botVoiceHistory
+      : [];
+
+    if (history.length === 0) {
+      return ctx.reply(
+        "📜 *История голосовых записей пуста.*\n\n" +
+        "Нажми *➕ Добавить запись* и отправь первое голосовое сообщение!",
+        { parse_mode: "Markdown", ...getMainMenuKeyboard() }
+      );
+    }
+
+    // Group history entries by Date
+    const grouped: Record<string, BotVoiceRecord[]> = {};
+    for (const item of history.slice(0, 15)) {
+      if (!grouped[item.date]) grouped[item.date] = [];
+      grouped[item.date].push(item);
+    }
+
+    await ctx.reply(
+      "📜 *История созданных записей голосом:*\n\n" +
+      "_Нажми на кнопку «🎧 Переслушать», чтобы подсветить ГС в чате._",
+      { parse_mode: "Markdown", ...getMainMenuKeyboard() }
+    );
+
+    const typeLabels: Record<RecordType, string> = {
+      task: "📌 Задача",
+      note: "📝 Заметка",
+      goal: "🎯 Цель",
+    };
+
+    for (const [date, records] of Object.entries(grouped)) {
+      let text = `📅 *${date}*\n`;
+
+      for (const rec of records) {
+        const titleStr = rec.titles.join(", ");
+        text += `• 🕒 *${rec.time}* | ${typeLabels[rec.type] || "📌"}: *${titleStr}*\n`;
+      }
+
+      // Build inline buttons for each voice in this date
+      const inlineButtons = records.map(rec => [
+        Markup.button.callback(`🎧 Переслушать ГС (${rec.time})`, `play_voice_${rec.messageId}`)
+      ]);
+
+      await ctx.reply(text, {
+        parse_mode: "Markdown",
+        ...Markup.inlineKeyboard(inlineButtons),
+      });
+    }
+  };
+
+  // ── Helper: Show Status ──
+  const showStatus = async (ctx: any) => {
+    const user = await User.findOne({ telegramId: String(ctx.from.id) });
+    if (user) {
+      return ctx.reply(`✅ *Аккаунт привязан:* \`${user.email}\``, {
+        parse_mode: "Markdown",
+        ...getMainMenuKeyboard(),
+      });
+    }
+    return ctx.reply(
+      "❌ *Аккаунт не привязан.*\n\nЗайди в настройки Trade Persona на сайте и нажми «Подключить Telegram».",
+      { parse_mode: "Markdown", ...getMainMenuKeyboard() }
+    );
+  };
+
+  // ── Helper: Show Help ──
+  const showHelp = async (ctx: any) => {
+    return ctx.reply(
+      "*📖 Инструкция по работе с ботом:*\n\n" +
+      "1. Нажми кнопку *➕ Добавить запись*\n" +
+      "2. Выбери тип (*Задача*, *Заметка* или *Цель*)\n" +
+      "3. Запиши и отправь голосовое сообщение\n" +
+      "4. ИИ распознает контекст, время и даты, и добавит запись в твой аккаунт Trade Persona!\n\n" +
+      "📜 *История ГС*: просмотр созданных записей с возможностью переслушать оригинал прямо в чате.",
+      { parse_mode: "Markdown", ...getMainMenuKeyboard() }
+    );
+  };
+
+  // ── Action: Play voice by message ID ──
+  bot.action(/^play_voice_(\d+)$/, async (ctx) => {
+    await ctx.answerCbQuery();
+    const msgId = parseInt(ctx.match[1], 10);
+    try {
+      await ctx.reply("🎧 *Вот твоё голосовое сообщение:*", {
+        reply_to_message_id: msgId,
+        parse_mode: "Markdown",
+      } as any);
+    } catch {
+      await ctx.reply("⚠️ Не удалось найти исходное голосовое сообщение в этом чате.");
+    }
+  });
+
+  // ── /start — account linking & welcome ──
+  bot.start(async (ctx) => {
+    const linkToken = ctx.startPayload;
+
+    if (linkToken) {
+      try {
+        const user = await User.findOne({
+          telegramLinkToken: linkToken,
+          telegramLinkExpires: { $gt: new Date() },
+        });
+
+        if (!user) {
+          return ctx.reply(
+            "❌ Ссылка недействительна или истекла. Сгенерируй новую в настройках Trade Persona.",
+            getMainMenuKeyboard()
+          );
+        }
+
+        const existingLink = await User.findOne({ telegramId: String(ctx.from.id) });
+        if (existingLink && existingLink._id.toString() !== user._id.toString()) {
+          return ctx.reply(
+            "⚠️ Этот Telegram аккаунт уже привязан к другому аккаунту Trade Persona.",
+            getMainMenuKeyboard()
+          );
+        }
+
+        await User.findByIdAndUpdate(user._id, {
+          telegramId: String(ctx.from.id),
+          telegramLinkToken: null,
+          telegramLinkExpires: null,
+        });
+
+        return ctx.reply(
+          `✅ *Аккаунт успешно привязан!*\n\nТвой Telegram связан с аккаунтом \`${user.email}\`.\n\nИспользуй меню снизу для добавления записей!`,
+          { parse_mode: "Markdown", ...getMainMenuKeyboard() }
+        );
+      } catch (err) {
+        console.error("[bot] Link error:", err);
+        return ctx.reply("❌ Ошибка при привязке аккаунта. Попробуй позже.", getMainMenuKeyboard());
+      }
+    }
+
+    return ctx.reply(
+      `👋 *Привет! Я бот Trade Persona.*\n\n` +
+      `Я помогу тебе быстро добавлять задачи, заметки и цели голосом.\n\n` +
+      `Используй кнопки внизу экрана!`,
+      { parse_mode: "Markdown", ...getMainMenuKeyboard() }
     );
   });
 
-  // ── Callback buttons — set type ──
+  // ── Commands and Reply Keyboard buttons ──
+  bot.command("add", showAddMenu);
+  bot.command("history", showHistory);
+  bot.command("status", showStatus);
+  bot.command("help", showHelp);
+
+  // ── Inline callback buttons — set record type ──
   bot.action("type_task", async (ctx) => {
     await ctx.answerCbQuery();
     userState.set(ctx.from!.id, { type: "task" });
@@ -619,33 +796,29 @@ export function createBot(): Telegraf | null {
     const state = userState.get(ctx.from.id);
     if (!state) {
       return ctx.reply(
-        "⚠️ Сначала выбери тип записи.\n\nНажми /add и выбери: Задача, Заметка или Цель."
+        "⚠️ Сначала выбери тип записи.\n\nНажми *➕ Добавить запись* в меню снизу.",
+        { parse_mode: "Markdown", ...getMainMenuKeyboard() }
       );
     }
 
-    // Check account link
     const user = await User.findOne({ telegramId: String(ctx.from.id) });
     if (!user) {
-      return ctx.reply("🔗 Аккаунт не привязан. Зайди в настройки Trade Persona.");
+      return ctx.reply("🔗 Аккаунт не привязан. Зайди в настройки Trade Persona.", getMainMenuKeyboard());
     }
 
     const processingMsg = await ctx.reply("⏳ Обрабатываю голосовое сообщение...");
 
     try {
-      // Download the voice file
       const fileLink = await ctx.telegram.getFileLink(ctx.message.voice.file_id);
       const response = await fetch(fileLink.toString());
       if (!response.ok) throw new Error("Failed to download voice file");
       const audioBuffer = Buffer.from(await response.arrayBuffer());
 
-      // Get user UTC offset for date context
       const settings = await (await import("./mongodb")).UserSettings?.findOne({ userId: user._id });
       const utcOffset = settings?.utcOffset ?? 2;
 
-      // Send to Gemini AI
       const aiResult = await processVoiceWithAI(audioBuffer, state.type, utcOffset);
 
-      // Save to database
       let savedNames: string[] = [];
 
       if (aiResult.type === "task" && aiResult.tasks?.length) {
@@ -658,19 +831,29 @@ export function createBot(): Telegraf | null {
         throw new Error("ИИ не смог распознать запись. Попробуй ещё раз.");
       }
 
-      // Clear user state
+      // Save Voice Entry metadata into history for user
+      await saveVoiceHistoryToUser(user._id.toString(), {
+        type: state.type,
+        titles: savedNames,
+        messageId: ctx.message.message_id,
+        chatId: ctx.chat.id,
+        utcOffset,
+      });
+
       userState.delete(ctx.from.id);
 
-      // Delete "processing" message
       try {
         await ctx.telegram.deleteMessage(ctx.chat.id, processingMsg.message_id);
       } catch {}
 
-      // Send confirmation
       const confirmation = formatConfirmation(aiResult);
+      const playbackKb = Markup.inlineKeyboard([
+        [Markup.button.callback("🎧 Переслушать ГС", `play_voice_${ctx.message.message_id}`)]
+      ]);
+
       await ctx.reply(
-        confirmation + "\n\n_Данные синхронизированы с Trade Persona. Обнови страницу для просмотра._",
-        { parse_mode: "Markdown" }
+        confirmation + "\n\n_Данные синхронизированы с Trade Persona._",
+        { parse_mode: "Markdown", ...playbackKb }
       );
 
     } catch (err: any) {
@@ -679,43 +862,24 @@ export function createBot(): Telegraf | null {
         await ctx.telegram.deleteMessage(ctx.chat.id, processingMsg.message_id);
       } catch {}
       await ctx.reply(
-        `❌ Ошибка обработки: ${err.message || "Неизвестная ошибка"}\n\nПопробуй отправить голосовое сообщение ещё раз.`
+        `❌ Ошибка обработки: ${err.message || "Неизвестная ошибка"}\n\nПопробуй отправить голосовое сообщение ещё раз.`,
+        getMainMenuKeyboard()
       );
     }
   });
 
-  // ── /status — check link status ──
-  bot.command("status", async (ctx) => {
-    const user = await User.findOne({ telegramId: String(ctx.from.id) });
-    if (user) {
-      return ctx.reply(`✅ Аккаунт привязан: *${user.email}*`, { parse_mode: "Markdown" });
-    }
-    return ctx.reply("❌ Аккаунт не привязан. Используй настройки Trade Persona для привязки.");
-  });
-
-  // ── /help ──
-  bot.command("help", (ctx) => {
-    return ctx.reply(
-      "*📖 Команды бота:*\n\n" +
-      "/add — Добавить запись (задача, заметка, цель)\n" +
-      "/status — Проверить привязку аккаунта\n" +
-      "/help — Показать это сообщение\n\n" +
-      "*Как работает:*\n" +
-      "1. Нажми /add\n" +
-      "2. Выбери тип записи кнопкой\n" +
-      "3. Отправь голосовое сообщение\n" +
-      "4. ИИ проанализирует и создаст запись\n" +
-      "5. Данные сохраняются в Trade Persona",
-      { parse_mode: "Markdown" }
-    );
-  });
-
-  // ── Handle text messages (not commands) ──
+  // ── Reply Keyboard Text Handler ──
   bot.on(message("text"), async (ctx) => {
-    if (ctx.message.text.startsWith("/")) return;
+    const txt = ctx.message.text.trim();
+    if (txt === "➕ Добавить запись") return showAddMenu(ctx);
+    if (txt === "📜 История ГС") return showHistory(ctx);
+    if (txt === "ℹ️ Статус аккаунта") return showStatus(ctx);
+    if (txt === "❓ Помощь") return showHelp(ctx);
+    if (txt.startsWith("/")) return;
+
     return ctx.reply(
-      "🎙 Я работаю с голосовыми сообщениями.\n\n" +
-      "Нажми /add, выбери тип записи и отправь голосовое сообщение."
+      "🎙 Выбери действие из меню снизу или нажми *➕ Добавить запись*.",
+      { parse_mode: "Markdown", ...getMainMenuKeyboard() }
     );
   });
 
@@ -731,7 +895,6 @@ export async function startBot() {
     await bot.launch();
     console.log("[bot] Telegram bot started successfully: @Personedge_bot");
 
-    // Graceful stop
     process.once("SIGINT", () => bot.stop("SIGINT"));
     process.once("SIGTERM", () => bot.stop("SIGTERM"));
   } catch (err) {
