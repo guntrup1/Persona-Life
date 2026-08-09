@@ -2,6 +2,7 @@ import { Telegraf, Markup } from "telegraf";
 import { message } from "telegraf/filters";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { User, UserData, UserSettings } from "./mongodb";
+import { syncTaskToGoogleCalendar } from "./google-calendar";
 import crypto from "crypto";
 
 // ── Types ──
@@ -631,6 +632,16 @@ async function saveTasksToUser(userId: string, tasks: BotTaskResult[]): Promise<
       weekGoalId: matchedWeekGoalId,
       goalId: matchedWeekGoalId,
     });
+    // Attempt background sync to Google Calendar if user connected
+    try {
+      const gEventId = await syncTaskToGoogleCalendar(userId, newTask);
+      if (gEventId) {
+        newTask.googleCalendarEventId = gEventId;
+      }
+    } catch (gErr) {
+      console.error("[bot] Google Calendar task sync error:", gErr);
+    }
+
     existingTasks.push(newTask);
     createdNames.push(task.name);
   }

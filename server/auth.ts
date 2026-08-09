@@ -91,6 +91,8 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+import { syncTaskToGoogleCalendar, deleteGoogleCalendarEvent } from "./google-calendar";
+
 export function registerAuthRoutes(app: Express) {
   app.post("/api/auth/register", async (req, res) => {
     const parsed = registerSchema.safeParse(req.body);
@@ -330,6 +332,33 @@ export function registerAuthRoutes(app: Express) {
     } catch (err) {
       console.error("Save data error:", err);
       return res.status(500).json({ message: "Ошибка сервера" });
+    }
+  });
+
+  // ── Google Calendar Sync endpoints (web) ──
+  app.post("/api/calendar/sync-task", requireAuth, async (req, res) => {
+    try {
+      const task = req.body.task;
+      if (!task || !task.id) return res.status(400).json({ message: "Нет данных задачи" });
+      const userId = req.session.userId!;
+      const eventId = await syncTaskToGoogleCalendar(userId, task);
+      return res.json({ ok: true, googleCalendarEventId: eventId });
+    } catch (err) {
+      console.error("[calendar/sync-task]", err);
+      return res.status(500).json({ ok: false, message: "Ошибка синхронизации" });
+    }
+  });
+
+  app.post("/api/calendar/delete-event", requireAuth, async (req, res) => {
+    try {
+      const { googleCalendarEventId } = req.body;
+      if (!googleCalendarEventId) return res.status(400).json({ message: "Нет eventId" });
+      const userId = req.session.userId!;
+      const ok = await deleteGoogleCalendarEvent(userId, googleCalendarEventId);
+      return res.json({ ok });
+    } catch (err) {
+      console.error("[calendar/delete-event]", err);
+      return res.status(500).json({ ok: false });
     }
   });
 

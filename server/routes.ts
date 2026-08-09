@@ -278,12 +278,95 @@ async function getNews(forceRefresh = false): Promise<NewsCache> {
   }
 }
 
+import {
+  getGoogleAuthUrl,
+  exchangeCodeForTokens,
+} from "./google-calendar";
+import { User, UserSettings } from "./mongodb";
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
   registerAuthRoutes(app);
   registerTelegramRoutes(app);
+
+  // ── Google Calendar OAuth Routes ──
+  app.get("/api/auth/google/url", (req: any, res) => {
+    if (!req.session?.userId) return res.status(401).json({ message: "Не авторизован" });
+    const state = req.session.userId;
+    const url = getGoogleAuthUrl(state);
+    res.json({ url });
+  });
+
+  app.get("/api/auth/google/callback", async (req, res) => {
+    const { code, state } = req.query;
+    if (!code || typeof code !== "string") {
+      return res.status(400).send("Authorization code missing");
+    }
+
+    try {
+      const tokens = await exchangeCodeForTokens(code);
+      const userId = state as string;
+
+      if (userId && tokens.refresh_token) {
+        await User.findByIdAndUpdate(userId, {
+          googleRefreshToken: tokens.refresh_token,
+          googleCalendarConnected: true,
+        });
+        await UserSettings.findOneAndUpdate(
+          { userId },
+          { googleRefreshToken: tokens.refresh_token, googleCalendarConnected: true },
+          { upsert: true }
+        );
+      }
+
+      res.send(`
+        <!DOCTYPE html>
+        <html>
+          <head><title>Google Calendar Connected</title></head>
+          <body style="background:#0f172a;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
+            <div style="text-align:center;background:#1e293b;padding:32px;border-radius:16px;border:1px solid #334155;">
+              <h2 style="color:#22c55e;">✅ Google Календарь успешно подключен!</h2>
+              <p>Все создаваемые задачи будут автоматически синхронизироваться.</p>
+              <p style="color:#94a3b8;font-size:14px;">Окно автоматически закроется через несколько секунд...</p>
+              <script>
+                if (window.opener) {
+                  window.opener.postMessage({ type: 'GOOGLE_CALENDAR_CONNECTED' }, '*');
+                }
+                setTimeout(() => window.close(), 2500);
+              </script>
+            </div>
+          </body>
+        </html>
+      `);
+    } catch (err) {
+      console.error("[google-callback] Error:", err);
+      res.status(500).send("Ошибка при подключении Google Календаря");
+    }
+  });
+
+  app.post("/api/auth/google/disconnect", async (req: any, res) => {
+    if (!req.session?.userId) return res.status(401).json({ message: "Не авторизован" });
+    const userId = req.session.userId;
+    await User.findByIdAndUpdate(userId, {
+      googleRefreshToken: null,
+      googleCalendarConnected: false,
+    });
+    await UserSettings.findOneAndUpdate(
+      { userId },
+      { googleRefreshToken: null, googleCalendarConnected: false }
+    );
+    res.json({ ok: true, connected: false });
+  });
+
+  app.get("/api/auth/google/status", async (req: any, res) => {
+    if (!req.session?.userId) return res.status(401).json({ message: "Не авторизован" });
+    const user = await User.findById(req.session.userId);
+    res.json({
+      connected: !!(user?.googleCalendarConnected && user?.googleRefreshToken),
+    });
+  });
 
 
 

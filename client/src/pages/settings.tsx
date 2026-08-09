@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SlidersHorizontal, Clock, ChevronDown, ChevronUp, Globe, Bot } from "lucide-react";
+import { SlidersHorizontal, Clock, ChevronDown, ChevronUp, Globe, Bot, CalendarDays } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/lib/i18n";
 
@@ -77,6 +77,8 @@ export default function SettingsPage() {
   });
   const [telegramStatus, setTelegramStatus] = useState<{ linked: boolean; telegramId: string | null } | null>(null);
   const [telegramLoading, setTelegramLoading] = useState(false);
+  const [googleCalendarConnected, setGoogleCalendarConnected] = useState(false);
+  const [googleCalLoading, setGoogleCalLoading] = useState(false);
 
   useEffect(() => {
     fetch("/api/user/settings", { credentials: "include" })
@@ -106,6 +108,26 @@ export default function SettingsPage() {
         }
       })
       .catch(() => {});
+
+    fetch("/api/auth/google/status", { credentials: "include" })
+      .then(r => r.json())
+      .then(data => {
+        if (data && typeof data.connected === "boolean") {
+          setGoogleCalendarConnected(data.connected);
+        }
+      })
+      .catch(() => {});
+
+    // Handle postMessage from OAuth popup
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.type === "GOOGLE_CALENDAR_CONNECTED") {
+        setGoogleCalendarConnected(true);
+        setGoogleCalLoading(false);
+        toast({ title: lang === "ru" ? "✅ Google Календарь успешно подключен!" : "✅ Google Calendar connected!" });
+      }
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
   }, []);
 
   const set = <K extends keyof UserSettings>(key: K, value: UserSettings[K]) =>
@@ -184,6 +206,38 @@ export default function SettingsPage() {
       toast({ title: t.settings.noConn, variant: "destructive" });
     } finally {
       setTelegramLoading(false);
+    }
+  };
+
+  const handleGoogleConnect = async () => {
+    setGoogleCalLoading(true);
+    try {
+      const res = await fetch("/api/auth/google/url", { credentials: "include" });
+      const data = await res.json();
+      if (data.url) {
+        window.open(data.url, "_blank", "width=520,height=620,left=400,top=100");
+      } else {
+        toast({ title: lang === "ru" ? "Ошибка получения ссылки" : "Failed to get auth URL", variant: "destructive" });
+        setGoogleCalLoading(false);
+      }
+    } catch {
+      toast({ title: lang === "ru" ? "Ошибка подключения" : "Connection error", variant: "destructive" });
+      setGoogleCalLoading(false);
+    }
+  };
+
+  const handleGoogleDisconnect = async () => {
+    setGoogleCalLoading(true);
+    try {
+      const res = await fetch("/api/auth/google/disconnect", { method: "POST", credentials: "include" });
+      if (res.ok) {
+        setGoogleCalendarConnected(false);
+        toast({ title: lang === "ru" ? "Google Календарь отключен" : "Google Calendar disconnected" });
+      }
+    } catch {
+      toast({ title: lang === "ru" ? "Ошибка отключения" : "Disconnect error", variant: "destructive" });
+    } finally {
+      setGoogleCalLoading(false);
     }
   };
 
@@ -408,6 +462,53 @@ export default function SettingsPage() {
                 {telegramLoading 
                   ? (lang === "ru" ? "Загрузка..." : "Loading...") 
                   : (lang === "ru" ? "Подключить Telegram" : "Connect Telegram")}
+              </Button>
+            )}
+          </div>
+        </Card>
+
+        {/* Google Calendar Integration */}
+        <Card className="p-3 border-card-border rounded-2xl space-y-3">
+          <div className="flex items-center gap-2 mb-2">
+            <CalendarDays className="w-4 h-4 text-primary" />
+            <span className="font-display text-xs font-bold uppercase tracking-wider">
+              {lang === "ru" ? "Google Календарь" : "Google Calendar"}
+            </span>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {lang === "ru"
+                ? "Автоматическая синхронизация задач с Google Календарём. Все задачи с датой и временем будут отображаться как события в вашем Google Calendar."
+                : "Automatic task sync with Google Calendar. All tasks with date & time will appear as events in your Google Calendar."}
+            </p>
+
+            {googleCalendarConnected ? (
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-xs text-emerald-400 font-medium">
+                  {lang === "ru" ? "✅ Календарь подключен" : "✅ Calendar connected"}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-[10px] uppercase tracking-wider"
+                  onClick={handleGoogleDisconnect}
+                  disabled={googleCalLoading}
+                >
+                  {lang === "ru" ? "Отключить" : "Disconnect"}
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="default"
+                size="sm"
+                className="w-full mt-1 h-8 text-xs font-display uppercase tracking-widest bg-[#4285F4] hover:bg-[#3367D6] text-white"
+                onClick={handleGoogleConnect}
+                disabled={googleCalLoading}
+              >
+                {googleCalLoading
+                  ? (lang === "ru" ? "Загрузка..." : "Loading...")
+                  : (lang === "ru" ? "Подключить Google Календарь" : "Connect Google Calendar")}
               </Button>
             )}
           </div>

@@ -27,6 +27,9 @@ const userSchema = new mongoose.Schema({
   telegramLinkToken: { type: String, default: null },
   telegramLinkExpires: { type: Date, default: null },
   geminiApiKey: { type: String, default: null },
+  googleRefreshToken: { type: String, default: null },
+  googleCalendarConnected: { type: Boolean, default: false },
+  googleCalendarId: { type: String, default: "primary" },
 }, { timestamps: true });
 
 const userDataSchema = new mongoose.Schema({
@@ -55,6 +58,9 @@ const userSettingsSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, unique: true },
   utcOffset: { type: Number, default: 1 },
   geminiApiKey: { type: String, default: null },
+  googleRefreshToken: { type: String, default: null },
+  googleCalendarConnected: { type: Boolean, default: false },
+  googleCalendarId: { type: String, default: "primary" },
   workStart: { type: Number, default: 9 },
   workEnd: { type: Number, default: 18 },
   restStart: { type: Number, default: 18 },
