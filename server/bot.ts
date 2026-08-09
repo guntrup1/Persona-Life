@@ -1,7 +1,7 @@
 import { Telegraf, Markup } from "telegraf";
 import { message } from "telegraf/filters";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { User, UserData } from "./mongodb";
+import { User, UserData, UserSettings } from "./mongodb";
 import crypto from "crypto";
 
 // ── Types ──
