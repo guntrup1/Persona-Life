@@ -309,35 +309,128 @@ async function saveNotesToUser(userId: string, notes: BotNoteResult[]): Promise<
   return createdTitles;
 }
 
-async function saveGoalsToUser(userId: string, goals: BotGoalResult[]): Promise<string[]> {
+function calculateGoalDates(
+  type: "week" | "month" | "year",
+  timeLimitType: "current_period" | "from_now" | "custom",
+  utcOffset = 2
+): { startDate: string; endDate: string } {
+  const now = new Date();
+  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+  const today = new Date(utc + utcOffset * 3600000);
+
+  const formatDate = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
+
+  const startDate = formatDate(today);
+
+  if (timeLimitType === "from_now") {
+    const end = new Date(today);
+    if (type === "week") end.setDate(end.getDate() + 7);
+    else if (type === "month") end.setMonth(end.getMonth() + 1);
+    else if (type === "year") end.setFullYear(end.getFullYear() + 1);
+    return { startDate, endDate: formatDate(end) };
+  }
+
+  // current_period
+  const end = new Date(today);
+  if (type === "week") {
+    const dayOfWeek = today.getDay() === 0 ? 7 : today.getDay();
+    end.setDate(end.getDate() + (7 - dayOfWeek));
+  } else if (type === "month") {
+    end.setMonth(end.getMonth() + 1, 0);
+  } else if (type === "year") {
+    end.setMonth(11, 31);
+  }
+  return { startDate, endDate: formatDate(end) };
+}
+
+function getCalendarPeriod(type: "week" | "month" | "year", utcOffset = 2) {
+  const now = new Date();
+  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+  const today = new Date(utc + utcOffset * 3600000);
+  const year = today.getFullYear();
+  const month = today.getMonth() + 1;
+
+  const d = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+
+  if (type === "week") return { year, month, week };
+  if (type === "month") return { year, month };
+  return { year };
+}
+
+async function saveGoalsToUser(userId: string, goals: BotGoalResult[], utcOffset = 2): Promise<string[]> {
   const userData = await UserData.findOne({ userId });
   if (!userData) throw new Error("UserData not found");
 
   const existingData = (userData.data as any) || {};
   const existingGoals = Array.isArray(existingData.goals) ? existingData.goals : [];
+  const existingTasks = Array.isArray(existingData.todayTasks) ? existingData.todayTasks : [];
   const createdTitles: string[] = [];
 
   for (const goal of goals) {
-    const newGoal = sanitizeMongoInput({
+    const goalType = goal.goalType || "month";
+    const timeLimitType = goal.timeLimitType || "current_period";
+    const dates = calculateGoalDates(goalType, timeLimitType, utcOffset);
+    const periods = getCalendarPeriod(goalType, utcOffset);
+    const goalId = crypto.randomUUID();
+
+    const planItems = (goal.plan || []).map(p => ({
       id: crypto.randomUUID(),
-      type: goal.goalType || "month",
+      text: p.text,
+      done: !!p.done,
+    }));
+
+    const newGoal = sanitizeMongoInput({
+      id: goalId,
+      type: goalType,
       title: goal.title,
       category: goal.category || "Mind",
       completed: false,
-      xp: xpForGoal(goal.goalType || "month"),
+      xp: xpForGoal(goalType),
       linkedTaskIds: [],
       description: goal.description || "",
-      plan: (goal.plan || []).map(p => ({ ...p, id: crypto.randomUUID() })),
-      timeLimitType: goal.timeLimitType || "current_period",
+      plan: planItems,
+      timeLimitType,
+      startDate: dates.startDate,
+      endDate: dates.endDate,
+      ...periods,
       status: "active",
     });
+
     existingGoals.push(newGoal);
     createdTitles.push(goal.title);
+
+    // Create sub-tasks for todayTasks so they appear in "Пул под-задач недели"
+    for (const item of planItems) {
+      const subTask = sanitizeMongoInput({
+        id: crypto.randomUUID(),
+        name: item.text,
+        description: `Под-задача цели «${goal.title}»`,
+        category: goal.category || "Mind",
+        difficulty: "medium",
+        xp: 25,
+        completed: item.done,
+        date: "unassigned",
+        type: "today",
+        weekGoalId: goalType === "week" ? goalId : undefined,
+        goalId: goalId,
+        noDeadline: true,
+      });
+      existingTasks.push(subTask);
+    }
   }
 
   await UserData.findOneAndUpdate(
     { userId },
-    { data: { ...existingData, goals: existingGoals }, updatedAt: new Date() }
+    { data: { ...existingData, goals: existingGoals, todayTasks: existingTasks }, updatedAt: new Date() }
   );
 
   return createdTitles;
@@ -560,7 +653,7 @@ export function createBot(): Telegraf | null {
       } else if (aiResult.type === "note" && aiResult.notes?.length) {
         savedNames = await saveNotesToUser(user._id.toString(), aiResult.notes);
       } else if (aiResult.type === "goal" && aiResult.goals?.length) {
-        savedNames = await saveGoalsToUser(user._id.toString(), aiResult.goals);
+        savedNames = await saveGoalsToUser(user._id.toString(), aiResult.goals, utcOffset);
       } else {
         throw new Error("ИИ не смог распознать запись. Попробуй ещё раз.");
       }
