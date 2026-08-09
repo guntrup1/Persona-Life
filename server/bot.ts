@@ -81,19 +81,16 @@ function getMainMenuKeyboard() {
   ]).resize();
 }
 
+interface KeyValidationResult {
+  valid: boolean;
+  errorType?: "invalid_credentials" | "oauth_token_unsupported" | "quota_exceeded" | "unknown";
+  rawError?: string;
+}
+
 // ── Validate Gemini API Key ──
-async function validateGeminiApiKey(apiKey: string): Promise<{ valid: boolean; reason?: "telegram_token" | "invalid_format" | "api_rejected" }> {
+async function validateGeminiApiKey(apiKey: string): Promise<KeyValidationResult> {
   const trimmed = apiKey.trim();
-
-  // Detect Telegram link tokens (starts with AQ.)
-  if (trimmed.startsWith("AQ.") || trimmed.startsWith("AQ")) {
-    return { valid: false, reason: "telegram_token" };
-  }
-
-  // Gemini API keys start with AIzaSy
-  if (!trimmed.startsWith("AIzaSy")) {
-    return { valid: false, reason: "invalid_format" };
-  }
+  if (!trimmed) return { valid: false, errorType: "invalid_credentials" };
 
   try {
     const genAI = new GoogleGenerativeAI(trimmed);
@@ -101,13 +98,20 @@ async function validateGeminiApiKey(apiKey: string): Promise<{ valid: boolean; r
     await model.generateContent("ping");
     return { valid: true };
   } catch (err: any) {
-    console.error("[bot] API key validation ping error:", err);
     const errMsg = err?.message || String(err || "");
-    // If Google returned a rate limit error (429/Quota), the key format IS valid
-    if (errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("Quota")) {
+    console.error("[validateGeminiApiKey] Error testing key:", errMsg);
+
+    if (errMsg.includes("ACCESS_TOKEN_TYPE_UNSUPPORTED") || errMsg.includes("OAuth 2") || errMsg.includes("access token")) {
+      return { valid: false, errorType: "oauth_token_unsupported", rawError: errMsg };
+    }
+    if (errMsg.includes("401") || errMsg.includes("API_KEY_INVALID") || errMsg.includes("invalid authentication")) {
+      return { valid: false, errorType: "invalid_credentials", rawError: errMsg };
+    }
+    if (errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED")) {
+      // Key is actually valid, but rate limited on test ping!
       return { valid: true };
     }
-    return { valid: false, reason: "api_rejected" };
+    return { valid: false, errorType: "unknown", rawError: errMsg };
   }
 }
 
@@ -1373,21 +1377,26 @@ export function createBot(): Telegraf | null {
 
     const state = userState.get(ctx.from.id);
 
-    // Handle Gemini API Key Input (if awaitingKeyInput OR text matches API Key structure AIzaSy...)
-    if (state?.awaitingKeyInput || txt.startsWith("AIzaSy") || (txt.length >= 35 && txt.length <= 45 && !txt.includes(" "))) {
+    // Handle Gemini API Key Input (if awaitingKeyInput OR text matches API Key structure)
+    const looksLikeKey =
+      txt.startsWith("AIzaSy") ||
+      txt.startsWith("AQ.") ||
+      (txt.length >= 30 && txt.length <= 90 && !txt.includes(" ") && !txt.startsWith("/"));
+
+    if (state?.awaitingKeyInput || looksLikeKey) {
       const user = await User.findOne({ telegramId: String(ctx.from.id) });
       if (!user) {
         return ctx.reply("🔗 Сначала привяжи аккаунт Trade Persona.", getMainMenuKeyboard());
       }
 
-      const testingMsg = await ctx.reply("🔄 *Проверяю API ключ...*", { parse_mode: "Markdown" });
+      const testingMsg = await ctx.reply("🔄 *Проверяю API ключ в Google AI Studio...*", { parse_mode: "Markdown" });
 
-      const res = await validateGeminiApiKey(txt);
+      const check = await validateGeminiApiKey(txt);
       try {
         await ctx.telegram.deleteMessage(ctx.chat.id, testingMsg.message_id);
       } catch {}
 
-      if (res.valid) {
+      if (check.valid) {
         await User.findByIdAndUpdate(user._id, { geminiApiKey: txt });
         await UserSettings.findOneAndUpdate({ userId: user._id }, { geminiApiKey: txt }, { upsert: true });
 
@@ -1398,30 +1407,31 @@ export function createBot(): Telegraf | null {
           `Теперь твои голосовые сообщения будут обрабатываться через твой личный бесплатный API ключ.`,
           { parse_mode: "Markdown", ...getMainMenuKeyboard() }
         );
-      } else if (res.reason === "telegram_token") {
+      } else if (check.errorType === "oauth_token_unsupported") {
         return ctx.reply(
-          `⚠️ *Это одноразовый код привязки Telegram (\`AQ.Ab8...\`), а не Gemini API Ключ!*\n\n` +
-          `Твой Telegram аккаунт уже привязан к Trade Persona.\n\n` +
-          `Сейчас бот просит ввести **Google Gemini API Ключ** (он бесплатно создаётся на сайте Google AI Studio и всегда начинается на \`AIzaSy...\`).\n\n` +
-          `Нажми кнопку ниже для инструкции или перехода на сайт Google:`,
+          `⚠️ *Ошибка формата ключа (Service Token)*\n\n` +
+          `Ты сгенерировал Service Token из Google Cloud Console (начинается на \`AQ...\`), а не API Ключ для Google AI Studio.\n\n` +
+          `👉 *Как получить правильный Gemini API Ключ:*\n` +
+          `1. Перейди на официальный сайт: https://aistudio.google.com/app/apikey\n` +
+          `2. Нажми кнопку *«Create API key»*\n` +
+          `3. Скопируй сгенерированный ключ — он начинается на \`AIzaSy...\`!\n` +
+          `4. Отправь скопированный ключ прямо в этот чат.`,
           {
             parse_mode: "Markdown",
             ...Markup.inlineKeyboard([
               [Markup.button.url("🌐 Открыть Google AI Studio", "https://aistudio.google.com/app/apikey")],
-              [Markup.button.callback("🔑 Инструкция: Как получить ключ", "key_help")],
+              [Markup.button.callback("🔑 Инструкция", "key_help")],
             ]),
           }
         );
       } else {
         return ctx.reply(
-          `❌ *Введённый текст не является API ключом Gemini.*\n\n` +
-          `Убедись, что скопировал ключ с сайта Google AI Studio.\n` +
-          `Настоящий API ключ Gemini **всегда начинается на \`AIzaSy...\`** (состоит примерно из 39 символов).\n\n` +
-          `Нажми кнопку ниже, если нужна помощь:`,
+          `❌ *Введённый API ключ недействителен или не работает.*\n\n` +
+          `Убедись, что скопировал ключ с сайта Google AI Studio (начинается на \`AIzaSy...\`) и попробуй ещё раз.\n\n` +
+          `Нажми *«🔑 Инструкция»*, если нужна помощь.`,
           {
             parse_mode: "Markdown",
             ...Markup.inlineKeyboard([
-              [Markup.button.url("🌐 Открыть Google AI Studio", "https://aistudio.google.com/app/apikey")],
               [Markup.button.callback("🔑 Инструкция: Как получить ключ", "key_help")],
             ]),
           }
