@@ -29,6 +29,7 @@ interface BotTaskResult {
   endTime?: string;
   noDeadline?: boolean;
   weekGoalTitle?: string;
+  addToGoogleCalendar?: boolean;
 }
 
 interface BotNoteResult {
@@ -367,6 +368,7 @@ ${goalsContext}
 - endTime: HH:MM (если есть startTime и нет endTime → +1 час)
 - noDeadline: true если нет конкретного времени начала
 - weekGoalTitle: название существующей или новой недельной цели (УКАЗЫВАЙ ТОЛЬКО при явной прямой связи! Для обычных бытовых дел НЕ УКАЗЫВАЙ!)
+- addToGoogleCalendar: true | false (⚠️ ВАЖНО: ставь true ТОЛЬКО ЕСЛИ пользователь прямо в голосовом сообщении озвучил просьбу внести/добавить/напомнить задачу в Календарь (например: "добавь в календарь", "занеси в гугл календарь", "поставь в календарь", "напомни в календаре"). Во всех остальных случаях ставь false!).
 
 ФОРМАТ:
 {
@@ -381,7 +383,8 @@ ${goalsContext}
       "startTime": "HH:MM",
       "endTime": "HH:MM",
       "noDeadline": true,
-      "weekGoalTitle": "..."
+      "weekGoalTitle": "...",
+      "addToGoogleCalendar": false
     }
   ]
 }`;
@@ -632,14 +635,16 @@ async function saveTasksToUser(userId: string, tasks: BotTaskResult[]): Promise<
       weekGoalId: matchedWeekGoalId,
       goalId: matchedWeekGoalId,
     });
-    // Attempt background sync to Google Calendar if user connected
-    try {
-      const gEventId = await syncTaskToGoogleCalendar(userId, newTask);
-      if (gEventId) {
-        newTask.googleCalendarEventId = gEventId;
+    // Attempt background sync to Google Calendar ONLY if user requested it via voice
+    if (task.addToGoogleCalendar) {
+      try {
+        const gEventId = await syncTaskToGoogleCalendar(userId, newTask);
+        if (gEventId) {
+          newTask.googleCalendarEventId = gEventId;
+        }
+      } catch (gErr) {
+        console.error("[bot] Google Calendar task sync error:", gErr);
       }
-    } catch (gErr) {
-      console.error("[bot] Google Calendar task sync error:", gErr);
     }
 
     existingTasks.push(newTask);

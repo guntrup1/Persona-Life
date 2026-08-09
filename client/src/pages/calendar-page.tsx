@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useI18n } from "@/lib/i18n";
 import { useStore, LIFE_AREAS, LIFE_AREA_COLORS, type LifeArea, type TaskDifficulty, xpForDifficulty, type TodayTask } from "@/lib/store";
 import { Card } from "@/components/ui/card";
@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { ChevronLeft, ChevronRight, Plus, Hourglass, CheckCircle, Circle, ArrowUpCircle, ArrowDownCircle, MinusCircle, FileText, CandlestickChart, Edit2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Hourglass, CheckCircle, Circle, ArrowUpCircle, ArrowDownCircle, MinusCircle, FileText, CandlestickChart, Edit2, CalendarDays } from "lucide-react";
 import { getTodayDate } from "@/lib/store";
 
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
@@ -50,6 +50,41 @@ export default function CalendarPage() {
   const [endTime, setEndTime] = useState("10:00");
 
   const [editingTask, setEditingTask] = useState<TodayTask | null>(null);
+
+  const [googleReminderMinutes, setGoogleReminderMinutes] = useState<number>(30);
+  const [googleConnected, setGoogleConnected] = useState<boolean>(false);
+
+  useEffect(() => {
+    fetch("/api/user/settings", { credentials: "include" })
+      .then(r => r.json())
+      .then(data => {
+        if (data.settings?.googleReminderMinutes !== undefined) {
+          setGoogleReminderMinutes(data.settings.googleReminderMinutes);
+        }
+      })
+      .catch(() => {});
+
+    fetch("/api/auth/google/status", { credentials: "include" })
+      .then(r => r.json())
+      .then(data => {
+        if (data?.connected) {
+          setGoogleConnected(true);
+          // Automatic 2-way sync when viewing calendar page
+          fetch("/api/calendar/full-sync", { method: "POST", credentials: "include" }).catch(() => {});
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleReminderChange = (minutes: number) => {
+    setGoogleReminderMinutes(minutes);
+    fetch("/api/user/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ googleReminderMinutes: minutes }),
+    }).catch(() => {});
+  };
 
   const todayStr = getTodayDate();
   const daysInMonth = getDaysInMonth(currentYear, currentMonth);
@@ -523,6 +558,41 @@ export default function CalendarPage() {
                 </div>
               </div>
             </Card>
+
+            {/* Google Calendar Reminder Settings Panel */}
+            {googleConnected && (
+              <Card className="p-3 border-card-border rounded-2xl space-y-2">
+                <div className="flex items-center gap-2 mb-1">
+                  <CalendarDays className="w-4 h-4 text-primary" />
+                  <span className="font-display text-xs font-bold uppercase tracking-wider">
+                    {lang === "ru" ? "Google Напоминания" : "Google Reminders"}
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  {lang === "ru"
+                    ? "Укажите время отправки всплывающего уведомления в Google Календаре:"
+                    : "Specify popup notification time in Google Calendar:"}
+                </p>
+                <Select
+                  value={String(googleReminderMinutes)}
+                  onValueChange={v => handleReminderChange(Number(v))}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="15">⏱️ За 15 минут</SelectItem>
+                    <SelectItem value="30">⏱️ За 30 минут (по умолчанию)</SelectItem>
+                    <SelectItem value="60">⌛ За 1 час</SelectItem>
+                    <SelectItem value="120">⌛ За 2 часа</SelectItem>
+                    <SelectItem value="180">⌛ За 3 часа</SelectItem>
+                    <SelectItem value="720">🌙 За 12 часов</SelectItem>
+                    <SelectItem value="1440">📅 За 1 день</SelectItem>
+                    <SelectItem value="2880">📅 За 2 дня</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Card>
+            )}
           </div>
         </div>
       </div>

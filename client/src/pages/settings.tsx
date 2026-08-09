@@ -506,56 +506,18 @@ export default function SettingsPage() {
             </p>
 
             {googleCalendarConnected ? (
-              <div className="space-y-3 mt-1 pt-2 border-t border-border/50">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-emerald-400 font-medium">
-                    {lang === "ru" ? "✅ Календарь подключен" : "✅ Calendar connected"}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-[10px] uppercase tracking-wider"
-                    onClick={handleGoogleDisconnect}
-                    disabled={googleCalLoading}
-                  >
-                    {lang === "ru" ? "Отключить" : "Disconnect"}
-                  </Button>
-                </div>
-
-                {/* Шаблон напоминания по умолчанию */}
-                <div className="space-y-1">
-                  <span className="text-xs text-muted-foreground font-display font-medium">
-                    {lang === "ru" ? "🔔 Время напоминания в Google Календаре:" : "🔔 Google Calendar Reminder Time:"}
-                  </span>
-                  <Select
-                    value={String(settings.googleReminderMinutes ?? 30)}
-                    onValueChange={v => set("googleReminderMinutes", Number(v))}
-                  >
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="15">⏱️ За 15 минут</SelectItem>
-                      <SelectItem value="30">⏱️ За 30 минут (по умолчанию)</SelectItem>
-                      <SelectItem value="60">⌛ За 1 час</SelectItem>
-                      <SelectItem value="120">⌛ За 2 часа</SelectItem>
-                      <SelectItem value="180">⌛ За 3 часа</SelectItem>
-                      <SelectItem value="720">🌙 За 12 часов</SelectItem>
-                      <SelectItem value="1440">📅 За 1 день</SelectItem>
-                      <SelectItem value="2880">📅 За 2 дня</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Ручная двусторонняя синхронизация */}
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-xs text-emerald-400 font-medium">
+                  {lang === "ru" ? "✅ Календарь подключен" : "✅ Calendar connected"}
+                </span>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full h-8 text-xs font-display uppercase tracking-wider gap-1.5"
-                  onClick={handleFullSync}
+                  className="h-7 text-[10px] uppercase tracking-wider"
+                  onClick={handleGoogleDisconnect}
                   disabled={googleCalLoading}
                 >
-                  🔄 {lang === "ru" ? "Запустить двустороннюю синхронизацию" : "Run 2-Way Sync"}
+                  {lang === "ru" ? "Отключить" : "Disconnect"}
                 </Button>
               </div>
             ) : (

@@ -119,6 +119,20 @@ app.use((req, res, next) => {
   // ── Start Telegram bot ──
   startBot().catch(err => console.error("[bot] Start error:", err));
 
+  // ── Auto 2-way Google Calendar sync every 5 minutes ──
+  const { pullAndSyncGoogleCalendar } = await import("./google-calendar");
+  const { User } = await import("./mongodb");
+  setInterval(async () => {
+    try {
+      const connectedUsers = await User.find({ googleCalendarConnected: true, googleRefreshToken: { $ne: null } }).select("_id").lean();
+      for (const u of connectedUsers) {
+        pullAndSyncGoogleCalendar(u._id.toString()).catch(() => {});
+      }
+    } catch (e) {
+      console.error("[auto-sync] Google Calendar cron error:", e);
+    }
+  }, 5 * 60 * 1000); // every 5 minutes
+
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";

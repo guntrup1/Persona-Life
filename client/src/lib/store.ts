@@ -125,6 +125,7 @@ export interface TodayTask {
   noDeadline?: boolean;
   completedAt?: string;
   googleCalendarEventId?: string;
+  addToGoogleCalendar?: boolean;
 }
 
 export interface PlanItem {
@@ -1197,7 +1198,27 @@ export function useStore() {
     }, []),
 
     addTodayTask: useCallback((task: Omit<TodayTask, "id" | "completed">) => {
-      mutate(s => ({ ...s, todayTasks: [...s.todayTasks, { ...task, id: crypto.randomUUID(), completed: false }] }));
+      const newTask: TodayTask = { ...task, id: crypto.randomUUID(), completed: false };
+      mutate(s => ({ ...s, todayTasks: [...s.todayTasks, newTask] }));
+
+      if (newTask.addToGoogleCalendar) {
+        fetch("/api/calendar/sync-task", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ task: newTask }),
+        })
+          .then(r => r.json())
+          .then(res => {
+            if (res.googleCalendarEventId) {
+              mutate(s => ({
+                ...s,
+                todayTasks: s.todayTasks.map(t => t.id === newTask.id ? { ...t, googleCalendarEventId: res.googleCalendarEventId } : t),
+              }));
+            }
+          })
+          .catch(() => {});
+      }
     }, []),
 
     scheduleTaskToDay: useCallback((taskId: string, targetDate: string) => {
@@ -1208,7 +1229,19 @@ export function useStore() {
     }, []),
 
     updateTask: useCallback((id: string, updates: Partial<TodayTask>) => {
-      mutate(s => ({ ...s, todayTasks: s.todayTasks.map(t => t.id === id ? { ...t, ...updates } : t) }));
+      mutate(s => {
+        const updatedTasks = s.todayTasks.map(t => t.id === id ? { ...t, ...updates } : t);
+        const targetTask = updatedTasks.find(t => t.id === id);
+        if (targetTask && (targetTask.googleCalendarEventId || targetTask.addToGoogleCalendar)) {
+          fetch("/api/calendar/sync-task", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ task: targetTask }),
+          }).catch(() => {});
+        }
+        return { ...s, todayTasks: updatedTasks };
+      });
     }, []),
 
     toggleTask: useCallback((id: string) => {
@@ -1223,7 +1256,18 @@ export function useStore() {
     }, []),
 
     deleteTask: useCallback((id: string) => {
-      mutate(s => ({ ...s, todayTasks: s.todayTasks.filter(t => t.id !== id), _deletedIds: [...(s._deletedIds || []), id].slice(-200) }));
+      mutate(s => {
+        const targetTask = s.todayTasks.find(t => t.id === id);
+        if (targetTask?.googleCalendarEventId) {
+          fetch("/api/calendar/delete-event", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ googleCalendarEventId: targetTask.googleCalendarEventId }),
+          }).catch(() => {});
+        }
+        return { ...s, todayTasks: s.todayTasks.filter(t => t.id !== id), _deletedIds: [...(s._deletedIds || []), id].slice(-200) };
+      });
     }, []),
 
     clearTodayTasks: useCallback(() => {

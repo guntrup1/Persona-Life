@@ -60,6 +60,7 @@ function AddTaskDialog({ onAdd, taskToEdit, open: externalOpen, onOpenChange }: 
   const [endTime, setEndTime] = useState("");
   const [noDeadline, setNoDeadline] = useState(true);
   const [date, setDate] = useState(getTodayDate());
+  const [addToGoogleCalendar, setAddToGoogleCalendar] = useState(false);
 
   const { state } = useStore();
   const { t } = useI18n();
@@ -77,6 +78,7 @@ function AddTaskDialog({ onAdd, taskToEdit, open: externalOpen, onOpenChange }: 
       setEndTime(taskToEdit.endTime || "");
       setNoDeadline(taskToEdit.noDeadline ?? !taskToEdit.startTime);
       setDate(taskToEdit.date || getTodayDate());
+      setAddToGoogleCalendar(!!taskToEdit.googleCalendarEventId || !!taskToEdit.addToGoogleCalendar);
     } else if (!taskToEdit && open) {
       setName("");
       setDescription("");
@@ -88,6 +90,7 @@ function AddTaskDialog({ onAdd, taskToEdit, open: externalOpen, onOpenChange }: 
       setEndTime("");
       setNoDeadline(true);
       setDate(getTodayDate());
+      setAddToGoogleCalendar(false);
     }
   }, [taskToEdit, open]);
 
@@ -113,6 +116,7 @@ function AddTaskDialog({ onAdd, taskToEdit, open: externalOpen, onOpenChange }: 
       endTime: noDeadline ? undefined : (endTime || undefined),
       noDeadline,
       date,
+      addToGoogleCalendar,
       type: taskToEdit?.type || "today"
     };
 
@@ -224,6 +228,20 @@ function AddTaskDialog({ onAdd, taskToEdit, open: externalOpen, onOpenChange }: 
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="flex items-center justify-between py-1 border-t border-border/40 pt-2">
+            <div className="space-y-0.5">
+              <Label htmlFor="google-calendar-toggle" className="text-xs font-display flex items-center gap-1.5">
+                📅 Добавить в Google Календарь
+              </Label>
+              <div className="text-[10px] text-muted-foreground">Отправить задачу событием в Google Calendar</div>
+            </div>
+            <Switch
+              id="google-calendar-toggle"
+              checked={addToGoogleCalendar}
+              onCheckedChange={setAddToGoogleCalendar}
+            />
           </div>
 
           <div className="flex items-center justify-between py-1">
