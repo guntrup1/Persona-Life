@@ -841,11 +841,6 @@ export function createBot(): Telegraf | null {
     return null;
   }
 
-  if (!process.env.GEMINI_API_KEY) {
-    console.log("[bot] GEMINI_API_KEY not set, skipping bot initialization");
-    return null;
-  }
-
   const bot = new Telegraf(token);
 
   // Set command menu in Telegram
