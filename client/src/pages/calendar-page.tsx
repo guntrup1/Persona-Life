@@ -508,19 +508,21 @@ export default function CalendarPage() {
                           </Select>
                         </div>
 
-                        <div className="flex items-center justify-between py-1 border-t border-border/40 pt-2">
-                          <div className="space-y-0.5">
-                            <Label htmlFor="calendar-google-toggle" className="text-xs font-display flex items-center gap-1.5">
-                              📅 Добавить в Google Календарь
-                            </Label>
-                            <div className="text-[10px] text-muted-foreground">Отправить событием в ваш Google Calendar</div>
+                        {googleConnected && (
+                          <div className="flex items-center justify-between py-1 border-t border-border/40 pt-2">
+                            <div className="space-y-0.5">
+                              <Label htmlFor="calendar-google-toggle" className="text-xs font-display flex items-center gap-1.5">
+                                📅 Добавить в Google Календарь
+                              </Label>
+                              <div className="text-[10px] text-muted-foreground">Отправить событием в ваш Google Calendar</div>
+                            </div>
+                            <Switch
+                              id="calendar-google-toggle"
+                              checked={addToGoogleCalendar}
+                              onCheckedChange={setAddToGoogleCalendar}
+                            />
                           </div>
-                          <Switch
-                            id="calendar-google-toggle"
-                            checked={addToGoogleCalendar}
-                            onCheckedChange={setAddToGoogleCalendar}
-                          />
-                        </div>
+                        )}
 
                         <div className="space-y-3">
                           <div className="flex items-center justify-between">

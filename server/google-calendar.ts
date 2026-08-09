@@ -102,19 +102,33 @@ export async function syncTaskToGoogleCalendar(
     const accessToken = await getAccessTokenFromRefresh(user.googleRefreshToken);
     const calendarId = user.googleCalendarId || "primary";
 
+    // Fetch user utcOffset to construct exact localized ISO string
+    const { UserSettings } = await import("./mongodb");
+    const userSettings = await UserSettings.findOne({ userId });
+    const utcOffset = userSettings?.utcOffset ?? 2;
+
+    const sign = utcOffset >= 0 ? "+" : "-";
+    const absOffset = Math.abs(utcOffset);
+    const offsetHours = String(Math.floor(absOffset)).padStart(2, "0");
+    const offsetMins = String(Math.round((absOffset % 1) * 60)).padStart(2, "0");
+    const offsetStr = `${sign}${offsetHours}:${offsetMins}`;
+
     // Format Start and End times
     let start: any = {};
     let end: any = {};
 
     if (task.date && task.startTime && !task.noDeadline) {
-      const startTimeStr = `${task.date}T${task.startTime}:00`;
-      const endTimeStr = task.endTime ? `${task.date}T${task.endTime}:00` : `${task.date}T${task.startTime}:00`;
-
-      // ISO String format
-      start = { dateTime: new Date(startTimeStr).toISOString() };
-      const endD = new Date(endTimeStr);
-      if (!task.endTime) endD.setHours(endD.getHours() + 1);
-      end = { dateTime: endD.toISOString() };
+      const startIso = `${task.date}T${task.startTime}:00${offsetStr}`;
+      let endIso: string;
+      if (task.endTime) {
+        endIso = `${task.date}T${task.endTime}:00${offsetStr}`;
+      } else {
+        const [h, m] = task.startTime.split(":").map(Number);
+        const endH = String((h + 1) % 24).padStart(2, "0");
+        endIso = `${task.date}T${endH}:${String(m).padStart(2, "0")}:00${offsetStr}`;
+      }
+      start = { dateTime: startIso };
+      end = { dateTime: endIso };
     } else {
       // All day event
       start = { date: task.date || new Date().toISOString().split("T")[0] };
