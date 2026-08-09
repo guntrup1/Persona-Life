@@ -63,7 +63,7 @@ interface AIResponse {
 }
 
 // ── State: track which type the user selected ──
-const userState = new Map<number, { type: RecordType; messageId?: number }>();
+const userState = new Map<number, { type: RecordType; messageId?: number; promptMessageId?: number }>();
 
 // ── Main Menu Keyboard (Persistent Reply Keyboard) ──
 function getMainMenuKeyboard() {
@@ -237,43 +237,35 @@ function buildPrompt(recordType: RecordType, utcOffset = 2): string {
     return `${baseContext}
 ━━━ ТЫ СОЗДАЁШЬ ЗАМЕТКИ И ИДЕИ ━━━
 
-⚠️ ВАЖНО — ОПРЕДЕЛЕНИЕ ТОРГОВЫХ ЗАМЕТОК:
-Если в голосе упоминаются ЛЮБЫЕ трейдинг-термины или ситуации → верни type: "trading_note":
-• Ордерные концепции: order block, OB, FVG, iFVG, fair value gap, CISD, shift, BOS, CHoCH, sweep, imbalance
-• Ценовые уровни/действия: buy, sell, long, short, стоп-лосс, stop-loss, тейк-профит, take-profit, TP, SL
-• Тайм-фреймы: M1, M5, M15, M30, H1, H4, D1, W1, MN или "м15", "м5", "1час", "дневной"
-• Инструменты: GER40, DAX, EUR/USD, XAU, золото, EURUSD, GBP
-• Общее: трейдинг, торговля (если с деталями), маркет стракчер, ликвидность, Premium/Discount
-⚠️ НО: если слово "торговля" использовано в бытовом смысле ("торговля на рынке" = поход на рынок за едой), то это обычная заметка.
+⚠️ ВАЖНО — АНАЛИЗ СМЕШАННЫХ И ТОРГОВЫХ ЗАМЕТОК:
+В одном голосовом сообщении пользователь может озвучить КАК обычную заметку/идею, ТАК И торговую заметку/идею (или несколько тех и других)!
+Твоя задача — разделить их и вернуть ВСЕ обнаруженные записи в соответствующих массивах ("notes" и "trading_notes").
 
-Если торговый контекст НЕ обнаружен, создай обычную ЗАМЕТКУ или ИДЕЮ:
-- noteType: "idea" если это идея/концепция/предложение, "note" если мысль/наблюдение/факт
-- ideaCategory (только для идей): "gift" (подарок), "hobby" (хобби), "study" (интересно изучить), "other"
+• ТОРГОВАЯ ЗАМЕТКА ("trading_notes"):
+  Если упоминаются трейдинг-термины: Order Block (OB), FVG, iFVG, CISD, shift, BOS, CHoCH, sweep, imbalance, buy/sell, long/short, стоп-лосс, тейк-профит, тайм-фреймы (M1, M5, M15, H1, H4, D1), активы (GER40, EUR, XAU, GBP), торговля на бирже.
 
-Для НЕ-ТОРГОВЫХ заметок:
+• ОБЫЧНАЯ ЗАМЕТКА / ИДЕЯ ("notes"):
+  Любые мысли, идеи (подарки, хобби, учеба), заметки, наблюдения не связанные с анализом финансовых рынков.
+
+ФОРМАТ (верни все заполненные массивы, которые есть в голосе):
 {
   "type": "note",
   "notes": [
     {
       "title": "краткий заголовок (3-8 слов)",
-      "content": "развёрнутое содержание, переформулированное чётко",
+      "content": "содержание заметки",
       "noteType": "note" | "idea",
       "ideaCategory": "gift" | "hobby" | "study" | "other"
     }
-  ]
-}
-
-Для ТОРГОВЫХ заметок:
-{
-  "type": "trading_note",
+  ],
   "trading_notes": [
     {
-      "title": "краткий заголовок сетапа/мысли",
-      "text": "полное содержание анализа/наблюдения/идеи",
+      "title": "заголовок сетапа/мысли",
+      "text": "содержание торгового анализа/идеи",
       "asset": "GER40" | "EUR" | "XAU" | "GBP",
-      "timeframe": "M15" | "H1" | "H4" | "D1" | "M5" | "M30" | "W1" (определи из контекста, по умолчанию "H1"),
+      "timeframe": "M15" | "H1" | "H4" | "D1" | "M5" | "M30" | "W1",
       "tag": "мысль" | "идея" | "ошибка",
-      "isTradingIdea": true (если это торговая идея/сетап) | false (если просто наблюдение/ошибка)
+      "isTradingIdea": true (если это сетап/торговая идея) | false (если наблюдение/ошибка)
     }
   ]
 }`;
@@ -640,62 +632,61 @@ async function saveTradingNoteToUser(userId: string, notes: BotTradingNoteResult
 
 // ── Format confirmation message ──
 function formatConfirmation(aiResult: AIResponse): string {
-  if (aiResult.type === "task" && aiResult.tasks?.length) {
+  const parts: string[] = [];
+
+  if (aiResult.tasks?.length) {
     const lines = aiResult.tasks.map((t) => {
-      let line = `  📌 *${t.name}*`;
-      if (t.description) line += `\n     ${t.description}`;
-      line += `\n     📅 ${t.date}`;
+      let line = `📌 *${t.name}*`;
+      if (t.description) line += `\n   ${t.description}`;
+      line += `\n   📅 ${t.date}`;
       if (t.startTime) line += ` | ⏰ ${t.startTime}`;
       if (t.endTime) line += `–${t.endTime}`;
-      line += `\n     📂 ${t.category} | ${t.difficulty === "high" ? "🔴" : t.difficulty === "medium" ? "🟡" : "🟢"} ${t.difficulty}`;
+      line += `\n   📂 ${t.category} | ${t.difficulty === "high" ? "🔴" : t.difficulty === "medium" ? "🟡" : "🟢"} ${t.difficulty}`;
       return line;
     });
-    const header = aiResult.tasks.length === 1 ? "✅ *Задача создана!*" : `✅ *Создано задач: ${aiResult.tasks.length}*`;
-    return `${header}\n\n${lines.join("\n\n")}`;
+    parts.push(`*Задачи (${aiResult.tasks.length}):*\n${lines.join("\n\n")}`);
   }
 
-  if (aiResult.type === "note" && aiResult.notes?.length) {
+  if (aiResult.notes?.length) {
     const lines = aiResult.notes.map(n => {
-      let line = `  📝 *${n.title}*`;
-      if (n.content) line += `\n     ${n.content.slice(0, 120)}${n.content.length > 120 ? "..." : ""}`;
-      line += `\n     ${n.noteType === "idea" ? "💡 Идея" : "📓 Заметка"}`;
+      let line = `📝 *${n.title}*`;
+      if (n.content) line += `\n   ${n.content.slice(0, 120)}${n.content.length > 120 ? "..." : ""}`;
+      line += `\n   ${n.noteType === "idea" ? "💡 Идея" : "📓 Заметка"}`;
       return line;
     });
-    return `✅ *Заметка создана!*\n\n${lines.join("\n\n")}`;
+    parts.push(`*Заметки (${aiResult.notes.length}):*\n${lines.join("\n\n")}`);
   }
 
-  if (aiResult.type === "trading_note" && aiResult.trading_notes?.length) {
+  if (aiResult.trading_notes?.length) {
     const lines = aiResult.trading_notes.map(n => {
-      let line = `  📈 *${n.title}*`;
-      line += `\n     ${n.text.slice(0, 120)}${n.text.length > 120 ? "..." : ""}`;
-      line += `\n     🎯 ${n.asset} | ⏱ ${n.timeframe} | ${n.tag === "ошибка" ? "❌" : n.tag === "идея" ? "💡" : "💭"} ${n.tag}`;
+      let line = `📈 *${n.title}*`;
+      line += `\n   ${n.text.slice(0, 120)}${n.text.length > 120 ? "..." : ""}`;
+      line += `\n   🎯 ${n.asset} | ⏱ ${n.timeframe} | ${n.tag === "ошибка" ? "❌" : n.tag === "идея" ? "💡" : "💭"} ${n.tag}`;
       if (n.isTradingIdea) line += " | ⭐ Торговая идея";
       return line;
     });
-    const header = aiResult.trading_notes.length === 1
-      ? "✅ *Торговая заметка сохранена!*"
-      : `✅ *Сохранено торговых заметок: ${aiResult.trading_notes.length}*`;
-    return `${header}\n\n${lines.join("\n\n")}\n\n_Сохранено в раздел «Торговые заметки»._`;
+    parts.push(`*Торговые заметки (${aiResult.trading_notes.length}):*\n${lines.join("\n\n")}`);
   }
 
-  if (aiResult.type === "goal" && aiResult.goals?.length) {
+  if (aiResult.goals?.length) {
     const lines = aiResult.goals.map(g => {
-      let line = `  🎯 *${g.title}*`;
-      if (g.description) line += `\n     ${g.description.slice(0, 120)}${g.description.length > 120 ? "..." : ""}`;
-      line += `\n     📂 ${g.category} | ⏳ ${g.goalType === "week" ? "Неделя" : g.goalType === "month" ? "Месяц" : "Год"}`;
+      let line = `🎯 *${g.title}*`;
+      if (g.description) line += `\n   ${g.description.slice(0, 120)}${g.description.length > 120 ? "..." : ""}`;
+      line += `\n   📂 ${g.category} | ⏳ ${g.goalType === "week" ? "Неделя" : g.goalType === "month" ? "Месяц" : "Год"}`;
       if (g.plan?.length) {
-        line += `\n     План (${g.plan.length} пунктов):`;
+        line += `\n   План (${g.plan.length} пунктов):`;
         g.plan.slice(0, 4).forEach(p => {
-          line += `\n       ◻️ ${p.text}`;
+          line += `\n     ◻️ ${p.text}`;
         });
-        if (g.plan.length > 4) line += `\n       ...ещё ${g.plan.length - 4}`;
+        if (g.plan.length > 4) line += `\n     ...ещё ${g.plan.length - 4}`;
       }
       return line;
     });
-    return `✅ *Цель создана!*\n\n${lines.join("\n\n")}`;
+    parts.push(`*Цели (${aiResult.goals.length}):*\n${lines.join("\n\n")}`);
   }
 
-  return "✅ Запись сохранена!";
+  if (parts.length === 0) return "✅ Запись сохранена!";
+  return `✅ *Запись сохранена!*\n\n${parts.join("\n\n───────────────────\n\n")}`;
 }
 
 // ── Initialize and export bot ──
@@ -732,16 +723,23 @@ export function createBot(): Telegraf | null {
       );
     }
 
+    const prevState = userState.get(ctx.from.id);
+    if (prevState?.promptMessageId) {
+      ctx.telegram.deleteMessage(ctx.chat.id, prevState.promptMessageId).catch(() => {});
+    }
+
     const keyboard = Markup.inlineKeyboard([
       [Markup.button.callback("✅ Задача", "type_task")],
       [Markup.button.callback("📝 Заметка / Идея", "type_note")],
       [Markup.button.callback("🎯 Цель", "type_goal")],
     ]);
 
-    return ctx.reply(
+    const msg = await ctx.reply(
       "📋 *Что ты хочешь добавить?*\n\nВыбери тип записи кнопкой ниже, а затем отправь голосовое сообщение.",
       { parse_mode: "Markdown", ...keyboard }
     );
+
+    userState.set(ctx.from.id, { type: "task", promptMessageId: msg.message_id });
   };
 
   // ── Helper: Show History ──
@@ -905,7 +903,7 @@ export function createBot(): Telegraf | null {
   // ── Inline callback buttons — set record type ──
   bot.action("type_task", async (ctx) => {
     await ctx.answerCbQuery();
-    userState.set(ctx.from!.id, { type: "task" });
+    userState.set(ctx.from!.id, { type: "task", promptMessageId: ctx.callbackQuery.message?.message_id });
     await ctx.editMessageText(
       "✅ *Задача*\n\n🎙 Отправь голосовое сообщение.\n\n" +
       "Опиши что нужно сделать, когда и в какое время.\n" +
@@ -919,13 +917,13 @@ export function createBot(): Telegraf | null {
 
   bot.action("type_note", async (ctx) => {
     await ctx.answerCbQuery();
-    userState.set(ctx.from!.id, { type: "note" });
+    userState.set(ctx.from!.id, { type: "note", promptMessageId: ctx.callbackQuery.message?.message_id });
     await ctx.editMessageText(
       "📝 *Заметка / Идея*\n\n🎙 Отправь голосовое сообщение.\n\n" +
-      "Расскажи о своей мысли, наблюдении или идее.\n" +
+      "Расскажи о своей мысли, наблюдении, торговом сетапе или идее.\n" +
       "Примеры:\n" +
+      '• _"M15 Order Flow от H4 POI по GER40, входить при снятии ликвидности"_\n' +
       '• _"У меня идея — сделать приложение для..."_\n' +
-      '• _"Заметил что лучше всего работаю утром"_\n' +
       '• _"Подарить маме книгу на день рождения"_',
       { parse_mode: "Markdown" }
     );
@@ -933,7 +931,7 @@ export function createBot(): Telegraf | null {
 
   bot.action("type_goal", async (ctx) => {
     await ctx.answerCbQuery();
-    userState.set(ctx.from!.id, { type: "goal" });
+    userState.set(ctx.from!.id, { type: "goal", promptMessageId: ctx.callbackQuery.message?.message_id });
     await ctx.editMessageText(
       "🎯 *Цель*\n\n🎙 Отправь голосовое сообщение.\n\n" +
       "Опиши свою цель, за какой период и чего хочешь достичь.\n" +
@@ -975,15 +973,24 @@ export function createBot(): Telegraf | null {
 
       let savedNames: string[] = [];
 
-      if (aiResult.type === "task" && aiResult.tasks?.length) {
-        savedNames = await saveTasksToUser(user._id.toString(), aiResult.tasks);
-      } else if (aiResult.type === "note" && aiResult.notes?.length) {
-        savedNames = await saveNotesToUser(user._id.toString(), aiResult.notes);
-      } else if (aiResult.type === "trading_note" && aiResult.trading_notes?.length) {
-        savedNames = await saveTradingNoteToUser(user._id.toString(), aiResult.trading_notes, utcOffset);
-      } else if (aiResult.type === "goal" && aiResult.goals?.length) {
-        savedNames = await saveGoalsToUser(user._id.toString(), aiResult.goals, utcOffset);
-      } else {
+      if (aiResult.tasks?.length) {
+        const tNames = await saveTasksToUser(user._id.toString(), aiResult.tasks);
+        savedNames.push(...tNames);
+      }
+      if (aiResult.notes?.length) {
+        const nNames = await saveNotesToUser(user._id.toString(), aiResult.notes);
+        savedNames.push(...nNames);
+      }
+      if (aiResult.trading_notes?.length) {
+        const trNames = await saveTradingNoteToUser(user._id.toString(), aiResult.trading_notes, utcOffset);
+        savedNames.push(...trNames);
+      }
+      if (aiResult.goals?.length) {
+        const gNames = await saveGoalsToUser(user._id.toString(), aiResult.goals, utcOffset);
+        savedNames.push(...gNames);
+      }
+
+      if (savedNames.length === 0) {
         throw new Error("ИИ не смог распознать запись. Попробуй ещё раз.");
       }
 
@@ -996,11 +1003,17 @@ export function createBot(): Telegraf | null {
         utcOffset,
       });
 
-      userState.delete(ctx.from.id);
-
+      // Auto-clean Telegram Chat: delete intermediate processing & prompt selection messages
       try {
         await ctx.telegram.deleteMessage(ctx.chat.id, processingMsg.message_id);
       } catch {}
+      if (state.promptMessageId) {
+        try {
+          await ctx.telegram.deleteMessage(ctx.chat.id, state.promptMessageId);
+        } catch {}
+      }
+
+      userState.delete(ctx.from.id);
 
       const confirmation = formatConfirmation(aiResult);
       const playbackKb = Markup.inlineKeyboard([

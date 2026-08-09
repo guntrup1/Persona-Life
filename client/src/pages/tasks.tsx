@@ -675,8 +675,8 @@ export default function TasksPage() {
 
   const routineTasks = todayTasks.filter(t => t.type === "routine");
   const regularTasks = todayTasks.filter(t => t.type !== "routine");
-  const unlinkedTasks = regularTasks.filter(t => !t.weekGoalId);
-  const linkedTasks = regularTasks.filter(t => !!t.weekGoalId);
+  const unlinkedTasks = regularTasks.filter(t => !t.weekGoalId || !state.goals.some(g => g.id === t.weekGoalId));
+  const linkedTasks = regularTasks.filter(t => !!t.weekGoalId && state.goals.some(g => g.id === t.weekGoalId));
 
   const goalGroups = linkedTasks.reduce<Record<string, TodayTask[]>>((acc, task) => {
     const gid = task.weekGoalId!;

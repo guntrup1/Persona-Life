@@ -1317,7 +1317,17 @@ export function useStore() {
 
     deleteGoal: useCallback((id: string) => {
       const childIds = globalState.goals.filter(g => g.parentId === id).map(g => g.id);
-      mutate(s => ({ ...s, goals: s.goals.filter(g => g.id !== id && g.parentId !== id), _deletedIds: [...(s._deletedIds || []), id, ...childIds].slice(-200) }));
+      const targetGoalIds = [id, ...childIds];
+      const associatedTaskIds = globalState.todayTasks
+        .filter(t => (t.weekGoalId && targetGoalIds.includes(t.weekGoalId)) || (t.goalId && targetGoalIds.includes(t.goalId)))
+        .map(t => t.id);
+
+      mutate(s => ({
+        ...s,
+        goals: s.goals.filter(g => g.id !== id && g.parentId !== id),
+        todayTasks: s.todayTasks.filter(t => !((t.weekGoalId && targetGoalIds.includes(t.weekGoalId)) || (t.goalId && targetGoalIds.includes(t.goalId)))),
+        _deletedIds: [...(s._deletedIds || []), id, ...childIds, ...associatedTaskIds].slice(-200),
+      }));
     }, []),
 
     addFocusSession: useCallback((session: Omit<FocusSession, "id">) => {

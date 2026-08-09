@@ -448,6 +448,7 @@ export default function NotesPage() {
   const filteredNotes = [...state.tradingNotes]
     .reverse()
     .filter(note => {
+      if (note.isTradingIdea) return false;
       if (filterAsset !== "all" && note.asset !== filterAsset) return false;
       if (filterTag !== "all" && note.tag !== filterTag) return false;
       const dates = getFilterDates();
