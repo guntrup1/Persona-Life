@@ -1010,7 +1010,55 @@ export function createBot(): Telegraf | null {
         ...Markup.inlineKeyboard(inlineButtons),
       });
     }
+
+    // Button to clear voice history
+    const clearKb = Markup.inlineKeyboard([
+      [Markup.button.callback("🗑 Очистить историю ГС", "clear_voice_history")]
+    ]);
+    await ctx.reply("⚙️ *Управление историей:*", { parse_mode: "Markdown", ...clearKb });
   };
+
+  // ── Action: Clear Voice History handlers ──
+  bot.action("clear_voice_history", async (ctx) => {
+    await ctx.answerCbQuery();
+    const text =
+      `🗑 *Удаление истории голосовых записей*\n\n` +
+      `Вы уверены, что хотите полностью очистить историю сохранённых записей в боте?\n\n` +
+      `_Примечание: Голосовые сообщения в чате Telegram останутся, очистится только список сохранённых логов._`;
+
+    const kb = Markup.inlineKeyboard([
+      [
+        Markup.button.callback("✅ Да, очистить", "confirm_clear_history"),
+        Markup.button.callback("❌ Отмена", "cancel_clear_history"),
+      ],
+    ]);
+
+    await ctx.reply(text, { parse_mode: "Markdown", ...kb });
+  });
+
+  bot.action("confirm_clear_history", async (ctx) => {
+    await ctx.answerCbQuery();
+    const user = await User.findOne({ telegramId: String(ctx.from!.id) });
+    if (user) {
+      const userData = await UserData.findOne({ userId: user._id });
+      if (userData) {
+        const existingData = (userData.data as any) || {};
+        await UserData.findOneAndUpdate(
+          { userId: user._id },
+          { data: { ...existingData, botVoiceHistory: [] }, updatedAt: new Date() }
+        );
+      }
+    }
+    await ctx.reply("🗑 *История голосовых записей успешно очищена!*", {
+      parse_mode: "Markdown",
+      ...getMainMenuKeyboard(),
+    });
+  });
+
+  bot.action("cancel_clear_history", async (ctx) => {
+    await ctx.answerCbQuery();
+    await ctx.reply("❌ Очистка истории отменена.", getMainMenuKeyboard());
+  });
 
   // ── Helper: Show API Key Instruction ──
   const showApiKeyInstruction = async (ctx: any) => {
