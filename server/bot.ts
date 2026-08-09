@@ -5,7 +5,7 @@ import { User, UserData } from "./mongodb";
 import crypto from "crypto";
 
 // ── Types ──
-type RecordType = "task" | "note" | "goal";
+type RecordType = "task" | "note" | "goal" | "trading_note";
 
 export interface BotVoiceRecord {
   id: string;
@@ -42,7 +42,16 @@ interface BotGoalResult {
   goalType: "week" | "month" | "year";
   description?: string;
   plan?: Array<{ text: string; done: boolean }>;
-  timeLimitType?: "current_period" | "from_now" | "custom";
+  timeLimitType?: "current_period" | "next_period" | "from_now" | "custom";
+}
+
+interface BotTradingNoteResult {
+  title: string;
+  text: string;
+  asset: "GER40" | "EUR" | "XAU" | "GBP";
+  timeframe: string;
+  tag: "мысль" | "идея" | "ошибка";
+  isTradingIdea: boolean;
 }
 
 interface AIResponse {
@@ -50,6 +59,7 @@ interface AIResponse {
   tasks?: BotTaskResult[];
   notes?: BotNoteResult[];
   goals?: BotGoalResult[];
+  trading_notes?: BotTradingNoteResult[];
 }
 
 // ── State: track which type the user selected ──
@@ -170,37 +180,40 @@ function buildPrompt(recordType: RecordType, utcOffset = 2): string {
   const VALID_CATEGORIES = "Body, Mind, Hard Skills, Soft Skills, Creativity, Mission, Finance";
 
   const baseContext = `
-Ты — ассистент приложения Trade Persona. Анализируешь голосовые сообщения пользователей.
-Текущая дата: ${today}, день недели: ${dayOfWeek}.
-Часовой пояс пользователя: UTC+${utcOffset}.
-Завтрашняя дата: ${tomorrow}.
+Ты — высококвалифицированный ИИ-ассистент приложения Trade Persona.
+Задача: точно анализировать голосовые сообщения и превращать их в структурированные данные.
+Текущая дата: ${today} (${dayOfWeek}). Часовой пояс: UTC+${utcOffset}. Завтра: ${tomorrow}.
 
-ВАЖНЫЕ ПРАВИЛА АНАЛИЗА КОНТЕКСТА:
-- НЕ копируй дословно. Анализируй СМЫСЛ и создавай чёткие, понятные записи.
-- "завтра" = ${tomorrow}
-- "послезавтра" = дата через 2 дня от ${today}
-- "в понедельник" = ближайший понедельник от ${today}
-- "10го числа" (без уточнения месяца) = 10 число текущего месяца, если ещё не прошло; иначе — следующего.
-- Если в сообщении НЕСКОЛЬКО задач/заметок/целей — создай МАССИВ из нескольких элементов.
-- Названия должны быть лаконичными (2-5 слов), описания — информативными.
-- Допустимые категории: ${VALID_CATEGORIES}. Выбери наиболее подходящую по контексту.
+━━━ ПРАВИЛА РАСПОЗНАВАНИЯ ДАТ ━━━
+• "завтра" → ${tomorrow}
+• "послезавтра" → дата +2 дня от ${today}
+• "в понедельник/вторник/..." → ближайший такой день ПОСЛЕ ${today}
+• "на следующей неделе" → понедельник–воскресенье СЛЕДУЮЩЕЙ недели (не +7 дней!)
+• "в следующем месяце" → 1-е–последнее число следующего месяца
+• "10-го числа" (без месяца) → 10-е текущего месяца если не прошло, иначе следующего
+• "на этой неделе" / "в этом месяце" → до конца текущего периода
+• "с этого момента на X дней/недель" → от ${today} + X
 
-ФОРМАТ ОТВЕТА: Строго JSON, без markdown, без \`\`\`, только чистый JSON.
+ФОРМАТ ОТВЕТА: СТРОГО JSON, без markdown, без \`\`\`, только чистый JSON.
 `;
 
   if (recordType === "task") {
     return `${baseContext}
-Пользователь хочет создать ЗАДАЧУ (или несколько задач).
+━━━ ТЫ СОЗДАЁШЬ ЗАДАЧИ ━━━
+Пользователь хочет зафиксировать одно или несколько дел/действий.
 
-Для каждой задачи определи:
-- name: лаконичное название (2-5 слов)
-- description: детальное описание что нужно сделать (если есть контекст)
+Для КАЖДОЙ задачи определи:
+- name: лаконичное название (2-5 слов), начни с глагола действия
+- description: что именно нужно сделать (если есть детали в голосе)
 - category: одна из [${VALID_CATEGORIES}]
-- difficulty: "low" (простое, <30 мин), "medium" (требует усилий, 30мин-2ч), "high" (сложная, >2ч)
-- date: дата в формате YYYY-MM-DD. Если не указана — "${today}"
-- startTime: время начала в формате "HH:MM" (24ч). Если указано "в 9 утра" → "09:00". Если не указано — пропусти
-- endTime: время окончания. Если не указано, но есть startTime — добавь +1 час. Если нет startTime — пропусти
-- noDeadline: true если нет конкретного времени (только startTime и endTime), false если есть
+- difficulty:
+    "low" = простое рутинное дело (<30 мин, не требует усилий)
+    "medium" = требует усилий или внимания (30мин–2ч)
+    "high" = сложная или многоэтапная задача (>2ч или требует подготовки)
+- date: YYYY-MM-DD (если не указано → "${today}")
+- startTime: HH:MM если указано время ("в 9 утра" → "09:00", "после обеда" → "13:00")
+- endTime: HH:MM. Если есть startTime но нет endTime → startTime + 1 час
+- noDeadline: true если нет конкретного времени начала
 
 ФОРМАТ:
 {
@@ -210,11 +223,11 @@ function buildPrompt(recordType: RecordType, utcOffset = 2): string {
       "name": "...",
       "description": "...",
       "category": "...",
-      "difficulty": "...",
+      "difficulty": "low" | "medium" | "high",
       "date": "YYYY-MM-DD",
       "startTime": "HH:MM",
       "endTime": "HH:MM",
-      "noDeadline": false
+      "noDeadline": true
     }
   ]
 }`;
@@ -222,23 +235,45 @@ function buildPrompt(recordType: RecordType, utcOffset = 2): string {
 
   if (recordType === "note") {
     return `${baseContext}
-Пользователь хочет создать ЗАМЕТКУ или ИДЕЮ.
+━━━ ТЫ СОЗДАЁШЬ ЗАМЕТКИ И ИДЕИ ━━━
 
-Определи:
-- title: краткий, ёмкий заголовок (3-8 слов). Для идей начни с "Идея: ..."
-- content: развёрнутое содержание заметки. Не копируй дословно — переформулируй чётко и структурированно
-- noteType: "idea" если это идея/концепция/предложение, "note" если это обычная заметка/мысль/наблюдение
-- ideaCategory: только для идей — "gift" (подарок), "hobby" (хобби/увлечение), "study" (интересно изучить), "other" (другое)
+⚠️ ВАЖНО — ОПРЕДЕЛЕНИЕ ТОРГОВЫХ ЗАМЕТОК:
+Если в голосе упоминаются ЛЮБЫЕ трейдинг-термины или ситуации → верни type: "trading_note":
+• Ордерные концепции: order block, OB, FVG, iFVG, fair value gap, CISD, shift, BOS, CHoCH, sweep, imbalance
+• Ценовые уровни/действия: buy, sell, long, short, стоп-лосс, stop-loss, тейк-профит, take-profit, TP, SL
+• Тайм-фреймы: M1, M5, M15, M30, H1, H4, D1, W1, MN или "м15", "м5", "1час", "дневной"
+• Инструменты: GER40, DAX, EUR/USD, XAU, золото, EURUSD, GBP
+• Общее: трейдинг, торговля (если с деталями), маркет стракчер, ликвидность, Premium/Discount
+⚠️ НО: если слово "торговля" использовано в бытовом смысле ("торговля на рынке" = поход на рынок за едой), то это обычная заметка.
 
-ФОРМАТ:
+Если торговый контекст НЕ обнаружен, создай обычную ЗАМЕТКУ или ИДЕЮ:
+- noteType: "idea" если это идея/концепция/предложение, "note" если мысль/наблюдение/факт
+- ideaCategory (только для идей): "gift" (подарок), "hobby" (хобби), "study" (интересно изучить), "other"
+
+Для НЕ-ТОРГОВЫХ заметок:
 {
   "type": "note",
   "notes": [
     {
-      "title": "...",
-      "content": "...",
+      "title": "краткий заголовок (3-8 слов)",
+      "content": "развёрнутое содержание, переформулированное чётко",
       "noteType": "note" | "idea",
       "ideaCategory": "gift" | "hobby" | "study" | "other"
+    }
+  ]
+}
+
+Для ТОРГОВЫХ заметок:
+{
+  "type": "trading_note",
+  "trading_notes": [
+    {
+      "title": "краткий заголовок сетапа/мысли",
+      "text": "полное содержание анализа/наблюдения/идеи",
+      "asset": "GER40" | "EUR" | "XAU" | "GBP",
+      "timeframe": "M15" | "H1" | "H4" | "D1" | "M5" | "M30" | "W1" (определи из контекста, по умолчанию "H1"),
+      "tag": "мысль" | "идея" | "ошибка",
+      "isTradingIdea": true (если это торговая идея/сетап) | false (если просто наблюдение/ошибка)
     }
   ]
 }`;
@@ -246,26 +281,50 @@ function buildPrompt(recordType: RecordType, utcOffset = 2): string {
 
   // goal
   return `${baseContext}
-Пользователь хочет создать ЦЕЛЬ.
+━━━ ТЫ СОЗДАЁШЬ ЦЕЛИ ━━━
 
-ВНИМАТЕЛЬНО ИЗУЧИ КОНТЕКСТ ДЛЯ ВРЕМЕННЫХ ГРАНИЦ И ПОДЗАДАЧ:
+📏 АНАЛИЗ МАСШТАБА — КЛЮЧЕВОЙ ШАГ:
+Прежде чем создавать цели, оцени МАСШТАБ и ПРИРОДУ каждого элемента из голоса:
 
-1. ОПРЕДЕЛЕНИЕ ПЕРИОДА (timeLimitType):
-   - "current_period" (ПО УМОЛЧАНИЮ) — если пользователь говорит "на этой неделе", "в этом месяце", "за этот год" или не уточняет временные рамки.
-   - "next_period" — если пользователь говорит "на следующей неделе", "в следующем месяце", "в следующем году".
-   - "from_now" — если пользователь говорит "с этого момента на неделю", "на 7 дней от сегодня", "на месяц с сегодняшнего дня".
+▶ ОДНА УКРУПНЁННАЯ ЦЕЛЬ (группируй несколько пунктов в одну цель):
+  — Когда несколько дел объединяет одна ТЕМА (напр: "заняться документами", "сходить в банк", "позвонить врачу" → одна цель "Решить бытовые вопросы" с подпунктами)
+  — Когда дела похожи по масштабу и относятся к одной жизненной сфере
+  — Признак: дела звучат как пункты одного списка, а не самостоятельные направления
 
-2. СТРОГОЕ ПРАВИЛО ДЛЯ ПОДЗАДАЧ (plan):
-   - НЕ ПРИДУМЫВАЙ и НЕ ГЕНЕРИРУЙ ФЕЙКОВЫЕ ПОДЗАДАЧИ ОТ СЕБЯ!
-   - Если пользователь в своём голосе ЯВНО озвучил конкретные шаги/подзадачи (например: "моя цель сделать сайт, для этого сначала нарисовать макет, потом сверстать") — только тогда внеси их в массив plan: [{text: "...", done: false}].
-   - Если пользователь НЕ озвучил конкретные шаги — верни ПУСТОЙ МАССИВ plan: []. НЕ ДОДУМЫВАЙ ИХ!
+▶ ОТДЕЛЬНАЯ ЦЕЛЬ (создавай отдельную):
+  — Когда дело САМО ПО СЕБЕ масштабное, многоуровневое, требует длительной работы (напр: "изучить Python", "запустить бизнес", "выстроить режим питания")
+  — Когда дело в совершенно разных сферах жизни и не связаны между собой
+  — Признак: достижение требует нескольких дней работы, планирования, подготовки
 
-Определи:
-- title: чёткая формулировка цели (3-10 слов)
+▶ ПОДПУНКТЫ ЦЕЛИ (plan) — добавляй ТОЛЬКО если:
+  1. Пользователь ЯВНО назвал конкретные шаги в голосе
+  2. ИЛИ: цель сформирована через группировку нескольких дел — тогда эти дела становятся подпунктами
+  — НИКОГДА не придумывай подпункты от себя, если они не упомянуты в голосе!
+  — Если шаги не названы явно и цель не составная — верни plan: []
+
+ПРИМЕРЫ ПРАВИЛЬНОГО ОПРЕДЕЛЕНИЯ:
+✅ "Разобраться с Deutschlandticket, переоформить карту Sparkasse, сходить к врачу" →
+   ОДНА цель "Решить организационные вопросы" [Finance/Mind] с подпунктами: [Deutschlandticket, карта Sparkasse, врач]
+✅ "Разобраться с питанием" (без деталей) →
+   ОДНА цель "Разобраться с питанием" [Body], plan: [] (нет явных шагов)
+✅ "Сходить с девушкой в кино" (без уточнения фильма) →
+   ОДНА цель "Сходить в кино" [Soft Skills], plan: [{text: "Выбрать фильм и сеанс", done: false}]
+   (Этот подпункт очевиден из контекста — без выбора фильма цель невозможна)
+✅ "Сходить к врачу, купить билет на концерт, сделать тренировку" →
+   Это 3 ОТДЕЛЬНЫЕ задачи, а НЕ цели — они разовые дела, не требуют недельной работы.
+   → Сообщи: эти пункты больше похожи на ЗАДАЧИ, а не цели. Всё равно создай их как цели если пользователь выбрал тип "goal".
+
+━━━ ВРЕМЕННЫЕ ГРАНИЦЫ ━━━
+- "current_period" (по умолчанию) — "на этой неделе", "в этом месяце", без уточнения
+- "next_period" — "на следующей неделе", "в следующем месяце", "в следующем году"
+- "from_now" — "с этого момента на X дней", "на неделю от сегодня"
+
+Определи для КАЖДОЙ ЦЕЛИ:
+- title: чёткая формулировка (3-10 слов)
 - category: одна из [${VALID_CATEGORIES}]
-- goalType: "week" | "month" | "year"
-- description: детальное описание цели и контекста
-- plan: массив подзадач [{text: "...", done: false}] (ТОЛЬКО ЕСЛИ ЯВНО СКАЗАНЫ В ГОЛОСЕ, ИНАЧЕ [])
+- goalType: "week" | "month" | "year" (по масштабу и времени)
+- description: детальное описание цели и ожидаемого результата
+- plan: [{text, done}] (ТОЛЬКО явно названные шаги ИЛИ пункты составной цели, иначе [])
 - timeLimitType: "current_period" | "next_period" | "from_now"
 
 ФОРМАТ:
@@ -532,10 +591,57 @@ async function saveGoalsToUser(userId: string, goals: BotGoalResult[], utcOffset
   return createdTitles;
 }
 
+// ── Save Trading Note to MongoDB ──
+async function saveTradingNoteToUser(userId: string, notes: BotTradingNoteResult[], utcOffset = 2): Promise<string[]> {
+  const userData = await UserData.findOne({ userId });
+  if (!userData) throw new Error("UserData not found");
+
+  const existingData = (userData.data as any) || {};
+  const existingNotes = Array.isArray(existingData.tradingNotes) ? existingData.tradingNotes : [];
+  const createdTitles: string[] = [];
+  const now = new Date();
+  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+  const local = new Date(utc + utcOffset * 3600000);
+  const todayStr = getTodayDate(utcOffset);
+  const timeStr = `${String(local.getHours()).padStart(2, "0")}:${String(local.getMinutes()).padStart(2, "0")}`;
+
+  for (const note of notes) {
+    // Normalize asset — default to GER40 if unrecognized
+    const validAssets = ["GER40", "EUR", "XAU", "GBP"];
+    const asset = validAssets.includes(note.asset) ? note.asset : "GER40";
+    // Normalize tag
+    const validTags = ["мысль", "идея", "ошибка"];
+    const tag = validTags.includes(note.tag) ? note.tag : "мысль";
+
+    const newNote = sanitizeMongoInput({
+      id: crypto.randomUUID(),
+      title: note.title || "Торговая заметка",
+      time: timeStr,
+      asset,
+      timeframe: note.timeframe || "H1",
+      tag,
+      text: note.text || "",
+      date: todayStr,
+      createdAt: now.toISOString(),
+      isTradingIdea: !!note.isTradingIdea,
+      tradingIdeaDone: false,
+    });
+    existingNotes.push(newNote);
+    createdTitles.push(note.title || "Торговая заметка");
+  }
+
+  await UserData.findOneAndUpdate(
+    { userId },
+    { data: { ...existingData, tradingNotes: existingNotes }, updatedAt: new Date() }
+  );
+
+  return createdTitles;
+}
+
 // ── Format confirmation message ──
 function formatConfirmation(aiResult: AIResponse): string {
   if (aiResult.type === "task" && aiResult.tasks?.length) {
-    const lines = aiResult.tasks.map((t, i) => {
+    const lines = aiResult.tasks.map((t) => {
       let line = `  📌 *${t.name}*`;
       if (t.description) line += `\n     ${t.description}`;
       line += `\n     📅 ${t.date}`;
@@ -556,6 +662,20 @@ function formatConfirmation(aiResult: AIResponse): string {
       return line;
     });
     return `✅ *Заметка создана!*\n\n${lines.join("\n\n")}`;
+  }
+
+  if (aiResult.type === "trading_note" && aiResult.trading_notes?.length) {
+    const lines = aiResult.trading_notes.map(n => {
+      let line = `  📈 *${n.title}*`;
+      line += `\n     ${n.text.slice(0, 120)}${n.text.length > 120 ? "..." : ""}`;
+      line += `\n     🎯 ${n.asset} | ⏱ ${n.timeframe} | ${n.tag === "ошибка" ? "❌" : n.tag === "идея" ? "💡" : "💭"} ${n.tag}`;
+      if (n.isTradingIdea) line += " | ⭐ Торговая идея";
+      return line;
+    });
+    const header = aiResult.trading_notes.length === 1
+      ? "✅ *Торговая заметка сохранена!*"
+      : `✅ *Сохранено торговых заметок: ${aiResult.trading_notes.length}*`;
+    return `${header}\n\n${lines.join("\n\n")}\n\n_Сохранено в раздел «Торговые заметки»._`;
   }
 
   if (aiResult.type === "goal" && aiResult.goals?.length) {
@@ -661,6 +781,7 @@ export function createBot(): Telegraf | null {
       task: "📌 Задача",
       note: "📝 Заметка",
       goal: "🎯 Цель",
+      trading_note: "📈 Торговая заметка",
     };
 
     for (const [date, records] of Object.entries(grouped)) {
@@ -858,6 +979,8 @@ export function createBot(): Telegraf | null {
         savedNames = await saveTasksToUser(user._id.toString(), aiResult.tasks);
       } else if (aiResult.type === "note" && aiResult.notes?.length) {
         savedNames = await saveNotesToUser(user._id.toString(), aiResult.notes);
+      } else if (aiResult.type === "trading_note" && aiResult.trading_notes?.length) {
+        savedNames = await saveTradingNoteToUser(user._id.toString(), aiResult.trading_notes, utcOffset);
       } else if (aiResult.type === "goal" && aiResult.goals?.length) {
         savedNames = await saveGoalsToUser(user._id.toString(), aiResult.goals, utcOffset);
       } else {
