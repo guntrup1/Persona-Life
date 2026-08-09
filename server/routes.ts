@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { registerAuthRoutes } from "./auth";
+import { registerTelegramRoutes } from "./telegram-auth";
 
 interface NewsItem {
   title: string;
@@ -282,7 +283,7 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   registerAuthRoutes(app);
-
+  registerTelegramRoutes(app);
 
 
 

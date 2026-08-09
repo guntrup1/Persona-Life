@@ -7,6 +7,7 @@ import { connectMongoDB } from "./mongodb";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import mongoSanitize from "express-mongo-sanitize";
+import { startBot } from "./bot";
 
 const app = express();
 const httpServer = createServer(app);
@@ -114,6 +115,9 @@ app.use((req, res, next) => {
   app.set("trust proxy", 1);
   setupAuth(app);
   await registerRoutes(httpServer, app);
+
+  // ── Start Telegram bot ──
+  startBot().catch(err => console.error("[bot] Start error:", err));
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

@@ -23,6 +23,9 @@ const userSchema = new mongoose.Schema({
   isVerified: { type: Boolean, default: false },
   verifyToken: { type: String, default: null, index: true},
   verifyTokenExpires: { type: Date, default: null },
+  telegramId: { type: String, default: null, unique: true, sparse: true },
+  telegramLinkToken: { type: String, default: null },
+  telegramLinkExpires: { type: Date, default: null },
 }, { timestamps: true });
 
 const userDataSchema = new mongoose.Schema({
