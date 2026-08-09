@@ -780,7 +780,7 @@ export default function TasksPage() {
 
                 {Object.keys(goalGroups).length > 0 && Object.entries(goalGroups).map(([goalId, tasks]) => {
                   const goal = state.goals.find(g => g.id === goalId);
-                  const isCollapsed = collapsedGoals[goalId];
+                  const isCollapsed = collapsedGoals[goalId] ?? true;
                   const completedCount = tasks.filter(t => t.completed).length;
                   return (
                     <div key={goalId}>

@@ -248,13 +248,25 @@ function buildPrompt(recordType: RecordType, utcOffset = 2): string {
   return `${baseContext}
 Пользователь хочет создать ЦЕЛЬ.
 
+ВНИМАТЕЛЬНО ИЗУЧИ КОНТЕКСТ ДЛЯ ВРЕМЕННЫХ ГРАНИЦ И ПОДЗАДАЧ:
+
+1. ОПРЕДЕЛЕНИЕ ПЕРИОДА (timeLimitType):
+   - "current_period" (ПО УМОЛЧАНИЮ) — если пользователь говорит "на этой неделе", "в этом месяце", "за этот год" или не уточняет временные рамки.
+   - "next_period" — если пользователь говорит "на следующей неделе", "в следующем месяце", "в следующем году".
+   - "from_now" — если пользователь говорит "с этого момента на неделю", "на 7 дней от сегодня", "на месяц с сегодняшнего дня".
+
+2. СТРОГОЕ ПРАВИЛО ДЛЯ ПОДЗАДАЧ (plan):
+   - НЕ ПРИДУМЫВАЙ и НЕ ГЕНЕРИРУЙ ФЕЙКОВЫЕ ПОДЗАДАЧИ ОТ СЕБЯ!
+   - Если пользователь в своём голосе ЯВНО озвучил конкретные шаги/подзадачи (например: "моя цель сделать сайт, для этого сначала нарисовать макет, потом сверстать") — только тогда внеси их в массив plan: [{text: "...", done: false}].
+   - Если пользователь НЕ озвучил конкретные шаги — верни ПУСТОЙ МАССИВ plan: []. НЕ ДОДУМЫВАЙ ИХ!
+
 Определи:
 - title: чёткая формулировка цели (3-10 слов)
 - category: одна из [${VALID_CATEGORIES}]
-- goalType: "week" (на неделю), "month" (на месяц), "year" (на год). Определи по контексту — если говорит "за этот месяц" → month, "на этой неделе" → week, если масштабная → year
-- description: детальное описание цели и ожидаемого результата
-- plan: разбей цель на 3-6 конкретных подзадач [{text: "...", done: false}]
-- timeLimitType: "current_period" (до конца текущей недели/месяца/года), "from_now" (с сегодня + период)
+- goalType: "week" | "month" | "year"
+- description: детальное описание цели и контекста
+- plan: массив подзадач [{text: "...", done: false}] (ТОЛЬКО ЕСЛИ ЯВНО СКАЗАНЫ В ГОЛОСЕ, ИНАЧЕ [])
+- timeLimitType: "current_period" | "next_period" | "from_now"
 
 ФОРМАТ:
 {
@@ -265,8 +277,8 @@ function buildPrompt(recordType: RecordType, utcOffset = 2): string {
       "category": "...",
       "goalType": "week" | "month" | "year",
       "description": "...",
-      "plan": [{"text": "...", "done": false}],
-      "timeLimitType": "current_period" | "from_now"
+      "plan": [],
+      "timeLimitType": "current_period" | "next_period" | "from_now"
     }
   ]
 }`;
@@ -374,7 +386,7 @@ async function saveNotesToUser(userId: string, notes: BotNoteResult[]): Promise<
 
 function calculateGoalDates(
   type: "week" | "month" | "year",
-  timeLimitType: "current_period" | "from_now" | "custom",
+  timeLimitType: "current_period" | "next_period" | "from_now" | "custom",
   utcOffset = 2
 ): { startDate: string; endDate: string } {
   const now = new Date();
@@ -396,6 +408,27 @@ function calculateGoalDates(
     else if (type === "month") end.setMonth(end.getMonth() + 1);
     else if (type === "year") end.setFullYear(end.getFullYear() + 1);
     return { startDate, endDate: formatDate(end) };
+  }
+
+  if (timeLimitType === "next_period") {
+    if (type === "week") {
+      const dayOfWeek = today.getDay() === 0 ? 7 : today.getDay();
+      const nextMon = new Date(today);
+      nextMon.setDate(today.getDate() + (8 - dayOfWeek)); // Next Monday
+      const nextSun = new Date(nextMon);
+      nextSun.setDate(nextMon.getDate() + 6); // Next Sunday
+      return { startDate: formatDate(nextMon), endDate: formatDate(nextSun) };
+    }
+    if (type === "month") {
+      const nextMonthFirst = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+      const nextMonthLast = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+      return { startDate: formatDate(nextMonthFirst), endDate: formatDate(nextMonthLast) };
+    }
+    if (type === "year") {
+      const nextYearFirst = new Date(today.getFullYear() + 1, 0, 1);
+      const nextYearLast = new Date(today.getFullYear() + 1, 11, 31);
+      return { startDate: formatDate(nextYearFirst), endDate: formatDate(nextYearLast) };
+    }
   }
 
   // current_period
@@ -440,7 +473,7 @@ async function saveGoalsToUser(userId: string, goals: BotGoalResult[], utcOffset
 
   for (const goal of goals) {
     const goalType = goal.goalType || "month";
-    const timeLimitType = goal.timeLimitType || "current_period";
+    const timeLimitType = (goal.timeLimitType as any) || "current_period";
     const dates = calculateGoalDates(goalType, timeLimitType, utcOffset);
     const periods = getCalendarPeriod(goalType, utcOffset);
     const goalId = crypto.randomUUID();
@@ -460,8 +493,8 @@ async function saveGoalsToUser(userId: string, goals: BotGoalResult[], utcOffset
       xp: xpForGoal(goalType),
       linkedTaskIds: [],
       description: goal.description || "",
-      plan: planItems,
-      timeLimitType,
+      plan: [], // Avoid duplicates — sub-tasks go into todayTasks
+      timeLimitType: timeLimitType === "next_period" ? "custom" : timeLimitType,
       startDate: dates.startDate,
       endDate: dates.endDate,
       ...periods,
@@ -471,7 +504,7 @@ async function saveGoalsToUser(userId: string, goals: BotGoalResult[], utcOffset
     existingGoals.push(newGoal);
     createdTitles.push(goal.title);
 
-    // Create sub-tasks for todayTasks so they appear in "Пул под-задач недели"
+    // If user explicitly stated sub-tasks in voice, add them to todayTasks
     for (const item of planItems) {
       const subTask = sanitizeMongoInput({
         id: crypto.randomUUID(),

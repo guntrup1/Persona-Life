@@ -328,8 +328,11 @@ function UnifiedSubItemsSection({ goal, childGoals }: {
     ? state.todayTasks.filter(t => t.weekGoalId === goal.id || t.goalId === goal.id)
     : [];
 
-  // Freeform plan items for any goal
-  const planItems = goal.plan || [];
+  // Freeform plan items for any goal (excluding duplicates from linkedTasks)
+  const rawPlanItems = goal.plan || [];
+  const planItems = isWeek
+    ? rawPlanItems.filter(p => !linkedTasks.some(lt => lt.name.trim().toLowerCase() === p.text.trim().toLowerCase()))
+    : rawPlanItems;
 
   // Total & completed count
   const totalCount = isWeek
