@@ -58,13 +58,17 @@ const forgotPasswordSchema = z.object({
 });
 
 export function setupAuth(app: Express) {
+  if (!process.env.SESSION_SECRET) {
+    throw new Error("[FATAL] SESSION_SECRET environment variable is required but not set. Set it in Render Dashboard → Environment.");
+  }
+
   app.use(
     session({
       store: MongoStore.create({
         mongoUrl: process.env.MONGODB_URI,
         collectionName: "sessions",
       }),
-      secret: process.env.SESSION_SECRET || "lifeos-secret-key",
+      secret: process.env.SESSION_SECRET,
       resave: false,
       saveUninitialized: false,
       cookie: {
@@ -227,6 +231,25 @@ export function registerAuthRoutes(app: Express) {
     }
   });
 
+  // ── Lightweight version check endpoint (~50 bytes) ──
+  // Clients poll this every 30s instead of fetching full data.
+  // Full data is fetched only when revision changes.
+  app.get("/api/user/data/version", requireAuth, async (req, res) => {
+    try {
+      const userData = await UserData.findOne(
+        { userId: req.session.userId },
+        { updatedAt: 1, revision: 1, _id: 0 } // projection: only tiny fields
+      ).lean();
+      return res.json({
+        updatedAt: userData?.updatedAt?.toISOString() ?? null,
+        revision: (userData as any)?.revision ?? 0,
+      });
+    } catch (err) {
+      console.error("Version check error:", err);
+      return res.status(500).json({ message: "Ошибка сервера" });
+    }
+  });
+
   app.get("/api/user/data", requireAuth, async (req, res) => {
     try {
       res.set("Cache-Control", "no-store, no-cache, must-revalidate");
@@ -317,14 +340,29 @@ export function registerAuthRoutes(app: Express) {
 
     await UserData.findOneAndUpdate(
       { userId },
-      { data: cleanData, updatedAt: new Date() },
+      { data: cleanData, updatedAt: new Date(), $inc: { revision: 1 } },
       { upsert: true }
     );
   }
 
+  const MAX_DATA_SIZE_BYTES = 5 * 1024 * 1024; // 5MB hard limit per user document
+
   app.put("/api/user/data", requireAuth, async (req, res) => {
     const { data } = req.body;
-    if (!data) return res.status(400).json({ message: "Нет данных" });
+    if (!data || typeof data !== "object") {
+      return res.status(400).json({ message: "Нет данных" });
+    }
+
+    // Strict size guard — prevent payload bloat
+    try {
+      const serialized = JSON.stringify(data);
+      if (Buffer.byteLength(serialized, "utf8") > MAX_DATA_SIZE_BYTES) {
+        console.warn(`[DATA GUARD] Payload too large from user ${req.session.userId}: ${Buffer.byteLength(serialized, "utf8")} bytes`);
+        return res.status(413).json({ message: "Данные превышают допустимый размер (5MB)" });
+      }
+    } catch {
+      return res.status(400).json({ message: "Невалидный формат данных" });
+    }
 
     try {
       await saveWithBackup(req.session.userId!, data);

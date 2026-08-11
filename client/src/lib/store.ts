@@ -794,6 +794,9 @@ function notify() { listeners.forEach(l => l()); }
 let serverSyncTimer: ReturnType<typeof setTimeout> | null = null;
 const syncListeners = new Set<(ok: boolean) => void>();
 
+// Version tracking — avoids full 130KB fetch when nothing changed on server
+let lastKnownRevision = -1;
+
 export function onSyncResult(cb: (ok: boolean) => void) {
   syncListeners.add(cb);
   return () => syncListeners.delete(cb);
@@ -939,6 +942,7 @@ export function loadFromServerData(data: AppState, forceServer = false) {
   if (!data || typeof data !== "object") return;
 
   if (forceServer) {
+    lastKnownRevision = -1; // force fresh version check after login
     const prevState = globalState;
     globalState = autoLoadRoutine({ ...DEFAULT_STATE, ...data });
     globalState = { ...globalState, xp: recalcXP(globalState) };
@@ -972,6 +976,20 @@ export function loadFromServerData(data: AppState, forceServer = false) {
 
 export async function syncFromServer(): Promise<boolean> {
   try {
+    // Step 1: lightweight version check (~50 bytes)
+    const verRes = await fetch("/api/user/data/version", {
+      credentials: "include",
+      cache: "no-store",
+    });
+    if (!verRes.ok) return false;
+    const { revision } = await verRes.json();
+
+    // Step 2: if revision hasn't changed, skip full fetch
+    if (revision === lastKnownRevision && lastKnownRevision !== -1) {
+      return true; // data is up-to-date, no traffic used
+    }
+
+    // Step 3: revision changed (or first load) — fetch full data
     const res = await fetch("/api/user/data", {
       credentials: "include",
       cache: "no-store",
@@ -980,8 +998,8 @@ export async function syncFromServer(): Promise<boolean> {
     if (!res.ok) return false;
     const json = await res.json();
     if (json?.data) {
+      lastKnownRevision = revision;
       const serverData = json.data as AppState;
-      // Сервер — единственный источник правды
       globalState = autoLoadRoutine({
         ...DEFAULT_STATE,
         ...serverData,
