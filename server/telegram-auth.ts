@@ -58,9 +58,11 @@ export function registerTelegramRoutes(app: Express) {
   app.delete("/api/telegram/unlink", requireAuth, async (req, res) => {
     try {
       await User.findByIdAndUpdate(req.session.userId, {
-        telegramId: null,
-        telegramLinkToken: null,
-        telegramLinkExpires: null,
+        $unset: {
+          telegramId: 1,
+          telegramLinkToken: 1,
+          telegramLinkExpires: 1,
+        }
       });
       return res.json({ ok: true });
     } catch (err) {

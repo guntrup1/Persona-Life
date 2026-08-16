@@ -202,6 +202,9 @@ export default function SettingsPage() {
       if (res.ok) {
         setTelegramStatus({ linked: false, telegramId: null });
         toast({ title: lang === "ru" ? "Аккаунт отвязан" : "Account unlinked" });
+      } else {
+        const err = await res.json();
+        toast({ title: err.message || (lang === "ru" ? "Ошибка отвязки" : "Unlink error"), variant: "destructive" });
       }
     } catch {
       toast({ title: t.settings.noConn, variant: "destructive" });
