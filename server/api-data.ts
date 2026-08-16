@@ -186,13 +186,9 @@ export function registerDataRoutes(app: Express) {
       const focusSessions = await FocusSession.find({ userId }).lean(); // Maybe filter last 30 days
       const biases = await DailyBias.find({ userId }).lean();
       
-      // Fetch recent notes (last 30 days) for initial load
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().slice(0, 10);
-
-      const dayNotes = await DayNote.find({ userId, date: { $gte: thirtyDaysAgoStr } }).lean();
-      const tradingNotes = await TradingNote.find({ userId, date: { $gte: thirtyDaysAgoStr } }).lean();
+      // Fetch all notes for initial load (to prevent missing old notes)
+      const dayNotes = await DayNote.find({ userId }).lean();
+      const tradingNotes = await TradingNote.find({ userId }).lean();
 
       const ud = await UserData.findOne({ userId }).lean() as any;
       const udData = (ud?.data as any) || {};
