@@ -824,11 +824,11 @@ function scheduleServerSync(state: AppState) {
   serverSyncTimer = setTimeout(async () => {
     serverSyncTimer = null;
     try {
-      const res = await fetch("/api/user/data", {
-        method: "PUT",
+      const res = await fetch("/api/user/stats", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ data: state }),
+        body: JSON.stringify({ xp: state.xp, streak: state.streak }),
       });
       const ok = res.ok;
       syncListeners.forEach(cb => cb(ok));
@@ -1060,8 +1060,6 @@ if (typeof window !== "undefined") {
     if (serverSyncTimer) {
       clearTimeout(serverSyncTimer);
       serverSyncTimer = null;
-      const blob = new Blob([JSON.stringify({ data: globalState })], { type: "application/json" });
-      navigator.sendBeacon("/api/user/data-beacon", blob);
     }
   });
 
@@ -1072,8 +1070,6 @@ if (typeof window !== "undefined") {
       if (serverSyncTimer) {
         clearTimeout(serverSyncTimer);
         serverSyncTimer = null;
-        const blob = new Blob([JSON.stringify({ data: globalState })], { type: "application/json" });
-        navigator.sendBeacon("/api/user/data-beacon", blob);
       }
     }
   });
