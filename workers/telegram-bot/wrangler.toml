@@ -1,0 +1,12 @@
+name = "telegram-audio-worker"
+main = "src/index.ts"
+compatibility_date = "2024-04-05"
+
+[observability]
+enabled = true
+
+[vars]
+# TELEGRAM_BOT_TOKEN = "..." # Set via wrangler secret put
+# RENDER_APP_URL = "https://your-render-app.onrender.com"
+# WORKER_SECRET_TOKEN = "your_secret_token"
+# GEMINI_API_KEY = "fallback_key_here"

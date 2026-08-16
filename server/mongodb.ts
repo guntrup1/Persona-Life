@@ -27,6 +27,7 @@ const userSchema = new mongoose.Schema({
   telegramLinkToken: { type: String, default: null },
   telegramLinkExpires: { type: Date, default: null },
   geminiApiKey: { type: String, default: null },
+  groqApiKey: { type: String, default: null },
   googleRefreshToken: { type: String, default: null },
   googleCalendarConnected: { type: Boolean, default: false },
   googleCalendarId: { type: String, default: "primary" },
@@ -222,3 +223,17 @@ export const DailyBias = mongoose.model("DailyBias", dailyBiasSchema);
 export const FocusSession = mongoose.model("FocusSession", focusSessionSchema);
 export const RoutineTemplate = mongoose.model("RoutineTemplate", routineTemplateSchema);
 export const Simulation = mongoose.model("Simulation", simulationSchema);
+
+const processedAudioSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
+  telegramMessageId: { type: String, required: true },
+  raw_transcript: { type: String, default: "" },
+  executive_summary: { type: String, default: "" },
+  action_items: { type: mongoose.Schema.Types.Mixed, default: [] },
+  semantic_tags: { type: [String], default: [] },
+  mind_map_nodes: { type: mongoose.Schema.Types.Mixed, default: [] },
+  status: { type: String, enum: ['processing', 'completed', 'failed'], default: 'processing' },
+}, { timestamps: true });
+
+export const ProcessedAudio = mongoose.model("ProcessedAudio", processedAudioSchema);
+

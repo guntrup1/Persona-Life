@@ -3,6 +3,8 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { setupAuth } from "./auth";
+import { registerDataRoutes } from "./api-data";
+import { registerAudioRoutes } from "./api-audio";
 import { connectMongoDB } from "./mongodb";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
@@ -116,8 +118,18 @@ app.use((req, res, next) => {
   setupAuth(app);
   await registerRoutes(httpServer, app);
 
+  // Setup user data endpoints
+  registerDataRoutes(app);
+
+  // Setup audio processing endpoints
+  registerAudioRoutes(app);
+
   // ── Start Telegram bot ──
-  startBot().catch(err => console.error("[bot] Start error:", err));
+  if (process.env.USE_WEBHOOK !== "true") {
+    startBot().catch(err => console.error("[bot] Start error:", err));
+  } else {
+    console.log("[bot] Long polling disabled (USE_WEBHOOK=true). Awaiting webhooks via Serverless.");
+  }
 
   // ── Auto 2-way Google Calendar sync every 5 minutes ──
   const { pullAndSyncGoogleCalendar } = await import("./google-calendar");
