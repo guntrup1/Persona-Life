@@ -6,7 +6,6 @@ compatibility_date = "2024-04-05"
 enabled = true
 
 [vars]
-# TELEGRAM_BOT_TOKEN = "..." # Set via wrangler secret put
-# RENDER_APP_URL = "https://your-render-app.onrender.com"
-# WORKER_SECRET_TOKEN = "your_secret_token"
-# GEMINI_API_KEY = "fallback_key_here"
+RENDER_APP_URL = "https://persona-life-mw90.onrender.com"
+WORKER_SECRET_TOKEN = "secret-persona-2026-xk9"
+TELEGRAM_BOT_TOKEN = "8845042057:AAGHZysBa3BDbBeV6iBCwIG7qvKkPXvKVuA"
