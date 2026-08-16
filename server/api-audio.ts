@@ -59,6 +59,40 @@ export function registerAudioRoutes(app: Express) {
     }
   });
 
+  // ── POST /api/internal/link-telegram — Worker links telegramId to account via magic token ──
+  app.post("/api/internal/link-telegram", requireWorkerSecret, async (req: any, res: any) => {
+    try {
+      const { token, telegramId } = req.body;
+      if (!token || !telegramId) return res.status(400).json({ error: "Missing token or telegramId" });
+
+      // Find user with valid unexpired link token
+      const user = await User.findOne({
+        telegramLinkToken: token,
+        telegramLinkExpires: { $gt: new Date() },
+      });
+
+      if (!user) return res.status(404).json({ error: "Token invalid or expired" });
+
+      // Check if this telegramId is already used by another account
+      const existing = await User.findOne({ telegramId: String(telegramId) });
+      if (existing && existing._id.toString() !== user._id.toString()) {
+        return res.status(409).json({ error: "Telegram already linked to another account" });
+      }
+
+      // Link the account + set initial setup step
+      await User.findByIdAndUpdate(user._id, {
+        telegramId: String(telegramId),
+        telegramLinkToken: null,
+        telegramLinkExpires: null,
+        botSetupStep: (user as any).groqApiKey && (user as any).geminiApiKey ? "done" : "awaiting_groq",
+      });
+
+      return res.json({ ok: true, email: user.email, hasKeys: !!(user as any).groqApiKey && !!(user as any).geminiApiKey });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
   // ── POST /api/internal/audio-result — Worker pushes completed analysis ──
   app.post("/api/internal/audio-result", requireWorkerSecret, async (req: any, res: any) => {
     try {
