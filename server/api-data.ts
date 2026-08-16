@@ -3,7 +3,7 @@ import { requireAuth } from "./auth";
 import { z } from "zod";
 import {
   Task, Goal, DayNote, TradingNote, DailyBias,
-  FocusSession, RoutineTemplate, Simulation, UserData
+  FocusSession, RoutineTemplate, Simulation, UserData, UserDataBackup
 } from "./mongodb";
 
 // Zod schemas for validation
@@ -75,7 +75,39 @@ const routineTemplateSchema = z.object({
 
 export function registerDataRoutes(app: Express) {
   
-  // --- SYNC & MIGRATION ---
+  // --- EMERGENCY RESTORE ---
+  app.get("/api/rescue-data", async (req, res) => {
+    try {
+      const backups = await UserDataBackup.find({}).sort({ createdAt: -1 }).lean();
+      
+      let restoredCount = 0;
+      for (const b of backups) {
+        const uid = b.userId;
+        const bd = b.data || {};
+        const dayNotes = bd.dayNotes || [];
+        const tradingNotes = bd.tradingNotes || [];
+        
+        for (const n of dayNotes) {
+          const exists = await DayNote.findOne({ noteId: n.id });
+          if (!exists) {
+            await DayNote.create({ ...n, noteId: n.id, userId: uid });
+            restoredCount++;
+          }
+        }
+        for (const n of tradingNotes) {
+          const exists = await TradingNote.findOne({ noteId: n.id });
+          if (!exists) {
+            await TradingNote.create({ ...n, noteId: n.id, userId: uid });
+            restoredCount++;
+          }
+        }
+      }
+      return res.json({ ok: true, restored: restoredCount, msg: "Emergency restore complete" });
+    } catch (e: any) {
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  });
+
   
   app.get("/api/sync/init", requireAuth, async (req: any, res) => {
     const userId = req.session.userId;
