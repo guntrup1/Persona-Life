@@ -1,7 +1,7 @@
 import { Telegraf, Markup } from "telegraf";
 import { message } from "telegraf/filters";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { User, UserData, UserSettings } from "./mongodb";
+import { User, UserData, UserSettings, Task, Goal, DayNote, TradingNote } from "./mongodb";
 import { syncTaskToGoogleCalendar } from "./google-calendar";
 import crypto from "crypto";
 
@@ -603,24 +603,24 @@ function findFuzzyMatchingGoal(
 
 // ── Save data to MongoDB ──
 async function saveTasksToUser(userId: string, tasks: BotTaskResult[]): Promise<string[]> {
-  const userData = await UserData.findOne({ userId });
-  if (!userData) throw new Error("UserData not found");
-
-  const existingData = (userData.data as any) || {};
-  const existingTasks = Array.isArray(existingData.todayTasks) ? existingData.todayTasks : [];
-  const existingGoals = Array.isArray(existingData.goals) ? existingData.goals : [];
   const createdNames: string[] = [];
+  
+  // We need existing goals for fuzzy matching, they are now in the Goal collection
+  const existingGoals = await Goal.find({ userId });
 
   for (const task of tasks) {
-    // Find matching active week goal if weekGoalTitle is specified using fuzzy matching
     let matchedWeekGoalId: string | undefined = undefined;
     if (task.weekGoalTitle) {
-      const matchedGoal = findFuzzyMatchingGoal(task.weekGoalTitle, existingGoals, "week");
+      // Pass existingGoals which have 'goalId' and 'type' and 'status'
+      // We map goalId -> id for the fuzzy matching function compatibility
+      const mappedGoals = existingGoals.map((g: any) => ({ id: g.goalId, title: g.title, type: g.type, status: g.status }));
+      const matchedGoal = findFuzzyMatchingGoal(task.weekGoalTitle, mappedGoals, "week");
       if (matchedGoal) matchedWeekGoalId = matchedGoal.id;
     }
 
-    const newTask = sanitizeMongoInput({
-      id: crypto.randomUUID(),
+    const newTask = {
+      userId,
+      taskId: crypto.randomUUID(),
       name: task.name,
       description: task.description || "",
       category: task.category || "Mind",
@@ -634,11 +634,14 @@ async function saveTasksToUser(userId: string, tasks: BotTaskResult[]): Promise<
       noDeadline: task.noDeadline ?? (!task.startTime),
       weekGoalId: matchedWeekGoalId,
       goalId: matchedWeekGoalId,
-    });
-    // Attempt background sync to Google Calendar ONLY if user requested it via voice
+      addToGoogleCalendar: !!task.addToGoogleCalendar,
+      googleCalendarEventId: undefined as string | undefined
+    };
+
     if (task.addToGoogleCalendar) {
       try {
-        const gEventId = await syncTaskToGoogleCalendar(userId, newTask);
+        // syncTaskToGoogleCalendar expects id not taskId
+        const gEventId = await syncTaskToGoogleCalendar(userId, { ...newTask, id: newTask.taskId } as any);
         if (gEventId) {
           newTask.googleCalendarEventId = gEventId;
         }
@@ -647,47 +650,28 @@ async function saveTasksToUser(userId: string, tasks: BotTaskResult[]): Promise<
       }
     }
 
-    existingTasks.push(newTask);
+    await Task.create(newTask);
     createdNames.push(task.name);
   }
-
-  await UserData.findOneAndUpdate(
-    { userId },
-    { data: { ...existingData, todayTasks: existingTasks }, updatedAt: new Date() }
-  );
 
   return createdNames;
 }
 
 async function saveNotesToUser(userId: string, notes: BotNoteResult[]): Promise<string[]> {
-  const userData = await UserData.findOne({ userId });
-  if (!userData) throw new Error("UserData not found");
-
-  const existingData = (userData.data as any) || {};
-  const existingNotes = Array.isArray(existingData.dayNotes) ? existingData.dayNotes : [];
   const createdTitles: string[] = [];
-  const now = new Date().toISOString();
-
   for (const note of notes) {
-    const newNote = sanitizeMongoInput({
-      id: crypto.randomUUID(),
+    const newNote = {
+      userId,
+      noteId: crypto.randomUUID(),
       date: getTodayDate(),
       title: note.title || "",
       content: note.content || "",
-      createdAt: now,
-      updatedAt: now,
       noteType: note.noteType || "note",
       ideaCategory: note.ideaCategory || undefined,
-    });
-    existingNotes.push(newNote);
-    createdTitles.push(note.title);
+    };
+    await DayNote.create(newNote);
+    createdTitles.push(note.title || "Без названия");
   }
-
-  await UserData.findOneAndUpdate(
-    { userId },
-    { data: { ...existingData, dayNotes: existingNotes }, updatedAt: new Date() }
-  );
-
   return createdTitles;
 }
 
@@ -770,13 +754,8 @@ function getCalendarPeriod(type: "week" | "month" | "year", utcOffset = 2) {
 }
 
 async function saveGoalsToUser(userId: string, goals: BotGoalResult[], utcOffset = 2): Promise<string[]> {
-  const userData = await UserData.findOne({ userId });
-  if (!userData) throw new Error("UserData not found");
-
-  const existingData = (userData.data as any) || {};
-  const existingGoals = Array.isArray(existingData.goals) ? existingData.goals : [];
-  const existingTasks = Array.isArray(existingData.todayTasks) ? existingData.todayTasks : [];
   const createdTitles: string[] = [];
+  const dbGoals = await Goal.find({ userId });
 
   for (const goal of goals) {
     const goalType = goal.goalType || "month";
@@ -785,14 +764,12 @@ async function saveGoalsToUser(userId: string, goals: BotGoalResult[], utcOffset
     const periods = getCalendarPeriod(goalType, utcOffset);
     const goalId = crypto.randomUUID();
 
-    // Strict Hierarchy Parent Linking:
-    // Week goal -> Month goal parent
-    // Month goal -> Year goal parent
     let parentId: string | undefined = undefined;
     if (goal.parentGoalTitle) {
       const expectedParentType = goalType === "week" ? "month" : goalType === "month" ? "year" : undefined;
       if (expectedParentType) {
-        const parentMatch = findFuzzyMatchingGoal(goal.parentGoalTitle, existingGoals, expectedParentType);
+        const mappedGoals = dbGoals.map((g: any) => ({ id: g.goalId, title: g.title, type: g.type, status: g.status }));
+        const parentMatch = findFuzzyMatchingGoal(goal.parentGoalTitle, mappedGoals, expectedParentType);
         if (parentMatch) parentId = parentMatch.id;
       }
     }
@@ -803,8 +780,9 @@ async function saveGoalsToUser(userId: string, goals: BotGoalResult[], utcOffset
       done: !!p.done,
     }));
 
-    const newGoal = sanitizeMongoInput({
-      id: goalId,
+    const newGoal = {
+      userId,
+      goalId,
       type: goalType,
       title: goal.title,
       category: goal.category || "Mind",
@@ -813,21 +791,22 @@ async function saveGoalsToUser(userId: string, goals: BotGoalResult[], utcOffset
       linkedTaskIds: [],
       parentId,
       description: goal.description || "",
-      plan: [], // Avoid duplicates — sub-tasks go into todayTasks
+      plan: [], // Sub-tasks go into todayTasks
       timeLimitType: timeLimitType === "next_period" ? "custom" : timeLimitType,
       startDate: dates.startDate,
       endDate: dates.endDate,
       ...periods,
       status: "active",
-    });
+    };
 
-    existingGoals.push(newGoal);
+    await Goal.create(newGoal);
     createdTitles.push(goal.title);
 
     // If user explicitly stated sub-tasks in voice, add them to todayTasks
     for (const item of planItems) {
-      const subTask = sanitizeMongoInput({
-        id: crypto.randomUUID(),
+      const subTask = {
+        userId,
+        taskId: crypto.randomUUID(),
         name: item.text,
         description: `Под-задача цели «${goal.title}»`,
         category: goal.category || "Mind",
@@ -839,26 +818,16 @@ async function saveGoalsToUser(userId: string, goals: BotGoalResult[], utcOffset
         weekGoalId: goalType === "week" ? goalId : undefined,
         goalId: goalId,
         noDeadline: true,
-      });
-      existingTasks.push(subTask);
+      };
+      await Task.create(subTask);
     }
   }
-
-  await UserData.findOneAndUpdate(
-    { userId },
-    { data: { ...existingData, goals: existingGoals, todayTasks: existingTasks }, updatedAt: new Date() }
-  );
 
   return createdTitles;
 }
 
 // ── Save Trading Note to MongoDB ──
 async function saveTradingNoteToUser(userId: string, notes: BotTradingNoteResult[], utcOffset = 2): Promise<string[]> {
-  const userData = await UserData.findOne({ userId });
-  if (!userData) throw new Error("UserData not found");
-
-  const existingData = (userData.data as any) || {};
-  const existingNotes = Array.isArray(existingData.tradingNotes) ? existingData.tradingNotes : [];
   const createdTitles: string[] = [];
   const now = new Date();
   const utc = now.getTime() + now.getTimezoneOffset() * 60000;
@@ -867,15 +836,14 @@ async function saveTradingNoteToUser(userId: string, notes: BotTradingNoteResult
   const timeStr = `${String(local.getHours()).padStart(2, "0")}:${String(local.getMinutes()).padStart(2, "0")}`;
 
   for (const note of notes) {
-    // Normalize asset — default to GER40 if unrecognized
     const validAssets = ["GER40", "EUR", "XAU", "GBP"];
     const asset = validAssets.includes(note.asset) ? note.asset : "GER40";
-    // Normalize tag
     const validTags = ["мысль", "идея", "ошибка"];
     const tag = validTags.includes(note.tag) ? note.tag : "мысль";
 
-    const newNote = sanitizeMongoInput({
-      id: crypto.randomUUID(),
+    const newNote = {
+      userId,
+      noteId: crypto.randomUUID(),
       title: note.title || "Торговая заметка",
       time: timeStr,
       asset,
@@ -883,18 +851,12 @@ async function saveTradingNoteToUser(userId: string, notes: BotTradingNoteResult
       tag,
       text: note.text || "",
       date: todayStr,
-      createdAt: now.toISOString(),
       isTradingIdea: !!note.isTradingIdea,
       tradingIdeaDone: false,
-    });
-    existingNotes.push(newNote);
+    };
+    await TradingNote.create(newNote);
     createdTitles.push(note.title || "Торговая заметка");
   }
-
-  await UserData.findOneAndUpdate(
-    { userId },
-    { data: { ...existingData, tradingNotes: existingNotes }, updatedAt: new Date() }
-  );
 
   return createdTitles;
 }
@@ -1427,12 +1389,9 @@ export function createBot(): Telegraf | null {
       const settings = await (await import("./mongodb")).UserSettings?.findOne({ userId: user._id });
       const utcOffset = settings?.utcOffset ?? 2;
 
-      // Fetch active goals to pass to AI for smart linking
-      const userData = await UserData.findOne({ userId: user._id });
-      const rawGoals = Array.isArray((userData?.data as any)?.goals) ? (userData?.data as any).goals : [];
-      const activeGoals = rawGoals
-        .filter((g: any) => g.status !== "completed")
-        .map((g: any) => ({ id: g.id, title: g.title, type: g.type, category: g.category }));
+      // Fetch active goals to pass to AI for smart linking (now from Goal collection)
+      const activeGoalDocs = await Goal.find({ userId: user._id, status: { $ne: "completed" } }).lean();
+      const activeGoals = activeGoalDocs.map((g: any) => ({ id: g.goalId, title: g.title, type: g.type, category: g.category }));
 
       // Fetch user's API key
       const userApiKey = user.geminiApiKey || settings?.geminiApiKey;

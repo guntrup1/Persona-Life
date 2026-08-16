@@ -135,11 +135,14 @@ export function registerDataRoutes(app: Express) {
           }
         }
         
-        // Save streak & xp to UserData, clear the rest
+        // Preserve botVoiceHistory and xp/streak — only clear the migrated data, keep bot metadata
+        const botHistory = d.botVoiceHistory || [];
+        const savedXP = d.xp || {};
+        const savedStreak = d.streak || {};
         await UserData.findOneAndUpdate({ userId }, { 
-          data: {}, 
-          streak: d.streak, 
-          xp: d.xp 
+          $set: { 
+            data: { botVoiceHistory: botHistory, xp: savedXP, streak: savedStreak }
+          }
         });
         console.log(`[MIGRATION] Completed for user ${userId}`);
       }
@@ -151,12 +154,21 @@ export function registerDataRoutes(app: Express) {
       const focusSessions = await FocusSession.find({ userId }).lean(); // Maybe filter last 30 days
       const biases = await DailyBias.find({ userId }).lean();
       
+      // Fetch recent notes (last 30 days) for initial load
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().slice(0, 10);
+
+      const dayNotes = await DayNote.find({ userId, date: { $gte: thirtyDaysAgoStr } }).lean();
+      const tradingNotes = await TradingNote.find({ userId, date: { $gte: thirtyDaysAgoStr } }).lean();
+
       const ud = await UserData.findOne({ userId }).lean() as any;
+      const udData = (ud?.data as any) || {};
 
       // Transform _id and mapped ids back to frontend format
       const mapBack = (items: any[], idField: string) => items.map(i => {
-        const { _id, userId, createdAt, updatedAt, __v, [idField]: mappedId, ...rest } = i;
-        return { id: mappedId, ...rest };
+        const { _id, userId: _uid, createdAt, updatedAt, __v, [idField]: mappedId, ...rest } = i;
+        return { id: mappedId, createdAt: createdAt?.toISOString?.(), updatedAt: updatedAt?.toISOString?.(), ...rest };
       });
 
       return res.json({
@@ -167,8 +179,10 @@ export function registerDataRoutes(app: Express) {
           routineTemplates: mapBack(routines, 'templateId'),
           focusSessions: mapBack(focusSessions, 'sessionId'),
           dailyBiases: mapBack(biases, 'biasId'),
-          streak: ud?.streak,
-          xp: ud?.xp,
+          dayNotes: mapBack(dayNotes, 'noteId'),
+          tradingNotes: mapBack(tradingNotes, 'noteId'),
+          streak: udData.streak,
+          xp: udData.xp,
         }
       });
     } catch (err) {
