@@ -89,3 +89,136 @@ const userSettingsSchema = new mongoose.Schema({
 });
 
 export const UserSettings = mongoose.model("UserSettings", userSettingsSchema);
+
+// ── Strict Schemas for Data Entities ──
+
+const taskSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
+  taskId: { type: String, required: true, unique: true }, // The string UUID from the frontend
+  name: { type: String, required: true },
+  description: { type: String, default: "" },
+  category: { type: String, required: true },
+  difficulty: { type: String },
+  xp: { type: Number, default: 0 },
+  completed: { type: Boolean, default: false },
+  date: { type: String, required: true, index: true }, // YYYY-MM-DD
+  type: { type: String, required: true },
+  routineId: { type: String },
+  goalId: { type: String },
+  weekGoalId: { type: String },
+  startTime: { type: String },
+  endTime: { type: String },
+  noDeadline: { type: Boolean, default: false },
+  completedAt: { type: String },
+  googleCalendarEventId: { type: String },
+  addToGoogleCalendar: { type: Boolean, default: false },
+}, { timestamps: true });
+
+const goalSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
+  goalId: { type: String, required: true, unique: true },
+  type: { type: String, required: true },
+  title: { type: String, required: true },
+  category: { type: String, required: true },
+  parentId: { type: String },
+  completed: { type: Boolean, default: false },
+  xp: { type: Number, default: 0 },
+  linkedTaskIds: { type: [String], default: [] },
+  taskWeights: { type: mongoose.Schema.Types.Mixed, default: {} },
+  year: { type: Number },
+  month: { type: Number },
+  week: { type: Number },
+  description: { type: String },
+  plan: { type: [{ id: String, text: String, done: Boolean }], default: [] },
+  timeLimitType: { type: String },
+  startDate: { type: String },
+  endDate: { type: String },
+  status: { type: String, default: "active" },
+  failedAt: { type: String },
+  restoredFromId: { type: String },
+}, { timestamps: true });
+
+const dayNoteSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
+  noteId: { type: String, required: true, unique: true },
+  date: { type: String, required: true, index: true },
+  title: { type: String },
+  content: { type: String, required: true },
+  noteType: { type: String, default: "note" },
+  ideaCategory: { type: String },
+  link: { type: String },
+  ideaDone: { type: Boolean, default: false },
+}, { timestamps: true });
+
+const tradingNoteSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
+  noteId: { type: String, required: true, unique: true },
+  title: { type: String },
+  time: { type: String },
+  asset: { type: String, required: true },
+  timeframe: { type: String },
+  tag: { type: String, required: true },
+  text: { type: String, required: true },
+  screenshotUrl: { type: String },
+  date: { type: String, required: true },
+  isTradingIdea: { type: Boolean, default: false },
+  tradingIdeaDone: { type: Boolean, default: false },
+}, { timestamps: true });
+
+const dailyBiasSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
+  biasId: { type: String, required: true, unique: true },
+  date: { type: String, required: true },
+  asset: { type: String, required: true },
+  direction: { type: String, required: true },
+  pros: { type: String },
+  cons: { type: String },
+  screenshotUrl: { type: String },
+}, { timestamps: true });
+
+const focusSessionSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
+  sessionId: { type: String, required: true, unique: true },
+  duration: { type: Number, required: true },
+  mode: { type: String, required: true },
+  xp: { type: Number, default: 0 },
+  date: { type: String, required: true },
+  completedAt: { type: String, required: true },
+  note: { type: String },
+}, { timestamps: true });
+
+const routineTemplateSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
+  templateId: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
+  description: { type: String },
+  category: { type: String, required: true },
+  xp: { type: Number, default: 0 },
+  enabled: { type: Boolean, default: true },
+  goalId: { type: String },
+  days: { type: [Number], default: [] },
+}, { timestamps: true });
+
+const simulationSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
+  simId: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
+  mode: { type: String, required: true },
+  startingBalance: { type: Number, required: true },
+  riskType: { type: String, required: true },
+  commission: { type: Number, default: 0 },
+  maxTradesPerDay: { type: Number },
+  maxWinsPerDay: { type: Number },
+  notes: { type: String },
+  assets: { type: mongoose.Schema.Types.Mixed, required: true },
+  results: { type: mongoose.Schema.Types.Mixed, required: true },
+}, { timestamps: true });
+
+export const Task = mongoose.model("Task", taskSchema);
+export const Goal = mongoose.model("Goal", goalSchema);
+export const DayNote = mongoose.model("DayNote", dayNoteSchema);
+export const TradingNote = mongoose.model("TradingNote", tradingNoteSchema);
+export const DailyBias = mongoose.model("DailyBias", dailyBiasSchema);
+export const FocusSession = mongoose.model("FocusSession", focusSessionSchema);
+export const RoutineTemplate = mongoose.model("RoutineTemplate", routineTemplateSchema);
+export const Simulation = mongoose.model("Simulation", simulationSchema);

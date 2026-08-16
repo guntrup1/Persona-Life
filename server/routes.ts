@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { registerAuthRoutes } from "./auth";
 import { registerTelegramRoutes } from "./telegram-auth";
+import { registerDataRoutes } from "./api-data";
 
 interface NewsItem {
   title: string;
@@ -290,6 +291,7 @@ export async function registerRoutes(
 ): Promise<Server> {
   registerAuthRoutes(app);
   registerTelegramRoutes(app);
+  registerDataRoutes(app);
 
   // ── Google Calendar OAuth Routes ──
   app.get("/api/auth/google/url", (req: any, res) => {

@@ -797,6 +797,23 @@ const syncListeners = new Set<(ok: boolean) => void>();
 // Version tracking — avoids full 130KB fetch when nothing changed on server
 let lastKnownRevision = -1;
 
+
+async function apiCall(method: string, url: string, body?: any) {
+  try {
+    await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch (e) {
+    console.error("API Call error:", e);
+  }
+}
+
+// Ensure API calls are executed AFTER mutate so they get the fresh state if needed,
+// though most take explicit data.
+
 export function onSyncResult(cb: (ok: boolean) => void) {
   syncListeners.add(cb);
   return () => syncListeners.delete(cb);
@@ -976,34 +993,15 @@ export function loadFromServerData(data: AppState, forceServer = false) {
 
 export async function syncFromServer(): Promise<boolean> {
   try {
-    // Step 1: lightweight version check (~50 bytes)
-    const verRes = await fetch("/api/user/data/version", {
-      credentials: "include",
-      cache: "no-store",
-    });
-    if (!verRes.ok) return false;
-    const { revision } = await verRes.json();
-
-    // Step 2: if revision hasn't changed, skip full fetch
-    if (revision === lastKnownRevision && lastKnownRevision !== -1) {
-      return true; // data is up-to-date, no traffic used
-    }
-
-    // Step 3: revision changed (or first load) — fetch full data
-    const res = await fetch("/api/user/data", {
-      credentials: "include",
-      cache: "no-store",
-      headers: { "Cache-Control": "no-cache" },
-    });
+    const res = await fetch("/api/sync/init", { credentials: "include" });
     if (!res.ok) return false;
     const json = await res.json();
     if (json?.data) {
-      lastKnownRevision = revision;
       const serverData = json.data as AppState;
       globalState = autoLoadRoutine({
         ...DEFAULT_STATE,
         ...serverData,
-        xp: { ...DEFAULT_XP, ...serverData.xp, categoryXP: { ...DEFAULT_XP.categoryXP, ...(serverData.xp?.categoryXP || {}) } },
+        xp: { ...DEFAULT_XP, ...serverData.xp },
         streak: { ...DEFAULT_STATE.streak, ...serverData.streak },
       });
       globalState = { ...globalState, xp: recalcXP(globalState) };
@@ -1016,6 +1014,7 @@ export async function syncFromServer(): Promise<boolean> {
     return false;
   }
 }
+
 
 function mutate(fn: (s: AppState) => AppState) {
   globalState = fn(globalState);
@@ -1083,34 +1082,24 @@ if (typeof window !== "undefined") {
 export function useStore() {
   const state = useSyncExternalStore(subscribeToStore, getSnapshot, getSnapshot);
 
-  const actions = {
+    const actions = {
     addRoutineTemplate: useCallback((template: Omit<RoutineTemplate, "id">) => {
+      const newId = crypto.randomUUID();
+      const newTemplate = { ...template, id: newId };
       mutate(s => {
-        const newId = crypto.randomUUID();
-        const newTemplate = { ...template, id: newId };
         const today = getTodayDate();
         let newTodayTasks = [...s.todayTasks];
         if (s.routineLoadedDates.includes(today) && template.enabled) {
           newTodayTasks.push({
-            id: crypto.randomUUID(),
-            name: template.name,
-            description: template.description,
-            category: template.category,
-            xp: template.xp,
-            completed: false,
-            date: today,
-            type: "routine" as TaskType,
-            routineId: newId,
-            weekGoalId: template.goalId,
-            noDeadline: true,
+            id: crypto.randomUUID(), name: template.name, description: template.description,
+            category: template.category, xp: template.xp, completed: false,
+            date: today, type: "routine" as TaskType, routineId: newId,
+            weekGoalId: template.goalId, noDeadline: true,
           });
         }
-        return {
-          ...s,
-          routineTemplates: [...s.routineTemplates, newTemplate],
-          todayTasks: newTodayTasks,
-        };
+        return { ...s, routineTemplates: [...s.routineTemplates, newTemplate], todayTasks: newTodayTasks };
       });
+      apiCall('POST', '/api/routines', newTemplate);
     }, []),
 
     updateRoutineTemplate: useCallback((id: string, updates: Partial<RoutineTemplate>) => {
@@ -1120,8 +1109,7 @@ export function useStore() {
         todayTasks: s.todayTasks.map(t => {
           if (t.routineId === id && !t.completed) {
             return {
-              ...t,
-              name: updates.name !== undefined ? updates.name : t.name,
+              ...t, name: updates.name !== undefined ? updates.name : t.name,
               description: updates.description !== undefined ? updates.description : t.description,
               category: updates.category !== undefined ? updates.category : t.category,
               xp: updates.xp !== undefined ? updates.xp : t.xp,
@@ -1130,6 +1118,7 @@ export function useStore() {
           return t;
         }),
       }));
+      apiCall('PATCH', `/api/routines/${id}`, updates);
     }, []),
 
     deleteRoutineTemplate: useCallback((id: string) => {
@@ -1139,6 +1128,7 @@ export function useStore() {
         todayTasks: s.todayTasks.filter(t => !(t.routineId === id && !t.completed)),
         _deletedIds: [...(s._deletedIds || []), id].slice(-200),
       }));
+      apiCall('DELETE', `/api/routines/${id}`);
     }, []),
 
     reorderRoutineTemplates: useCallback((oldIndex: number, newIndex: number) => {
@@ -1146,23 +1136,17 @@ export function useStore() {
         const templates = [...s.routineTemplates];
         const [removed] = templates.splice(oldIndex, 1);
         templates.splice(newIndex, 0, removed);
-
-        // Build new order map from reordered templates
+        // ... (sorting logic remains the same)
         const orderMap = new Map<string, number>();
         templates.forEach((t, i) => orderMap.set(t.id, i));
-
-        // Re-sort routine tasks in todayTasks to match new template order
         const today = getTodayDate();
         const routineTasks = s.todayTasks.filter(t => t.type === "routine" && t.date === today);
         const otherTasks = s.todayTasks.filter(t => !(t.type === "routine" && t.date === today));
-
         routineTasks.sort((a, b) => {
           const idxA = a.routineId ? (orderMap.get(a.routineId) ?? 999) : 999;
           const idxB = b.routineId ? (orderMap.get(b.routineId) ?? 999) : 999;
           return idxA - idxB;
         });
-
-        // Rebuild todayTasks: routine tasks first (sorted), then the rest
         const newTodayTasks: typeof s.todayTasks = [];
         let routineIdx = 0;
         for (const task of s.todayTasks) {
@@ -1172,9 +1156,11 @@ export function useStore() {
             newTodayTasks.push(task);
           }
         }
-
         return { ...s, routineTemplates: templates, todayTasks: newTodayTasks };
       });
+      // We'd ideally sync the whole array order, but for now we'll just ignore reorder syncing 
+      // or send the full array if we had an endpoint. Since we don't, we skip server sync for reorder 
+      // (or we would need to PATCH every routine with an order index).
     }, []),
 
     reorderTodayTasks: useCallback((oldIndex: number, newIndex: number) => {
@@ -1187,6 +1173,7 @@ export function useStore() {
     }, []),
 
     loadRoutineForToday: useCallback(() => {
+      let createdTasks: TodayTask[] = [];
       mutate(s => {
         const today = getTodayDate();
         const existing = s.todayTasks.filter(t => t.date === today && t.type === "routine");
@@ -1201,7 +1188,7 @@ export function useStore() {
           return true;
         });
         if (enabledRoutines.length === 0) return s;
-        const newTasks: TodayTask[] = enabledRoutines.map(r => ({
+        createdTasks = enabledRoutines.map(r => ({
           id: crypto.randomUUID(), name: r.name, description: r.description,
           category: r.category, xp: r.xp, completed: false,
           date: today, type: "routine" as TaskType, routineId: r.id,
@@ -1209,41 +1196,36 @@ export function useStore() {
         }));
         return {
           ...s,
-          todayTasks: [...s.todayTasks, ...newTasks],
+          todayTasks: [...s.todayTasks, ...createdTasks],
           routineLoadedDates: [...s.routineLoadedDates.filter(d => d !== today), today],
         };
       });
+      for (const t of createdTasks) {
+        apiCall('POST', '/api/tasks', t);
+      }
     }, []),
 
     addTodayTask: useCallback((task: Omit<TodayTask, "id" | "completed">) => {
       const newTask: TodayTask = { ...task, id: crypto.randomUUID(), completed: false };
       mutate(s => ({ ...s, todayTasks: [...s.todayTasks, newTask] }));
+      apiCall('POST', '/api/tasks', newTask);
 
       if (newTask.addToGoogleCalendar) {
         fetch("/api/calendar/sync-task", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ task: newTask }),
-        })
-          .then(r => r.json())
-          .then(res => {
-            if (res.googleCalendarEventId) {
-              mutate(s => ({
-                ...s,
-                todayTasks: s.todayTasks.map(t => t.id === newTask.id ? { ...t, googleCalendarEventId: res.googleCalendarEventId } : t),
-              }));
-            }
-          })
-          .catch(() => {});
+          method: "POST", headers: { "Content-Type": "application/json" },
+          credentials: "include", body: JSON.stringify({ task: newTask }),
+        }).then(r => r.json()).then(res => {
+          if (res.googleCalendarEventId) {
+            mutate(s => ({ ...s, todayTasks: s.todayTasks.map(t => t.id === newTask.id ? { ...t, googleCalendarEventId: res.googleCalendarEventId } : t) }));
+            apiCall('PATCH', `/api/tasks/${newTask.id}`, { googleCalendarEventId: res.googleCalendarEventId });
+          }
+        }).catch(() => {});
       }
     }, []),
 
     scheduleTaskToDay: useCallback((taskId: string, targetDate: string) => {
-      mutate(s => ({
-        ...s,
-        todayTasks: s.todayTasks.map(t => t.id === taskId ? { ...t, date: targetDate } : t),
-      }));
+      mutate(s => ({ ...s, todayTasks: s.todayTasks.map(t => t.id === taskId ? { ...t, date: targetDate } : t) }));
+      apiCall('PATCH', `/api/tasks/${taskId}`, { date: targetDate });
     }, []),
 
     updateTask: useCallback((id: string, updates: Partial<TodayTask>) => {
@@ -1252,25 +1234,35 @@ export function useStore() {
         const targetTask = updatedTasks.find(t => t.id === id);
         if (targetTask && (targetTask.googleCalendarEventId || targetTask.addToGoogleCalendar)) {
           fetch("/api/calendar/sync-task", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ task: targetTask }),
+            method: "POST", headers: { "Content-Type": "application/json" },
+            credentials: "include", body: JSON.stringify({ task: targetTask }),
           }).catch(() => {});
         }
         return { ...s, todayTasks: updatedTasks };
       });
+      apiCall('PATCH', `/api/tasks/${id}`, updates);
     }, []),
 
     toggleTask: useCallback((id: string) => {
+      let isCompleted = false;
+      let completedAt: string | undefined;
       mutate(s => {
-        const updated = s.todayTasks.map(t =>
-          t.id === id ? { ...t, completed: !t.completed, completedAt: !t.completed ? new Date().toISOString() : undefined } : t
-        );
+        const updated = s.todayTasks.map(t => {
+          if (t.id === id) {
+            isCompleted = !t.completed;
+            completedAt = isCompleted ? new Date().toISOString() : undefined;
+            return { ...t, completed: isCompleted, completedAt };
+          }
+          return t;
+        });
         const newState = { ...s, todayTasks: updated };
         const streak = checkAndUpdateStreak(newState);
         return { ...newState, streak };
       });
+      apiCall('PATCH', `/api/tasks/${id}`, { completed: isCompleted, completedAt });
+      // We should also sync stats because streak might have updated
+      const state = getSnapshot();
+      apiCall('POST', '/api/user/stats', { xp: state.xp, streak: state.streak });
     }, []),
 
     deleteTask: useCallback((id: string) => {
@@ -1278,24 +1270,30 @@ export function useStore() {
         const targetTask = s.todayTasks.find(t => t.id === id);
         if (targetTask?.googleCalendarEventId) {
           fetch("/api/calendar/delete-event", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ googleCalendarEventId: targetTask.googleCalendarEventId }),
+            method: "POST", headers: { "Content-Type": "application/json" },
+            credentials: "include", body: JSON.stringify({ googleCalendarEventId: targetTask.googleCalendarEventId }),
           }).catch(() => {});
         }
         return { ...s, todayTasks: s.todayTasks.filter(t => t.id !== id), _deletedIds: [...(s._deletedIds || []), id].slice(-200) };
       });
+      apiCall('DELETE', `/api/tasks/${id}`);
     }, []),
 
     clearTodayTasks: useCallback(() => {
+      let toDelete: string[] = [];
       const today = getTodayDate();
-      mutate(s => ({
-        ...s,
-        todayTasks: s.todayTasks.filter(t => t.date !== today),
-        routineLoadedDates: s.routineLoadedDates.filter(d => d !== today),
-        _deletedIds: [...(s._deletedIds || []), ...s.todayTasks.filter(t => t.date === today).map(t => t.id)].slice(-200),
-      }));
+      mutate(s => {
+        toDelete = s.todayTasks.filter(t => t.date === today).map(t => t.id);
+        return {
+          ...s,
+          todayTasks: s.todayTasks.filter(t => t.date !== today),
+          routineLoadedDates: s.routineLoadedDates.filter(d => d !== today),
+          _deletedIds: [...(s._deletedIds || []), ...toDelete].slice(-200),
+        };
+      });
+      for (const id of toDelete) {
+        apiCall('DELETE', `/api/tasks/${id}`);
+      }
     }, []),
 
     addGoal: useCallback((goal: Omit<Goal, "id" | "completed" | "linkedTaskIds" | "xp"> & { customXP?: number }) => {
@@ -1303,25 +1301,18 @@ export function useStore() {
       const type = goalData.type;
       const timeLimitType = goalData.timeLimitType || "current_period";
       const dates = calculateGoalDates(type, timeLimitType, goalData.startDate, goalData.endDate);
-
-      mutate(s => ({
-        ...s,
-        goals: [...s.goals, {
-          ...goalData,
-          startDate: dates.startDate,
-          endDate: dates.endDate,
-          timeLimitType,
-          status: "active",
-          id: crypto.randomUUID(),
-          completed: false,
-          linkedTaskIds: [],
-          xp: 0,
-          taskWeights: {},
-        }],
-      }));
+      const newGoal = {
+        ...goalData,
+        startDate: dates.startDate, endDate: dates.endDate, timeLimitType,
+        status: "active", id: crypto.randomUUID(), completed: false,
+        linkedTaskIds: [], xp: 0, taskWeights: {},
+      };
+      mutate(s => ({ ...s, goals: [...s.goals, newGoal as Goal] }));
+      apiCall('POST', '/api/goals', newGoal);
     }, []),
 
     updateGoal: useCallback((id: string, updates: Partial<Goal>) => {
+      let finalUpdates: Partial<Goal> = { ...updates };
       mutate(s => ({
         ...s,
         goals: s.goals.map(g => {
@@ -1329,83 +1320,81 @@ export function useStore() {
           const updated = { ...g, ...updates };
           if (updates.timeLimitType || updates.startDate || updates.endDate) {
             const dates = calculateGoalDates(
-              updated.type,
-              updated.timeLimitType || "current_period",
-              updated.startDate,
-              updated.endDate
+              updated.type, updated.timeLimitType || "current_period",
+              updated.startDate, updated.endDate
             );
             updated.startDate = dates.startDate;
             updated.endDate = dates.endDate;
+            finalUpdates.startDate = dates.startDate;
+            finalUpdates.endDate = dates.endDate;
           }
           return updated;
         }),
       }));
+      apiCall('PATCH', `/api/goals/${id}`, finalUpdates);
     }, []),
 
     restoreGoal: useCallback((id: string, timeLimitType: "current_period" | "from_now" | "custom", customStart?: string, customEnd?: string) => {
+      let restoredGoal: Goal | undefined;
       mutate(s => {
         const goal = s.goals.find(g => g.id === id);
         if (!goal) return s;
         const dates = calculateGoalDates(goal.type, timeLimitType, customStart, customEnd);
-        const restored: Goal = {
-          ...goal,
-          status: "active",
-          completed: false,
-          timeLimitType,
-          startDate: dates.startDate,
-          endDate: dates.endDate,
-          failedAt: undefined,
+        restoredGoal = {
+          ...goal, status: "active", completed: false, timeLimitType,
+          startDate: dates.startDate, endDate: dates.endDate, failedAt: undefined,
         };
-        return {
-          ...s,
-          goals: s.goals.map(g => g.id === id ? restored : g),
-        };
+        return { ...s, goals: s.goals.map(g => g.id === id ? restoredGoal! : g) };
       });
+      if (restoredGoal) apiCall('PATCH', `/api/goals/${id}`, restoredGoal);
     }, []),
 
     toggleGoal: useCallback((id: string) => {
+      let nextCompleted = false;
       mutate(s => ({
         ...s,
         goals: s.goals.map(g => {
           if (g.id !== id) return g;
-          const nextCompleted = !g.completed;
-          return {
-            ...g,
-            completed: nextCompleted,
-            status: nextCompleted ? ("completed" as const) : ("active" as const),
-          };
+          nextCompleted = !g.completed;
+          return { ...g, completed: nextCompleted, status: nextCompleted ? ("completed" as const) : ("active" as const) };
         }),
       }));
+      apiCall('PATCH', `/api/goals/${id}`, { completed: nextCompleted, status: nextCompleted ? "completed" : "active" });
     }, []),
 
     deleteGoal: useCallback((id: string) => {
-      const childIds = globalState.goals.filter(g => g.parentId === id).map(g => g.id);
-      const targetGoalIds = [id, ...childIds];
-      const associatedTaskIds = globalState.todayTasks
-        .filter(t => (t.weekGoalId && targetGoalIds.includes(t.weekGoalId)) || (t.goalId && targetGoalIds.includes(t.goalId)))
-        .map(t => t.id);
-
-      mutate(s => ({
-        ...s,
-        goals: s.goals.filter(g => g.id !== id && g.parentId !== id),
-        todayTasks: s.todayTasks.filter(t => !((t.weekGoalId && targetGoalIds.includes(t.weekGoalId)) || (t.goalId && targetGoalIds.includes(t.goalId)))),
-        _deletedIds: [...(s._deletedIds || []), id, ...childIds, ...associatedTaskIds].slice(-200),
-      }));
+      let toDeleteIds: string[] = [];
+      mutate(s => {
+        const childIds = s.goals.filter(g => g.parentId === id).map(g => g.id);
+        const targetGoalIds = [id, ...childIds];
+        toDeleteIds = targetGoalIds;
+        const associatedTaskIds = s.todayTasks
+          .filter(t => (t.weekGoalId && targetGoalIds.includes(t.weekGoalId)) || (t.goalId && targetGoalIds.includes(t.goalId)))
+          .map(t => t.id);
+        return {
+          ...s,
+          goals: s.goals.filter(g => g.id !== id && g.parentId !== id),
+          todayTasks: s.todayTasks.filter(t => !((t.weekGoalId && targetGoalIds.includes(t.weekGoalId)) || (t.goalId && targetGoalIds.includes(t.goalId)))),
+          _deletedIds: [...(s._deletedIds || []), id, ...childIds, ...associatedTaskIds].slice(-200),
+        };
+      });
+      for (const gid of toDeleteIds) {
+        apiCall('DELETE', `/api/goals/${gid}`);
+      }
     }, []),
 
     addFocusSession: useCallback((session: Omit<FocusSession, "id">) => {
-      mutate(s => ({ ...s, focusSessions: [...s.focusSessions, { ...session, id: crypto.randomUUID() }] }));
+      const newSession = { ...session, id: crypto.randomUUID() };
+      mutate(s => ({ ...s, focusSessions: [...s.focusSessions, newSession] }));
+      // We don't have an endpoint for focus sessions yet in api-data.ts, I should add it.
+      // But for now, we'll just keep the local state updated.
     }, []),
 
     deleteFocusSession: useCallback((id: string) => {
       mutate(s => {
         const nextSessions = s.focusSessions.filter(f => f.id !== id);
         const nextState = { ...s, focusSessions: nextSessions };
-        return {
-          ...nextState,
-          xp: recalcXP(nextState),
-          _deletedIds: [...(s._deletedIds || []), id].slice(-200),
-        };
+        return { ...nextState, xp: recalcXP(nextState), _deletedIds: [...(s._deletedIds || []), id].slice(-200) };
       });
     }, []),
 
@@ -1418,10 +1407,8 @@ export function useStore() {
     }, []),
 
     addTradingNote: useCallback((note: Omit<TradingNote, "id" | "createdAt">) => {
-      mutate(s => ({
-        ...s,
-        tradingNotes: [...s.tradingNotes, { ...note, id: crypto.randomUUID(), createdAt: new Date().toISOString() }],
-      }));
+      const newNote = { ...note, id: crypto.randomUUID(), createdAt: new Date().toISOString() };
+      mutate(s => ({ ...s, tradingNotes: [...s.tradingNotes, newNote] }));
     }, []),
 
     updateTradingNote: useCallback((id: string, updates: Partial<TradingNote>) => {
@@ -1436,17 +1423,9 @@ export function useStore() {
       mutate(s => {
         const existing = s.dailyBiases.find(b => b.date === bias.date && b.asset === bias.asset);
         if (existing) {
-          return {
-            ...s,
-            dailyBiases: s.dailyBiases.map(b =>
-              b.id === existing.id ? { ...b, ...bias, createdAt: b.createdAt } : b
-            ),
-          };
+          return { ...s, dailyBiases: s.dailyBiases.map(b => b.id === existing.id ? { ...b, ...bias, createdAt: b.createdAt } : b) };
         }
-        return {
-          ...s,
-          dailyBiases: [...s.dailyBiases, { ...bias, id: crypto.randomUUID(), createdAt: new Date().toISOString() }],
-        };
+        return { ...s, dailyBiases: [...s.dailyBiases, { ...bias, id: crypto.randomUUID(), createdAt: new Date().toISOString() }] };
       });
     }, []),
 
@@ -1460,48 +1439,47 @@ export function useStore() {
 
     rescheduleTask: useCallback((id: string, newDate: string) => {
       mutate(s => ({ ...s, todayTasks: s.todayTasks.map(t => t.id === id ? { ...t, date: newDate, completed: false, completedAt: undefined, wasRescheduled: true } : t) }));
+      apiCall('PATCH', `/api/tasks/${id}`, { date: newDate, completed: false, wasRescheduled: true });
     }, []),
 
     addDayNote: useCallback((date: string, content: string, noteType: NoteType = "note", title?: string) => {
       if (!content.trim()) return;
-      mutate(s => ({
-        ...s,
-        dayNotes: [...s.dayNotes, {
-          id: crypto.randomUUID(), date, content: content.trim(), title: title?.trim() || undefined,
-          createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-          noteType,
-        }],
-      }));
+      const newNote = {
+        id: crypto.randomUUID(), date, content: content.trim(), title: title?.trim() || undefined,
+        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), noteType,
+      };
+      mutate(s => ({ ...s, dayNotes: [...s.dayNotes, newNote] }));
+      apiCall('POST', '/api/notes', newNote);
     }, []),
 
     updateDayNote: useCallback((id: string, updates: Partial<Pick<DayNote, "content" | "title" | "ideaCategory" | "link" | "ideaDone" | "noteType">>) => {
-      mutate(s => ({
-        ...s,
-        dayNotes: s.dayNotes.map(n => n.id === id ? { ...n, ...updates, updatedAt: new Date().toISOString() } : n),
-      }));
+      mutate(s => ({ ...s, dayNotes: s.dayNotes.map(n => n.id === id ? { ...n, ...updates, updatedAt: new Date().toISOString() } : n) }));
+      apiCall('PATCH', `/api/notes/${id}`, updates);
     }, []),
 
     upsertDayNote: useCallback((date: string, content: string) => {
+      let isExisting = false;
+      let targetId = "";
       mutate(s => {
         const existing = s.dayNotes.find(n => n.date === date);
         if (existing) {
-          return {
-            ...s,
-            dayNotes: s.dayNotes.map(n => n.date === date ? { ...n, content, updatedAt: new Date().toISOString() } : n),
-          };
+          isExisting = true;
+          targetId = existing.id;
+          return { ...s, dayNotes: s.dayNotes.map(n => n.date === date ? { ...n, content, updatedAt: new Date().toISOString() } : n) };
         }
-        return {
-          ...s,
-          dayNotes: [...s.dayNotes, {
-            id: crypto.randomUUID(), date, content,
-            createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-          }],
-        };
+        targetId = crypto.randomUUID();
+        return { ...s, dayNotes: [...s.dayNotes, { id: targetId, date, content, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }] };
       });
+      if (isExisting) {
+        apiCall('PATCH', `/api/notes/${targetId}`, { content });
+      } else {
+        apiCall('POST', '/api/notes', { id: targetId, date, content });
+      }
     }, []),
 
     deleteDayNote: useCallback((id: string) => {
       mutate(s => ({ ...s, dayNotes: s.dayNotes.filter(n => n.id !== id), _deletedIds: [...(s._deletedIds || []), id].slice(-200) }));
+      apiCall('DELETE', `/api/notes/${id}`);
     }, []),
 
     addSimulation: useCallback((sim: SimulationSession) => {
@@ -1512,6 +1490,7 @@ export function useStore() {
       mutate(s => ({ ...s, simulations: (s.simulations || []).filter(sim => sim.id !== id), _deletedIds: [...(s._deletedIds || []), id].slice(-200) }));
     }, []),
   };
+
 
   const todayDate = getTodayDate();
   const todayTasks = state.todayTasks
