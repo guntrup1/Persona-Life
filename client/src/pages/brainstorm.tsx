@@ -212,7 +212,7 @@ export default function BrainstormPage() {
   const loadNotes = useCallback(async () => {
     setLoadingNotes(true);
     try {
-      const res = await fetch("/api/processed-audios");
+      const res = await fetch("/api/processed-audios", { credentials: "include" });
       const data = await res.json();
       if (data.audios) setNotes(data.audios);
     } catch (err) {
@@ -226,7 +226,7 @@ export default function BrainstormPage() {
   const loadSessions = useCallback(async () => {
     setLoadingSessions(true);
     try {
-      const res = await fetch("/api/brainstorms");
+      const res = await fetch("/api/brainstorms", { credentials: "include" });
       const data = await res.json();
       if (data.brainstorms) setSessions(data.brainstorms);
     } catch (err) {
@@ -261,6 +261,7 @@ export default function BrainstormPage() {
       const res = await fetch("/api/brainstorms/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ noteIds: Array.from(selectedNotes), prompt }),
       });
 
@@ -301,7 +302,7 @@ export default function BrainstormPage() {
   // ── Delete session ──
   const handleDelete = async (id: string) => {
     try {
-      const res = await fetch(`/api/brainstorms/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/brainstorms/${id}`, { method: "DELETE", credentials: "include" });
       if (!res.ok) throw new Error("Ошибка удаления");
       setSessions(prev => prev.filter(s => s._id !== id));
       toast({ title: "Сессия удалена" });

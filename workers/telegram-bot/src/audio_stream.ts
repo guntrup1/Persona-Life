@@ -51,7 +51,6 @@ export async function transcribeAudioInMemory(
   formData.append("file", audioBlob, "audio.ogg");
   formData.append("model", "whisper-large-v3");
   formData.append("response_format", "text");
-  formData.append("language", ""); // auto-detect
 
   // 3. Send to Groq Whisper
   const transcribeRes = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
