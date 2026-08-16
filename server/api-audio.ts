@@ -19,7 +19,7 @@ export function registerAudioRoutes(app: Express) {
       if (!telegramId) return res.status(400).json({ error: "Missing telegramId" });
 
       const user = await User.findOne({ telegramId: String(telegramId) })
-        .select("groqApiKey geminiApiKey botSetupStep")
+        .select("groqApiKey geminiApiKey botSetupStep botRecordMode")
         .lean();
 
       if (!user) return res.status(404).json({ error: "User not found" });
@@ -28,6 +28,7 @@ export function registerAudioRoutes(app: Express) {
         groqApiKey: (user as any).groqApiKey || null,
         geminiApiKey: (user as any).geminiApiKey || null,
         botSetupStep: (user as any).botSetupStep || null,
+        botRecordMode: (user as any).botRecordMode || "notes",
       });
     } catch (e: any) {
       return res.status(500).json({ error: e.message });
@@ -37,13 +38,14 @@ export function registerAudioRoutes(app: Express) {
   // ── POST /api/internal/user-config — Worker updates user's onboarding state/keys ──
   app.post("/api/internal/user-config", requireWorkerSecret, async (req: any, res: any) => {
     try {
-      const { telegramId, botSetupStep, groqApiKey, geminiApiKey } = req.body;
+      const { telegramId, botSetupStep, groqApiKey, geminiApiKey, botRecordMode } = req.body;
       if (!telegramId) return res.status(400).json({ error: "Missing telegramId" });
 
       const updateData: any = {};
       if (botSetupStep !== undefined) updateData.botSetupStep = botSetupStep;
       if (groqApiKey !== undefined) updateData.groqApiKey = groqApiKey;
       if (geminiApiKey !== undefined) updateData.geminiApiKey = geminiApiKey;
+      if (botRecordMode !== undefined) updateData.botRecordMode = botRecordMode;
 
       const user = await User.findOneAndUpdate(
         { telegramId: String(telegramId) },

@@ -38,22 +38,66 @@ interface TelegramMessage {
 interface TelegramUpdate {
   update_id: number;
   message?: TelegramMessage;
+  callback_query?: {
+    id: string;
+    from: TelegramUser;
+    message?: TelegramMessage;
+    data?: string;
+  };
 }
 
 interface UserConfig {
   groqApiKey: string | null;
   geminiApiKey: string | null;
   botSetupStep: string | null; // null | 'awaiting_link' | 'awaiting_groq' | 'awaiting_gemini' | 'done'
+  botRecordMode?: string; // 'tasks' | 'goals' | 'notes' | 'brainstorm'
   email?: string | null;
 }
 
 // ── Send Telegram message helper ──
-async function sendTelegramMessage(chatId: number, text: string, botToken: string, parseMode: string = "Markdown"): Promise<void> {
+async function sendTelegramMessage(chatId: number, text: string, botToken: string, parseMode: string = "Markdown", replyMarkup?: any): Promise<void> {
+  const body: any = { chat_id: chatId, text, parse_mode: parseMode, disable_web_page_preview: true };
+  if (replyMarkup) {
+    body.reply_markup = replyMarkup;
+  }
   await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: parseMode, disable_web_page_preview: true }),
+    body: JSON.stringify(body),
   });
+}
+
+// ── Answer callback query helper ──
+async function answerCallbackQuery(callbackQueryId: string, botToken: string, text?: string): Promise<void> {
+  const body: any = { callback_query_id: callbackQueryId };
+  if (text) body.text = text;
+  await fetch(`https://api.telegram.org/bot${botToken}/answerCallbackQuery`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+// ── Keyboards ──
+function getMainMenuKeyboard() {
+  return {
+    keyboard: [
+      [{ text: "➕ Добавить" }],
+      [{ text: "👤 Мой аккаунт" }, { text: "❓ Помощь" }],
+    ],
+    resize_keyboard: true,
+  };
+}
+
+function getInlineModesKeyboard() {
+  return {
+    inline_keyboard: [
+      [{ text: "📝 Задачи на день", callback_data: "mode_tasks" }],
+      [{ text: "🎯 Цели", callback_data: "mode_goals" }],
+      [{ text: "💡 Заметки и идеи", callback_data: "mode_notes" }],
+      [{ text: "🧠 Брейн-шторм", callback_data: "mode_brainstorm" }],
+    ]
+  };
 }
 
 // ── Lookup user's config from the main app's API ──
@@ -179,10 +223,7 @@ function formatResultMessage(result: Awaited<ReturnType<typeof runPocketPipeline
 // ── Main Worker Handler ──
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    // Only handle POST (Telegram sends updates via POST)
-    if (request.method !== "POST") {
-      return new Response("OK");
-    }
+    if (request.method !== "POST") return new Response("OK");
 
     let update: TelegramUpdate;
     try {
@@ -191,10 +232,49 @@ export default {
       return new Response("Bad Request", { status: 400 });
     }
 
-    const message = update.message;
-    if (!message) {
-      return new Response("OK"); // ignore non-message updates
+    // ── Handle Callback Query (Inline Buttons) ──
+    if (update.callback_query) {
+      const cb = update.callback_query;
+      const data = cb.data || "";
+      const telegramId = String(cb.from.id);
+      
+      if (data.startsWith("mode_")) {
+        const mode = data.replace("mode_", ""); // "tasks", "goals", "notes", "brainstorm"
+        const modeNames: Record<string, string> = {
+          tasks: "📝 Задачи на день",
+          goals: "🎯 Цели",
+          notes: "💡 Заметки и идеи",
+          brainstorm: "🧠 Брейн-шторм"
+        };
+        
+        await updateUserConfig(telegramId, { botRecordMode: mode }, env.RENDER_APP_URL, env.WORKER_SECRET_TOKEN);
+        
+        const messageText = `✅ Режим изменён на: *${modeNames[mode] || mode}*\n\nОтправь голосовое сообщение, и оно будет обработано в этом формате.`;
+        
+        if (cb.message) {
+          // Edit the message that had the inline keyboard
+          await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/editMessageText`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chat_id: cb.message.chat.id,
+              message_id: cb.message.message_id,
+              text: messageText,
+              parse_mode: "Markdown"
+            })
+          });
+        } else {
+          await sendTelegramMessage(cb.from.id, messageText, env.TELEGRAM_BOT_TOKEN, "Markdown");
+        }
+        await answerCallbackQuery(cb.id, env.TELEGRAM_BOT_TOKEN, "Режим изменён!");
+      } else {
+        await answerCallbackQuery(cb.id, env.TELEGRAM_BOT_TOKEN);
+      }
+      return new Response("OK");
     }
+
+    const message = update.message;
+    if (!message) return new Response("OK");
 
     const chatId = message.chat.id;
     const telegramId = String(message.from?.id || "");
@@ -208,77 +288,40 @@ export default {
       const magicToken = parts[1] || null;
 
       if (magicToken) {
-        // User came via magic link from web app — link their account
         await sendTelegramMessage(chatId, `🔗 Привязываю твой аккаунт Persona Life...`, env.TELEGRAM_BOT_TOKEN);
-
         const result = await linkAccount(magicToken, telegramId, env.RENDER_APP_URL, env.WORKER_SECRET_TOKEN);
 
         if (!result.ok) {
           if (result.error === "Token invalid or expired") {
-            await sendTelegramMessage(chatId,
-              `❌ *Ссылка недействительна или истекла.*\n\nСсылки действуют 10 минут. Пожалуйста, зайди в настройки Persona Life и сгенерируй новую ссылку.`,
-              env.TELEGRAM_BOT_TOKEN
-            );
-          } else if (result.error === "Telegram already linked to another account") {
-            await sendTelegramMessage(chatId,
-              `⚠️ *Этот Telegram аккаунт уже привязан к другому аккаунту Persona Life.*\n\nЕсли хочешь перепривязать, сначала отключи бот в настройках старого аккаунта.`,
-              env.TELEGRAM_BOT_TOKEN
-            );
+            await sendTelegramMessage(chatId, `❌ *Ссылка недействительна или истекла.*\nПожалуйста, сгенерируй новую в настройках.`, env.TELEGRAM_BOT_TOKEN);
           } else {
-            await sendTelegramMessage(chatId,
-              `❌ Ошибка привязки: ${result.error}. Попробуй ещё раз.`,
-              env.TELEGRAM_BOT_TOKEN
-            );
+            await sendTelegramMessage(chatId, `❌ Ошибка привязки: ${result.error}. Попробуй ещё раз.`, env.TELEGRAM_BOT_TOKEN);
           }
           return new Response("OK");
         }
 
-        // Successfully linked!
         if (result.hasKeys) {
-          // Keys already set — go straight to done
-          await sendTelegramMessage(chatId,
-            `✅ *Аккаунт привязан!*\n\nАккаунт \`${result.email}\` успешно подключён к боту.\n\nТвои API ключи уже настроены! 🎉\n\n🎙 Отправляй голосовые сообщения — я буду их анализировать и сохранять в Persona Life!`,
-            env.TELEGRAM_BOT_TOKEN
-          );
+          await sendTelegramMessage(chatId, `✅ *Аккаунт привязан!*\nТвои ключи настроены!`, env.TELEGRAM_BOT_TOKEN, "Markdown", getMainMenuKeyboard());
         } else {
-          // Need to setup keys
-          await sendTelegramMessage(chatId,
-            `✅ *Аккаунт привязан!*\n\nАккаунт \`${result.email}\` подключён к боту.\n\n━━━━━━━━━━━━━━━━━━━━━━\n🔑 *Теперь нужно настроить API ключи*\n\nБот работает по принципу BYOK (Bring Your Own Key) — ты используешь свои бесплатные ключи, лимиты полностью твои.\n\n*Шаг 1 из 2: Groq API Key*\nGroq даёт бесплатную и быструю транскрибацию аудио (Whisper).\n\n1️⃣ Перейди на [console.groq.com/keys](https://console.groq.com/keys)\n2️⃣ Нажми "Create API Key"\n3️⃣ Скопируй ключ и *отправь его сюда*`,
-            env.TELEGRAM_BOT_TOKEN
-          );
+          await sendTelegramMessage(chatId, `✅ *Аккаунт привязан!*\n🔑 *Шаг 1 из 2: Groq API Key*\nОтправь мне ключ Groq (gsk_...)`, env.TELEGRAM_BOT_TOKEN);
         }
         return new Response("OK");
       }
 
-      // /start without token — show instructions to link account
       const userConfig = await fetchUserConfig(telegramId, env.RENDER_APP_URL, env.WORKER_SECRET_TOKEN);
-
       if (userConfig && userConfig.botSetupStep === "done") {
-        // Already fully set up
-        await sendTelegramMessage(chatId,
-          `👋 *С возвращением, ${firstName}!*\n\n🎙 Отправляй мне голосовые сообщения — я буду анализировать их и сохранять в твой Persona Life.\n\n*Доступные команды:*\n/reset — сбросить настройки ключей\n/help — справка`,
-          env.TELEGRAM_BOT_TOKEN
-        );
+        await sendTelegramMessage(chatId, `👋 *С возвращением, ${firstName}!*\nЯ готов к работе.`, env.TELEGRAM_BOT_TOKEN, "Markdown", getMainMenuKeyboard());
       } else {
-        // Not linked or not setup
-        await sendTelegramMessage(chatId,
-          `👋 *Привет, ${firstName}!*\n\nЯ — голосовой ИИ-ассистент для *Persona Life*.\n\n━━━━━━━━━━━━━━━━━━━━━━\n🔗 *Для начала нужно привязать аккаунт*\n\n1️⃣ Зайди в свой аккаунт на *Persona Life*\n2️⃣ Перейди в *Настройки* → раздел *Telegram*\n3️⃣ Нажми кнопку *"Привязать Telegram бот"*\n4️⃣ Перейди по сгенерированной ссылке\n\nАккаунт привяжется автоматически!`,
-          env.TELEGRAM_BOT_TOKEN
-        );
+        await sendTelegramMessage(chatId, `🔗 Сначала привяжи аккаунт Persona Life по ссылке из настроек.`, env.TELEGRAM_BOT_TOKEN);
       }
       return new Response("OK");
     }
 
-    // ── Fetch user state for all other messages ──
     const userConfig = await fetchUserConfig(telegramId, env.RENDER_APP_URL, env.WORKER_SECRET_TOKEN);
     const step = userConfig?.botSetupStep || null;
 
-    // ── Not linked — always remind ──
     if (!userConfig) {
-      await sendTelegramMessage(chatId,
-        `🔗 Сначала нужно привязать аккаунт Persona Life.\n\nЗайди в настройки на сайте Persona Life → раздел *Telegram* → нажми "Привязать Telegram бот".`,
-        env.TELEGRAM_BOT_TOKEN
-      );
+      await sendTelegramMessage(chatId, `🔗 Сначала нужно привязать аккаунт Persona Life.`, env.TELEGRAM_BOT_TOKEN);
       return new Response("OK");
     }
 
@@ -286,136 +329,99 @@ export default {
     if (message.text) {
       const text = message.text.trim();
 
-      if (text === "/help") {
-        await sendTelegramMessage(chatId,
-          `ℹ️ *Справка*\n\n🎙 Отправь голосовое сообщение — я расшифрую его, проанализирую и сохраню в Persona Life.\n\n*Команды:*\n/start — главное меню\n/reset — сбросить API ключи (перенастроить)\n/help — эта справка`,
-          env.TELEGRAM_BOT_TOKEN
-        );
+      if (text === "❓ Помощь" || text === "/help") {
+        await sendTelegramMessage(chatId, `ℹ️ *Справка*\n\nБот работает по принципу BYOK. Лимиты зависят только от твоих ключей (Groq/Gemini).\nВыбирай нужный режим (через "➕ Добавить") и отправляй голосовое сообщение.`, env.TELEGRAM_BOT_TOKEN, "Markdown", getMainMenuKeyboard());
+        return new Response("OK");
+      }
+
+      if (text === "👤 Мой аккаунт") {
+        const keysStatus = `Groq: ${userConfig.groqApiKey ? '✅' : '❌'}\nGemini: ${userConfig.geminiApiKey ? '✅' : '❌'}`;
+        await sendTelegramMessage(chatId, `👤 *Твой аккаунт*\nEmail: ${userConfig.email || "Привязан"}\n\n*Ключи:*\n${keysStatus}\n\nДля перенастройки ключей отправь /reset\nОтвязать аккаунт можно в настройках веб-приложения.`, env.TELEGRAM_BOT_TOKEN, "Markdown", getMainMenuKeyboard());
+        return new Response("OK");
+      }
+
+      if (text === "➕ Добавить") {
+        await sendTelegramMessage(chatId, `👇 В каком формате обработать следующее сообщение? Выбери режим:`, env.TELEGRAM_BOT_TOKEN, "Markdown", getInlineModesKeyboard());
         return new Response("OK");
       }
 
       if (text === "/reset") {
         await updateUserConfig(telegramId, { botSetupStep: "awaiting_groq", groqApiKey: null, geminiApiKey: null }, env.RENDER_APP_URL, env.WORKER_SECRET_TOKEN);
-        await sendTelegramMessage(chatId,
-          `🔄 *Ключи сброшены*\n\n*Шаг 1 из 2: Groq API Key*\n\n1️⃣ Перейди на [console.groq.com/keys](https://console.groq.com/keys)\n2️⃣ Нажми "Create API Key"\n3️⃣ Скопируй ключ и *отправь его сюда*`,
-          env.TELEGRAM_BOT_TOKEN
-        );
+        await sendTelegramMessage(chatId, `🔄 *Ключи сброшены*\nОтправь мне ключ Groq.`, env.TELEGRAM_BOT_TOKEN);
         return new Response("OK");
       }
 
-      // ── Onboarding State Machine ──
       if (step === "awaiting_groq") {
         if (!text.startsWith("gsk_")) {
-          await sendTelegramMessage(chatId,
-            `⚠️ Ключ Groq должен начинаться с \`gsk_\`\n\nПроверь ключ и отправь его ещё раз.\n\nПолучить ключ: [console.groq.com/keys](https://console.groq.com/keys)`,
-            env.TELEGRAM_BOT_TOKEN
-          );
+          await sendTelegramMessage(chatId, `⚠️ Ключ Groq должен начинаться с \`gsk_\``, env.TELEGRAM_BOT_TOKEN);
           return new Response("OK");
         }
         await updateUserConfig(telegramId, { botSetupStep: "awaiting_gemini", groqApiKey: text }, env.RENDER_APP_URL, env.WORKER_SECRET_TOKEN);
-        await sendTelegramMessage(chatId,
-          `✅ *Groq ключ сохранён!*\n\n*Шаг 2 из 2: Gemini API Key*\nGemini от Google анализирует текст и извлекает задачи, идеи и теги.\n\n1️⃣ Перейди в [Google AI Studio](https://aistudio.google.com/app/apikey)\n2️⃣ Нажми "Create API Key"\n3️⃣ Скопируй ключ и *отправь его сюда*`,
-          env.TELEGRAM_BOT_TOKEN
-        );
+        await sendTelegramMessage(chatId, `✅ *Groq ключ сохранён!*\nТеперь отправь Gemini API Key.`, env.TELEGRAM_BOT_TOKEN);
         return new Response("OK");
       }
 
       if (step === "awaiting_gemini") {
         await updateUserConfig(telegramId, { botSetupStep: "done", geminiApiKey: text }, env.RENDER_APP_URL, env.WORKER_SECRET_TOKEN);
-        await sendTelegramMessage(chatId,
-          `🎉 *Настройка завершена!*\n\nВсё готово! Теперь отправляй мне голосовые сообщения.\n\nЯ буду:\n🎙 Расшифровывать аудио\n🧠 Анализировать содержание\n✅ Извлекать задачи и идеи\n🏷 Добавлять теги\n📥 Автоматически сохранять в Persona Life\n\n*Жду твоё первое голосовое!*`,
-          env.TELEGRAM_BOT_TOKEN
-        );
+        await sendTelegramMessage(chatId, `🎉 *Настройка завершена!*\nТеперь можешь отправлять голосовые.`, env.TELEGRAM_BOT_TOKEN, "Markdown", getMainMenuKeyboard());
         return new Response("OK");
       }
 
-      // ── User is fully set up but sending text ──
       if (step === "done") {
-        await sendTelegramMessage(chatId,
-          `🎙 Отправь мне *голосовое сообщение* — я его обработаю!\n\n_Текстовые сообщения не поддерживаются._\n/help — справка`,
-          env.TELEGRAM_BOT_TOKEN
-        );
+        await sendTelegramMessage(chatId, `🎙 Отправь мне *голосовое сообщение*!`, env.TELEGRAM_BOT_TOKEN, "Markdown", getMainMenuKeyboard());
         return new Response("OK");
       }
 
-      // Fallback for any other state
-      await sendTelegramMessage(chatId,
-        `Используй /start чтобы начать.`,
-        env.TELEGRAM_BOT_TOKEN
-      );
+      await sendTelegramMessage(chatId, `Используй /start чтобы начать.`, env.TELEGRAM_BOT_TOKEN);
       return new Response("OK");
     }
 
-    // ── Handle Voice / Audio ──
     const voiceData = message.voice || message.audio;
-    if (!voiceData) {
-      return new Response("OK");
-    }
+    if (!voiceData) return new Response("OK");
 
-    // Check setup is complete
     if (step !== "done") {
-      await sendTelegramMessage(chatId,
-        `⚠️ Сначала нужно завершить настройку API ключей.\n\nОтправь /start чтобы начать.`,
-        env.TELEGRAM_BOT_TOKEN
-      );
+      await sendTelegramMessage(chatId, `⚠️ Сначала заверши настройку ключей.`, env.TELEGRAM_BOT_TOKEN);
       return new Response("OK");
     }
 
-    // Acknowledge receipt
-    await sendTelegramMessage(chatId,
-      `⏳ *Обрабатываю голосовую заметку...*\nЭто займёт несколько секунд.`,
-      env.TELEGRAM_BOT_TOKEN
-    );
+    const currentMode = userConfig.botRecordMode || "notes";
+    const modeLabels: Record<string, string> = { tasks: "📝 Задачи", goals: "🎯 Цели", notes: "💡 Заметки", brainstorm: "🧠 Брейн-шторм" };
+    
+    await sendTelegramMessage(chatId, `⏳ *Обрабатываю (${modeLabels[currentMode]})...*`, env.TELEGRAM_BOT_TOKEN, "Markdown", getMainMenuKeyboard());
 
     try {
       const groqApiKey = userConfig.groqApiKey || (env as any).GROQ_API_KEY;
       const geminiKey = userConfig.geminiApiKey || env.GEMINI_API_KEY;
 
       if (!groqApiKey) {
-        await sendTelegramMessage(chatId,
-          `❌ Groq API ключ не найден. Отправь /reset чтобы перенастроить.`,
-          env.TELEGRAM_BOT_TOKEN
-        );
+        await sendTelegramMessage(chatId, `❌ Groq API ключ не найден. /reset`, env.TELEGRAM_BOT_TOKEN);
         return new Response("OK");
       }
 
-      // 1. Get file path from Telegram
       const filePath = await getTelegramFilePath(voiceData.file_id, env.TELEGRAM_BOT_TOKEN);
-
-      // 2. Transcribe via Groq Whisper
       let transcript: string;
       try {
         transcript = await transcribeAudioInMemory(filePath, env.TELEGRAM_BOT_TOKEN, groqApiKey);
       } catch (whisperErr: any) {
-        console.error("[worker] Groq Whisper failed:", whisperErr.message);
-        await sendTelegramMessage(chatId,
-          `❌ Ошибка транскрибации: ${whisperErr.message}\n\nПроверь правильность Groq ключа. Отправь /reset чтобы перенастроить.`,
-          env.TELEGRAM_BOT_TOKEN
-        );
+        await sendTelegramMessage(chatId, `❌ Ошибка транскрибации: ${whisperErr.message}`, env.TELEGRAM_BOT_TOKEN);
         return new Response("OK");
       }
 
       if (!transcript || transcript.length < 3) {
-        await sendTelegramMessage(chatId, `⚠️ Не удалось распознать речь. Попробуй говорить чётче.`, env.TELEGRAM_BOT_TOKEN);
+        await sendTelegramMessage(chatId, `⚠️ Не удалось распознать речь.`, env.TELEGRAM_BOT_TOKEN);
         return new Response("OK");
       }
 
-      // 3. Run AI Pipeline via Gemini
-      const result = await runPocketPipeline(transcript, geminiKey);
+      // Pass the current mode to the pipeline
+      const result = await runPocketPipeline(transcript, geminiKey, currentMode);
 
-      // 4. Push result to Persona Life
       await pushResultToServer(telegramId, message.message_id, transcript, result, env.RENDER_APP_URL, env.WORKER_SECRET_TOKEN);
 
-      // 5. Send formatted response
       const replyText = formatResultMessage(result, transcript);
-      await sendTelegramMessage(chatId, replyText, env.TELEGRAM_BOT_TOKEN);
+      await sendTelegramMessage(chatId, replyText, env.TELEGRAM_BOT_TOKEN, "Markdown", getMainMenuKeyboard());
 
     } catch (err: any) {
-      console.error("[worker] Fatal error:", err);
-      await sendTelegramMessage(chatId,
-        `❌ Произошла ошибка при обработке. Попробуй ещё раз.\n\n_${err?.message || "Неизвестная ошибка"}_`,
-        env.TELEGRAM_BOT_TOKEN
-      );
+      await sendTelegramMessage(chatId, `❌ Ошибка: _${err?.message || "Неизвестная ошибка"}_`, env.TELEGRAM_BOT_TOKEN);
     }
 
     return new Response("OK");

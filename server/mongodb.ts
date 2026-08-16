@@ -29,6 +29,7 @@ const userSchema = new mongoose.Schema({
   geminiApiKey: { type: String, default: null },
   groqApiKey: { type: String, default: null },
   botSetupStep: { type: String, default: null }, // null | 'awaiting_groq' | 'awaiting_gemini' | 'done'
+  botRecordMode: { type: String, default: "notes" }, // 'tasks' | 'goals' | 'notes' | 'brainstorm'
   googleRefreshToken: { type: String, default: null },
   googleCalendarConnected: { type: Boolean, default: false },
   googleCalendarId: { type: String, default: "primary" },

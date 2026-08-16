@@ -118,13 +118,14 @@ async function mapChunks(chunks: string[], apiKey: string): Promise<string[]> {
  */
 export async function runPocketPipeline(
   transcript: string,
-  geminiApiKey: string
+  geminiApiKey: string,
+  mode: string = "notes"
 ): Promise<PocketResult> {
   const chunks = chunkTranscript(transcript);
 
   if (chunks.length === 1) {
     // ── Direct path ──
-    const prompt = `${POCKET_PIPELINE_SYSTEM_PROMPT}\n\nTRANSCRIPT:\n${transcript}`;
+    const prompt = `${POCKET_PIPELINE_SYSTEM_PROMPT(mode)}\n\nTRANSCRIPT:\n${transcript}`;
     const raw = await callGemini(prompt, geminiApiKey);
     return parseJson(raw);
   }
@@ -136,7 +137,7 @@ export async function runPocketPipeline(
   const chunkSummaries = await mapChunks(chunks, geminiApiKey);
 
   // Reduce: Final synthesis
-  const finalPrompt = MAP_REDUCE_FINAL_PROMPT(chunkSummaries);
+  const finalPrompt = MAP_REDUCE_FINAL_PROMPT(chunkSummaries, mode);
   const raw = await callGemini(finalPrompt, geminiApiKey);
   return parseJson(raw);
 }

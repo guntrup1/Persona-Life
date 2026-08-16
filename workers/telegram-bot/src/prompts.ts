@@ -2,7 +2,22 @@
 // SYSTEM PROMPTS: Строгие шаблоны для LLM
 // ──────────────────────────────────────────────────────────────────────────────
 
-export const POCKET_PIPELINE_SYSTEM_PROMPT = `You are an elite cognitive extraction AI. Your task is to deeply analyze a voice transcript and extract structured intelligence from it.
+const getModeInstructions = (mode: string) => {
+  switch (mode) {
+    case "tasks":
+      return `\nMODE FOCUS: TASKS. Extract action items meticulously. Include deadlines, assignees, and priorities. Focus on what needs to be DONE.`;
+    case "goals":
+      return `\nMODE FOCUS: GOALS. Extract long-term objectives, ambitions, and high-level strategy. Parse into actionable milestones.`;
+    case "brainstorm":
+      return `\nMODE FOCUS: BRAINSTORM. Focus on connecting ideas, extracting creative insights, finding contradictions, and outlining new conceptual branches.`;
+    case "notes":
+    default:
+      return `\nMODE FOCUS: NOTES. Extract key thoughts, general facts, and tag them appropriately for a knowledge base.`;
+  }
+};
+
+export const POCKET_PIPELINE_SYSTEM_PROMPT = (mode: string) => `You are an elite cognitive extraction AI. Your task is to deeply analyze a voice transcript and extract structured intelligence from it.
+${getModeInstructions(mode)}
 
 CRITICAL RULES:
 - Output ONLY raw valid JSON. No markdown code blocks, no backticks, no commentary, no explanation.
@@ -33,8 +48,9 @@ CRITICAL: Output ONLY the summary text. No labels, no formatting. Keep the same 
 
 TRANSCRIPT CHUNK:`;
 
-export const MAP_REDUCE_FINAL_PROMPT = (chunkSummaries: string[]) => `
+export const MAP_REDUCE_FINAL_PROMPT = (chunkSummaries: string[], mode: string) => `
 You are an elite cognitive extraction AI. Below are condensed summaries of sequential parts of a longer voice recording. Synthesize them into a unified analysis.
+${getModeInstructions(mode)}
 
 SUMMARIES:
 ${chunkSummaries.map((s, i) => `--- Part ${i + 1} ---\n${s}`).join('\n')}
