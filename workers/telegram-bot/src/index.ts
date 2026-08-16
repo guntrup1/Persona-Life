@@ -49,18 +49,29 @@ async function sendTelegramMessage(chatId: number, text: string, botToken: strin
   });
 }
 
-// ── Lookup user's Groq key from the main app's API ──
-async function fetchUserGroqKey(telegramId: string, renderUrl: string, workerSecret: string): Promise<string | null> {
+// ── Lookup user's config from the main app's API ──
+async function fetchUserConfig(telegramId: string, renderUrl: string, workerSecret: string): Promise<{ groqApiKey: string | null, geminiApiKey: string | null, botSetupStep: string | null } | null> {
   try {
     const res = await fetch(`${renderUrl}/api/internal/user-config?telegramId=${telegramId}`, {
       headers: { "x-worker-secret": workerSecret },
     });
     if (!res.ok) return null;
-    const data = await res.json() as { groqApiKey?: string };
-    return data.groqApiKey || null;
+    return await res.json() as any;
   } catch {
     return null;
   }
+}
+
+// ── Update user's config ──
+async function updateUserConfig(telegramId: string, updates: any, renderUrl: string, workerSecret: string): Promise<void> {
+  await fetch(`${renderUrl}/api/internal/user-config`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-worker-secret": workerSecret,
+    },
+    body: JSON.stringify({ telegramId, ...updates }),
+  });
 }
 
 // ── Push processed result back to main server ──
@@ -163,13 +174,18 @@ export default {
     const telegramId = String(message.from?.id || "");
     const firstName = message.from?.first_name || "друг";
 
+    // Fetch user state
+    const userConfig = await fetchUserConfig(telegramId, env.RENDER_APP_URL, env.WORKER_SECRET_TOKEN);
+    const step = userConfig?.botSetupStep || null;
+
     // ── Handle /start and /help commands ──
     if (message.text) {
       const text = message.text.trim();
 
-      if (text === "/start") {
+      if (text === "/start" || text === "/reset") {
+        await updateUserConfig(telegramId, { botSetupStep: "awaiting_groq", groqApiKey: null, geminiApiKey: null }, env.RENDER_APP_URL, env.WORKER_SECRET_TOKEN);
         await sendTelegramMessage(chatId, 
-          `👋 *Привет, ${firstName}!*\n\nЯ — голосовой ИИ-ассистент для *Persona Life*.\n\nОтправь мне голосовое сообщение — я расшифрую его, проанализирую и сохраню как умную заметку с задачами и тегами.\n\n🎙 *Просто нажми на микрофон!*`,
+          `👋 *Привет, ${firstName}!*\n\nЯ — твой личный голосовой ИИ-ассистент.\n\nДля обеспечения *максимальной приватности* и работы *без лимитов*, этот бот работает по модели BYOK (Bring Your Own Key).\nВам нужно будет указать два бесплатных API-ключа.\n\n*Шаг 1 из 2: Groq API Key*\nGroq предоставляет невероятно быструю и бесплатную транскрибацию аудио (Whisper).\n\n1. Перейди на сайт [console.groq.com/keys](https://console.groq.com/keys)\n2. Зарегистрируйся/Авторизуйся\n3. Нажми "Create API Key"\n4. Скопируй ключ и *отправь его мне сюда в чат*.`,
           env.TELEGRAM_BOT_TOKEN
         );
         return new Response("OK");
@@ -177,17 +193,46 @@ export default {
 
       if (text === "/help") {
         await sendTelegramMessage(chatId,
-          `ℹ️ *Как пользоваться:*\n\n1. Отправь голосовое сообщение\n2. Я расшифрую аудио через Whisper AI\n3. Обработаю через GPT и извлеку суть, задачи и теги\n4. Сохраню всё в Persona Life\n\n*Команды:*\n/start — приветствие\n/help — эта справка`,
+          `ℹ️ *Как пользоваться:*\n\nЕсли ключи настроены, просто отправь голосовое сообщение.\n*Команды:*\n/reset — сбросить ключи и начать настройку заново\n/help — эта справка`,
           env.TELEGRAM_BOT_TOKEN
         );
         return new Response("OK");
       }
 
-      // Unknown text — friendly hint
-      await sendTelegramMessage(chatId,
-        `🎙 Отправь мне *голосовое сообщение*, и я его обработаю!`,
-        env.TELEGRAM_BOT_TOKEN
-      );
+      // State Machine for Onboarding
+      if (step === "awaiting_groq") {
+        if (!text.startsWith("gsk_")) {
+          await sendTelegramMessage(chatId, `⚠️ Ключ Groq обычно начинается с "gsk_". Пожалуйста, проверь и отправь правильный ключ.`, env.TELEGRAM_BOT_TOKEN);
+          return new Response("OK");
+        }
+        await updateUserConfig(telegramId, { botSetupStep: "awaiting_gemini", groqApiKey: text }, env.RENDER_APP_URL, env.WORKER_SECRET_TOKEN);
+        await sendTelegramMessage(chatId,
+          `✅ Отлично! Groq ключ сохранён.\n\n*Шаг 2 из 2: Gemini API Key*\nGemini от Google — это мощный ИИ, который будет анализировать текст и извлекать задачи/теги.\n\n1. Перейди в [Google AI Studio](https://aistudio.google.com/app/apikey)\n2. Нажми "Create API Key"\n3. Скопируй ключ и *отправь его мне*.`,
+          env.TELEGRAM_BOT_TOKEN
+        );
+        return new Response("OK");
+      }
+
+      if (step === "awaiting_gemini") {
+        await updateUserConfig(telegramId, { botSetupStep: "done", geminiApiKey: text }, env.RENDER_APP_URL, env.WORKER_SECRET_TOKEN);
+        await sendTelegramMessage(chatId,
+          `🎉 *Настройка завершена!*\n\nТеперь ты можешь отправлять мне любые голосовые сообщения. Я буду расшифровывать их, выделять суть, задачи и теги, и автоматически сохранять в твой аккаунт Persona Life!\n\n🎙 Жду твоего первого аудио!`,
+          env.TELEGRAM_BOT_TOKEN
+        );
+        return new Response("OK");
+      }
+
+      // Unknown text when done
+      if (step === "done") {
+        await sendTelegramMessage(chatId,
+          `🎙 Отправь мне *голосовое сообщение*, и я его обработаю!\n(Для сброса ключей отправь /reset)`,
+          env.TELEGRAM_BOT_TOKEN
+        );
+        return new Response("OK");
+      }
+
+      // Fallback
+      await sendTelegramMessage(chatId, `Нажми /start чтобы начать настройку.`, env.TELEGRAM_BOT_TOKEN);
       return new Response("OK");
     }
 
@@ -205,9 +250,15 @@ export default {
     );
 
     try {
-      // 1. Lookup user's Groq key (BYOK model)
-      const userGroqKey = await fetchUserGroqKey(telegramId, env.RENDER_APP_URL, env.WORKER_SECRET_TOKEN);
-      const groqKey = userGroqKey || env.GEMINI_API_KEY; // fallback to env Groq key if available
+      // 1. Check user onboarding state
+      const userConfig = await fetchUserConfig(telegramId, env.RENDER_APP_URL, env.WORKER_SECRET_TOKEN);
+      if (!userConfig || userConfig.botSetupStep !== "done") {
+        await sendTelegramMessage(chatId, `⚠️ Сначала нужно настроить API-ключи. Отправь /start чтобы начать.`, env.TELEGRAM_BOT_TOKEN);
+        return new Response("OK");
+      }
+
+      const groqKey = userConfig.groqApiKey || env.GEMINI_API_KEY; // keep fallback logic just in case
+      const geminiKey = userConfig.geminiApiKey || env.GEMINI_API_KEY;
 
       // 2. Get file path from Telegram
       const filePath = await getTelegramFilePath(voiceData.file_id, env.TELEGRAM_BOT_TOKEN);
@@ -218,7 +269,7 @@ export default {
       let transcript: string;
       try {
         // Try Groq Whisper first (best quality, lowest latency)
-        const groqApiKey = userGroqKey || (env as any).GROQ_API_KEY;
+        const groqApiKey = userConfig?.groqApiKey || (env as any).GROQ_API_KEY;
         if (!groqApiKey) throw new Error("No Groq key available");
         transcript = await transcribeAudioInMemory(filePath, env.TELEGRAM_BOT_TOKEN, groqApiKey);
       } catch (whisperErr: any) {
@@ -236,7 +287,7 @@ export default {
       }
 
       // 4. Run Pocket Pipeline (with Map-Reduce for long transcripts)
-      const result = await runPocketPipeline(transcript, env.GEMINI_API_KEY);
+      const result = await runPocketPipeline(transcript, geminiKey);
 
       // 5. Push result to main Render server
       await pushResultToServer(

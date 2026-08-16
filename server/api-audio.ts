@@ -27,11 +27,33 @@ export function registerAudioRoutes(app: Express) {
       return res.json({
         groqApiKey: (user as any).groqApiKey || null,
         geminiApiKey: (user as any).geminiApiKey || null,
+        botSetupStep: (user as any).botSetupStep || null,
       });
     } catch (e: any) {
       return res.status(500).json({ error: e.message });
     }
   });
+
+  // ── POST /api/internal/user-config — Worker updates user's onboarding state/keys ──
+  app.post("/api/internal/user-config", requireWorkerSecret, async (req: any, res: any) => {
+    try {
+      const { telegramId, botSetupStep, groqApiKey, geminiApiKey } = req.body;
+      if (!telegramId) return res.status(400).json({ error: "Missing telegramId" });
+
+      const updateData: any = {};
+      if (botSetupStep !== undefined) updateData.botSetupStep = botSetupStep;
+      if (groqApiKey !== undefined) updateData.groqApiKey = groqApiKey;
+      if (geminiApiKey !== undefined) updateData.geminiApiKey = geminiApiKey;
+
+      const user = await User.findOneAndUpdate(
+        { telegramId: String(telegramId) },
+        { $set: updateData },
+        { new: true }
+      );
+
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      return res.json({ ok: true });
 
   // ── POST /api/internal/audio-result — Worker pushes completed analysis ──
   app.post("/api/internal/audio-result", requireWorkerSecret, async (req: any, res: any) => {

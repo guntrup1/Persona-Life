@@ -28,6 +28,7 @@ const userSchema = new mongoose.Schema({
   telegramLinkExpires: { type: Date, default: null },
   geminiApiKey: { type: String, default: null },
   groqApiKey: { type: String, default: null },
+  botSetupStep: { type: String, default: null }, // null | 'awaiting_groq' | 'awaiting_gemini' | 'done'
   googleRefreshToken: { type: String, default: null },
   googleCalendarConnected: { type: Boolean, default: false },
   googleCalendarId: { type: String, default: "primary" },
