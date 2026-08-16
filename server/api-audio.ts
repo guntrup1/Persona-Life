@@ -54,6 +54,10 @@ export function registerAudioRoutes(app: Express) {
       if (!user) return res.status(404).json({ error: "User not found" });
 
       return res.json({ ok: true });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
 
   // ── POST /api/internal/audio-result — Worker pushes completed analysis ──
   app.post("/api/internal/audio-result", requireWorkerSecret, async (req: any, res: any) => {
