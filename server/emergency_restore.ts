@@ -1,9 +1,8 @@
 import mongoose from "mongoose";
-import * as dotenv from "dotenv";
-dotenv.config();
 
 const MONGODB_URI = process.env.MONGODB_URI;
 if (!MONGODB_URI) throw new Error("MONGODB_URI not set");
+const uri: string = MONGODB_URI;
 
 const userDataBackupSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId },
@@ -37,7 +36,7 @@ const Task2 = mongoose.model("Task", taskSchema2);
 const Goal2 = mongoose.model("Goal", goalSchema2);
 
 async function run() {
-  await mongoose.connect(MONGODB_URI);
+  await mongoose.connect(uri);
   console.log("Connected to MongoDB\n");
 
   const users = await User.find({}).lean();
