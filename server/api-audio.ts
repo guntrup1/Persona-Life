@@ -19,7 +19,7 @@ export function registerAudioRoutes(app: Express) {
       if (!telegramId) return res.status(400).json({ error: "Missing telegramId" });
 
       const user = await User.findOne({ telegramId: String(telegramId) })
-        .select("groqApiKey geminiApiKey")
+        .select("groqApiKey geminiApiKey botSetupStep")
         .lean();
 
       if (!user) return res.status(404).json({ error: "User not found" });
