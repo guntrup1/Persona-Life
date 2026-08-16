@@ -23,6 +23,7 @@ import ResetPasswordPage from "@/pages/reset-password";
 import SettingsPage from "@/pages/settings";
 import VerifyEmailPage from "@/pages/verify-email";
 import TimerPipPage from "@/pages/timer-pip";
+import BrainstormPage from "@/pages/brainstorm";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { I18nProvider, useI18n, LangToggle } from "@/lib/i18n";
 import { loadFromServerData, useStore, getTodayDate, syncFromServer, onSyncResult, type NoteType } from "@/lib/store";
@@ -56,6 +57,7 @@ function Router() {
       <Route path="/settings" component={SettingsPage} />
       <Route path="/verify-email" component={VerifyEmailPage} />
       <Route path="/timer-pip" component={TimerPipPage} />
+      <Route path="/brainstorm" component={BrainstormPage} />
       
       <Route component={NotFound} />
     </Switch>

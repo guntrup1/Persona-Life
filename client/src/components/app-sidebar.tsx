@@ -5,7 +5,7 @@ import {
   SidebarFooter, SidebarHeader,
 } from "@/components/ui/sidebar";
 import {
-  Fingerprint, Zap, Milestone, Hourglass, Puzzle, Brain, CandlestickChart, Radio, Dna, SlidersHorizontal, LogOut, Download, ChevronDown
+  Fingerprint, Zap, Milestone, Hourglass, Puzzle, Brain, CandlestickChart, Radio, Dna, SlidersHorizontal, LogOut, Download, ChevronDown, Lightbulb
 } from "lucide-react";
 import { useStore, getUserTime, loadUserSettings, getMarketSession, getLevelFromXP } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
@@ -42,11 +42,12 @@ const SidebarClock = memo(function SidebarClock() {
 });
 
 const liveItems = [
-  { id: "home",     url: "/",         icon: Fingerprint,       testId: "nav-hub" },
-  { id: "tasks",    url: "/tasks",    icon: Zap,               testId: "nav-tasks" },
-  { id: "goals",    url: "/goals",    icon: Milestone,         testId: "nav-goals" },
-  { id: "calendar", url: "/calendar", icon: Hourglass,         testId: "nav-calendar" },
-  { id: "ideas",    url: "/ideas",    icon: Puzzle,            testId: "nav-ideas" },
+  { id: "home",       url: "/",           icon: Fingerprint,       testId: "nav-hub" },
+  { id: "tasks",      url: "/tasks",      icon: Zap,               testId: "nav-tasks" },
+  { id: "goals",      url: "/goals",      icon: Milestone,         testId: "nav-goals" },
+  { id: "calendar",   url: "/calendar",   icon: Hourglass,         testId: "nav-calendar" },
+  { id: "ideas",      url: "/ideas",      icon: Puzzle,            testId: "nav-ideas" },
+  { id: "brainstorm", url: "/brainstorm", icon: Lightbulb,         testId: "nav-brainstorm" },
 ] as const;
 
 const workItems = [

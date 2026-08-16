@@ -49,9 +49,25 @@ const userDataBackupSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+// ── Brainstorm Session Schema ──
+const BrainstormSessionSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  theme: { type: String, required: true }, // Short title/theme for the brainstorm
+  prompt: { type: String, required: true }, // The prompt used to generate this
+  sourceNoteIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'ProcessedAudio' }], // the input notes
+  keyInsights: [{ type: String }],
+  actionPlan: [{
+    step: { type: Number },
+    task: { type: String }
+  }],
+  newIdeas: [{ type: String }],
+  createdAt: { type: Date, default: Date.now }
+});
+
 export const User = mongoose.model("User", userSchema);
 export const UserData = mongoose.model("UserData", userDataSchema);
 export const UserDataBackup = mongoose.model("UserDataBackup", userDataBackupSchema);
+export const BrainstormSession = mongoose.model("BrainstormSession", BrainstormSessionSchema);
 const resetTokenSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   token: { type: String, required: true, unique: true },

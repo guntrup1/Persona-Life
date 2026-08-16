@@ -63,6 +63,7 @@ export const translations = {
       news: "Новости",
       calendar: "Календарь",
       settings: "Настройки",
+      brainstorm: "Брейншторм",
     },
 
     // ── News indicator ──
@@ -626,6 +627,7 @@ export const translations = {
       news: "News",
       calendar: "Calendar",
       settings: "Settings",
+      brainstorm: "Brainstorm",
     },
 
     // ── News indicator ──

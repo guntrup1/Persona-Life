@@ -284,6 +284,7 @@ import {
   exchangeCodeForTokens,
 } from "./google-calendar";
 import { User, UserSettings } from "./mongodb";
+import { registerBrainstormRoutes } from "./api-brainstorm";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -292,6 +293,7 @@ export async function registerRoutes(
   registerAuthRoutes(app);
   registerTelegramRoutes(app);
   registerDataRoutes(app);
+  registerBrainstormRoutes(app);
 
   // ── Google Calendar OAuth Routes ──
   app.get("/api/auth/google/url", (req: any, res) => {
