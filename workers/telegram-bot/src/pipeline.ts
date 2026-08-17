@@ -58,7 +58,8 @@ async function callGemini(prompt: string, apiKey: string): Promise<string> {
   const modelsToTry = [
     "gemini-2.0-flash",
     "gemini-1.5-flash",
-    "gemini-2.5-flash",
+    "gemini-1.5-pro",
+    "gemini-2.0-flash-exp",
     "gemini-flash-latest"
   ];
 
@@ -75,40 +76,50 @@ async function callGemini(prompt: string, apiKey: string): Promise<string> {
       },
     };
 
-    try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+    // Up to 2 attempts per model with a 1s delay on 503/429
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
 
-      if (!res.ok) {
-        const errText = await res.text();
-        if (res.status === 404 || res.status === 429 || res.status >= 500) {
-          lastError = new Error(`Gemini API ${res.status} on model ${model}: ${errText}`);
-          continue;
+        if (!res.ok) {
+          const errText = await res.text();
+          if (res.status === 503 || res.status === 429) {
+            lastError = new Error(`Gemini API ${res.status} on model ${model}: ${errText}`);
+            if (attempt === 1) {
+              await new Promise((r) => setTimeout(r, 1000));
+              continue; // retry same model once after 1s
+            }
+          }
+          if (res.status === 404 || res.status >= 500) {
+            lastError = new Error(`Gemini API ${res.status} on model ${model}: ${errText}`);
+            break; // switch to next model
+          }
+          throw new Error(`Gemini API error (${res.status}): ${errText}`);
         }
-        throw new Error(`Gemini API error (${res.status}): ${errText}`);
-      }
 
-      const data = await res.json() as any;
-      const candidate = data.candidates?.[0];
-      if (!candidate) {
-        throw new Error("Gemini returned no candidates (blocked or empty)");
-      }
+        const data = await res.json() as any;
+        const candidate = data.candidates?.[0];
+        if (!candidate) {
+          throw new Error("Gemini returned no candidates (blocked or empty)");
+        }
 
-      const text = candidate.content?.parts?.[0]?.text;
-      if (!text) {
-        throw new Error("Gemini returned empty text response");
-      }
+        const text = candidate.content?.parts?.[0]?.text;
+        if (!text) {
+          throw new Error("Gemini returned empty text response");
+        }
 
-      return text;
-    } catch (err: any) {
-      if (err.message && (err.message.includes("404") || err.message.includes("429") || err.message.includes("503") || err.message.includes("500"))) {
+        return text;
+      } catch (err: any) {
         lastError = err;
-        continue;
+        if (err.message && (err.message.includes("404") || err.message.includes("429") || err.message.includes("503") || err.message.includes("500"))) {
+          break; // switch to next model
+        }
+        throw err;
       }
-      throw err;
     }
   }
 

@@ -88,11 +88,12 @@ JSON-СХЕМА:
   "new_ideas": ["новая идея 1", "новая идея 2"]
 }`;
 
-      // 5. Call Gemini REST API directly with multi-model fallback
+      // 5. Call Gemini REST API directly with multi-model fallback & retry
       const modelsToTry = [
         "gemini-2.0-flash",
         "gemini-1.5-flash",
-        "gemini-2.5-flash",
+        "gemini-1.5-pro",
+        "gemini-2.0-flash-exp",
         "gemini-flash-latest"
       ];
 
@@ -101,33 +102,44 @@ JSON-СХЕМА:
 
       for (const model of modelsToTry) {
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`;
-        try {
-          const geminiRes = await fetch(geminiUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: fullPrompt }] }],
-              generationConfig: {
-                responseMimeType: "application/json",
-                temperature: 0.6,
-                maxOutputTokens: 800,
-              },
-            }),
-          });
+        
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            const geminiRes = await fetch(geminiUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: fullPrompt }] }],
+                generationConfig: {
+                  responseMimeType: "application/json",
+                  temperature: 0.6,
+                  maxOutputTokens: 800,
+                },
+              }),
+            });
 
-          if (!geminiRes.ok) {
-            lastErrText = await geminiRes.text();
-            if (geminiRes.status === 404 || geminiRes.status === 429 || geminiRes.status >= 500) continue;
-            console.error(`[brainstorm] Gemini error on ${model}:`, lastErrText);
-            continue;
+            if (!geminiRes.ok) {
+              lastErrText = await geminiRes.text();
+              if ((geminiRes.status === 503 || geminiRes.status === 429) && attempt === 1) {
+                await new Promise((r) => setTimeout(r, 1000));
+                continue; // retry same model once after 1s
+              }
+              if (geminiRes.status === 404 || geminiRes.status >= 500 || geminiRes.status === 429) {
+                break; // switch to next model
+              }
+              console.error(`[brainstorm] Gemini error on ${model}:`, lastErrText);
+              break;
+            }
+
+            const geminiData = await geminiRes.json() as any;
+            raw = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+            if (raw) break;
+          } catch (e: any) {
+            lastErrText = e.message;
+            break;
           }
-
-          const geminiData = await geminiRes.json() as any;
-          raw = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-          if (raw) break;
-        } catch (e: any) {
-          lastErrText = e.message;
         }
+        if (raw) break;
       }
       
       if (!raw) {
