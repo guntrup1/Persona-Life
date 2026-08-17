@@ -517,7 +517,12 @@ async function processVoiceWithAI(
     },
   };
 
-  const modelsToTry = ["gemini-1.5-flash"];
+  const modelsToTry = [
+    "gemini-1.5-flash-latest",
+    "gemini-1.5-flash",
+    "gemini-1.5-flash-002",
+    "gemini-1.5-flash-001"
+  ];
   let lastError: any = null;
 
   for (const modelName of modelsToTry) {
