@@ -311,12 +311,13 @@ RULES:
 2. No markdown, no explanation, no code blocks
 3. All string values must be in the transcript's language
 4. Today's date is ${todayDateStr}. If the user mentions "завтра" (tomorrow), calculate the correct YYYY-MM-DD date. If no date is specified for a task, use ${todayDateStr}.
+5. Extract time (e.g., "14:00") if the user mentions it. Use HH:MM format. If no time is specified, leave "time" as null.
 
 JSON SCHEMA:
 {
   "executive_summary": "2-3 sentence dense summary",
   "key_insights": ["insight 1", "insight 2"],
-  "action_items": [{"task": "...", "date": "YYYY-MM-DD", "priority": "high"}],
+  "action_items": [{"task": "...", "date": "YYYY-MM-DD", "time": "HH:MM", "priority": "high"}],
   "semantic_tags": ["tag1", "tag2"],
   "topics": ["topic1"],
   "sentiment": "neutral",
@@ -412,7 +413,8 @@ ${transcript}`;
         // Create a Task for each action item
         for (const item of result.action_items) {
           const taskDate = item.date && item.date.match(/^\d{4}-\d{2}-\d{2}$/) ? item.date : today;
-          await Task.create({
+          
+          const taskData: any = {
             userId: (user as any)._id,
             taskId: `task_${Date.now()}_${Math.random().toString(36).substring(7)}`,
             name: item.task || "Новая задача",
@@ -421,7 +423,14 @@ ${transcript}`;
             date: taskDate,
             type: "daily",
             noDeadline: true,
-          }).catch((e) => console.error("Task creation failed", e));
+          };
+          
+          if (item.time && item.time.match(/^\d{2}:\d{2}$/)) {
+             taskData.startTime = item.time;
+             taskData.noDeadline = false;
+          }
+
+          await Task.create(taskData).catch((e) => console.error("Task creation failed", e));
         }
       } else if (mode === "goals") {
         // Create a Goal for each action item
