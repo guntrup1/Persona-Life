@@ -88,14 +88,12 @@ JSON-СХЕМА:
   "new_ideas": ["новая идея 1", "новая идея 2"]
 }`;
 
-      // Try multiple variations of the 1.5-flash model to ensure one of them is available
+      // Available models for this API key in 2026
       const modelsToTry = [
-        { model: "gemini-1.5-flash-latest", apiVersion: "v1beta" },
-        { model: "gemini-1.5-flash",        apiVersion: "v1beta" },
-        { model: "gemini-1.5-flash-latest", apiVersion: "v1" },
-        { model: "gemini-1.5-flash",        apiVersion: "v1" },
-        { model: "gemini-1.5-flash-002",    apiVersion: "v1beta" },
-        { model: "gemini-1.5-flash-001",    apiVersion: "v1beta" },
+        { model: "gemini-3.7-flash",        apiVersion: "v1beta" },
+        { model: "gemini-3.6-flash",        apiVersion: "v1beta" },
+        { model: "gemini-flash-latest",     apiVersion: "v1beta" },
+        { model: "gemini-2.5-flash",        apiVersion: "v1beta" }
       ];
 
       let raw = "";
@@ -128,7 +126,11 @@ JSON-СХЕМА:
                 break; // next model
               }
               
-              if (status === 503 || status === 429) {
+              if (status === 429) {
+                return res.status(429).json({ ok: false, message: "Превышен лимит запросов (Quota Exceeded). Пожалуйста, подождите или обновите тарифный план." });
+              }
+
+              if (status === 503) {
                 const delay = attempt * 1500;
                 console.warn(`[brainstorm] ${model} returned ${status}, retrying in ${delay}ms (attempt ${attempt}/3)`);
                 await new Promise((r) => setTimeout(r, delay));

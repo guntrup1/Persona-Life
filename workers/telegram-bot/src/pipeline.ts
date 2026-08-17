@@ -55,14 +55,12 @@ function chunkTranscript(text: string): string[] {
  * Call Gemini API with a given prompt and return the response text.
  */
 async function callGemini(prompt: string, apiKey: string): Promise<string> {
-  // Try multiple variations of the 1.5-flash model to ensure one of them is available
+  // Available models for this API key in 2026
   const modelsToTry = [
-    { model: "gemini-1.5-flash-latest", apiVersion: "v1beta" },
-    { model: "gemini-1.5-flash",        apiVersion: "v1beta" },
-    { model: "gemini-1.5-flash-latest", apiVersion: "v1" },
-    { model: "gemini-1.5-flash",        apiVersion: "v1" },
-    { model: "gemini-1.5-flash-002",    apiVersion: "v1beta" },
-    { model: "gemini-1.5-flash-001",    apiVersion: "v1beta" },
+    { model: "gemini-3.7-flash",        apiVersion: "v1beta" },
+    { model: "gemini-3.6-flash",        apiVersion: "v1beta" },
+    { model: "gemini-flash-latest",     apiVersion: "v1beta" },
+    { model: "gemini-2.5-flash",        apiVersion: "v1beta" }
   ];
 
   let lastError: Error = new Error("No Gemini models succeeded");
@@ -89,15 +87,18 @@ async function callGemini(prompt: string, apiKey: string): Promise<string> {
           const errText = await res.text();
           if (res.status === 404 || res.status === 400) {
             lastError = new Error(`Gemini API ${res.status} on ${model} (${apiVersion}): ${errText}`);
-            break; // skip to next model
+            break; // Break the attempt loop to try the NEXT model
           }
-          if (res.status === 503 || res.status === 429) {
-            lastError = new Error(`Gemini API ${res.status} on model ${model}: ${errText}`);
+          if (res.status === 429) {
+            throw new Error(`Gemini API Rate Limit (429) Exceeded. Пожалуйста, подождите немного перед следующим запросом.`); 
+          }
+          if (res.status === 503) {
+            lastError = new Error(`Gemini API 503 on model ${model}`);
             if (attempt === 1) {
               await new Promise((r) => setTimeout(r, 1500));
               continue;
             }
-            break; // try next model
+            break; 
           }
           throw new Error(`Gemini API error (${res.status}): ${errText}`);
         }
@@ -111,14 +112,12 @@ async function callGemini(prompt: string, apiKey: string): Promise<string> {
 
         return text;
       } catch (err: any) {
+        // If it's a rate limit or another fatal error we deliberately threw, abort everything
+        if (err.message.includes("Rate Limit (429)") || !err.message.includes("Gemini API 404")) {
+           throw err; 
+        }
         lastError = err;
-        if (err.message && (err.message.includes("404") || err.message.includes("400"))) {
-          break; // skip to next model
-        }
-        if (err.message && (err.message.includes("429") || err.message.includes("503"))) {
-          break; // skip to next model after retries
-        }
-        throw err;
+        break; // break attempt loop, try next model
       }
     }
   }
