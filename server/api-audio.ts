@@ -1,5 +1,5 @@
+import { Express } from "express";
 import mongoose from "mongoose";
-import { User, ProcessedAudio, DayNote } from "./mongodb";
 
 export function registerAudioRoutes(app: Express) {
 
@@ -18,7 +18,8 @@ export function registerAudioRoutes(app: Express) {
       const { telegramId } = req.query;
       if (!telegramId) return res.status(400).json({ error: "Missing telegramId" });
 
-      const user = await User.findOne({
+      const UserModel = mongoose.model("User");
+      const user = await UserModel.findOne({
         $or: [{ telegramId: String(telegramId) }, { telegramId: Number(telegramId) }]
       })
         .select("groqApiKey geminiApiKey botSetupStep botRecordMode")
@@ -49,7 +50,8 @@ export function registerAudioRoutes(app: Express) {
       if (geminiApiKey !== undefined) updateData.geminiApiKey = geminiApiKey;
       if (botRecordMode !== undefined) updateData.botRecordMode = botRecordMode;
 
-      const user = await User.findOneAndUpdate(
+      const UserModel = mongoose.model("User");
+      const user = await UserModel.findOneAndUpdate(
         { $or: [{ telegramId: String(telegramId) }, { telegramId: Number(telegramId) }] },
         { $set: updateData },
         { returnDocument: "after" }
@@ -70,7 +72,8 @@ export function registerAudioRoutes(app: Express) {
       if (!token || !telegramId) return res.status(400).json({ error: "Missing token or telegramId" });
 
       // Find user with valid unexpired link token
-      const user = await User.findOne({
+      const UserModel = mongoose.model("User");
+      const user = await UserModel.findOne({
         telegramLinkToken: token,
         telegramLinkExpires: { $gt: new Date() },
       });
@@ -78,7 +81,7 @@ export function registerAudioRoutes(app: Express) {
       if (!user) return res.status(404).json({ error: "Token invalid or expired" });
 
       // Check if this telegramId is already used by another account
-      const existing = await User.findOne({
+      const existing = await UserModel.findOne({
         $or: [{ telegramId: String(telegramId) }, { telegramId: Number(telegramId) }]
       });
       if (existing && existing._id.toString() !== user._id.toString()) {
@@ -86,7 +89,7 @@ export function registerAudioRoutes(app: Express) {
       }
 
       // Link the account + set initial setup step
-      await User.findByIdAndUpdate(user._id, {
+      await UserModel.findByIdAndUpdate(user._id, {
         telegramId: String(telegramId),
         telegramLinkToken: null,
         telegramLinkExpires: null,
@@ -109,13 +112,15 @@ export function registerAudioRoutes(app: Express) {
       } = req.body;
 
       // Find user by telegram ID (support String or Number)
-      const user = await User.findOne({
+      const UserModel = mongoose.model("User");
+      const user = await UserModel.findOne({
         $or: [{ telegramId: String(telegramId) }, { telegramId: Number(telegramId) }]
       }).lean();
       if (!user) return res.status(404).json({ error: "User not found" });
 
       // Save ProcessedAudio record (always — appears in Brainstorm panel)
-      const processed = await ProcessedAudio.create({
+      const ProcessedAudioModel = mongoose.model("ProcessedAudio");
+      const processed = await ProcessedAudioModel.create({
         userId: user._id,
         telegramMessageId: messageId,
         raw_transcript: transcript,
@@ -135,7 +140,8 @@ export function registerAudioRoutes(app: Express) {
       // Auto-create a DayNote ONLY for non-brainstorm modes so it appears in the app's Notes/Tasks sections
       if (mode !== "brainstorm") {
         const today = new Date().toISOString().slice(0, 10);
-        await DayNote.create({
+        const DayNoteModel = mongoose.model("DayNote");
+        await DayNoteModel.create({
           userId: user._id,
           noteId: `audio_${processed._id}`,
           date: today,
@@ -169,7 +175,8 @@ export function registerAudioRoutes(app: Express) {
       if (req.query.mode) {
         query.mode = req.query.mode;
       }
-      const audios = await ProcessedAudio.find(query)
+      const ProcessedAudioModel = mongoose.model("ProcessedAudio");
+      const audios = await ProcessedAudioModel.find(query)
         .sort({ createdAt: -1 })
         .limit(50)
         .lean();
@@ -183,7 +190,8 @@ export function registerAudioRoutes(app: Express) {
   app.delete("/api/processed-audios/all", async (req: any, res: any) => {
     try {
       if (!req.session?.userId) return res.status(401).json({ error: "Unauthorized" });
-      await ProcessedAudio.deleteMany({ userId: req.session.userId });
+      const ProcessedAudioModel = mongoose.model("ProcessedAudio");
+      await ProcessedAudioModel.deleteMany({ userId: req.session.userId });
       return res.json({ ok: true });
     } catch (e: any) {
       return res.status(500).json({ error: e.message });
@@ -194,7 +202,8 @@ export function registerAudioRoutes(app: Express) {
   app.delete("/api/processed-audios/:id", async (req: any, res: any) => {
     try {
       if (!req.session?.userId) return res.status(401).json({ error: "Unauthorized" });
-      const deleted = await ProcessedAudio.findOneAndDelete({ _id: req.params.id, userId: req.session.userId });
+      const ProcessedAudioModel = mongoose.model("ProcessedAudio");
+      const deleted = await ProcessedAudioModel.findOneAndDelete({ _id: req.params.id, userId: req.session.userId });
       if (!deleted) return res.status(404).json({ error: "Not found" });
       return res.json({ ok: true });
     } catch (e: any) {
@@ -252,7 +261,8 @@ export function registerAudioRoutes(app: Express) {
 
     try {
       // 1. Find user
-      const user = await User.findOne({
+      const UserModel = mongoose.model("User");
+      const user = await UserModel.findOne({
         $or: [{ telegramId: String(telegramId) }, { telegramId: Number(telegramId) }]
       }).lean();
       if (!user) {
@@ -509,7 +519,8 @@ ${trimmedTranscript}`;
       };
 
       // 5. Save to DB
-      const processed = await ProcessedAudio.create({
+      const ProcessedAudioModel = mongoose.model("ProcessedAudio");
+      const processed = await ProcessedAudioModel.create({
         userId: (user as any)._id,
         telegramMessageId: String(messageId),
         raw_transcript: transcript,
