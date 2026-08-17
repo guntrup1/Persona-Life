@@ -238,10 +238,44 @@ export function registerAudioRoutes(app: Express) {
       }
 
       const groqApiKey = (user as any).groqApiKey;
-      const geminiApiKey = (user as any).geminiApiKey || process.env.GEMINI_API_KEY;
+      const geminiApiKey = (user as any).geminiApiKey;
 
       if (!groqApiKey) {
         await tgSend("❌ Groq API ключ не найден. Настрой ключи через /reset");
+        return;
+      }
+
+      if (!geminiApiKey) {
+        await tgSend("❌ Gemini API ключ не найден. Настрой ключи через /reset");
+        return;
+      }
+
+      // 2. Pre-flight Gemini check — verify key and quota BEFORE heavy audio work
+      const preflightRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${geminiApiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: "ping" }] }],
+            generationConfig: { maxOutputTokens: 10 },
+          }),
+        }
+      ).catch(() => null);
+
+      if (preflightRes && preflightRes.status === 429) {
+        await tgSend(
+          "⚠️ *Лимит Gemini API исчерпан*\n" +
+          "Твой Gemini ключ превысил бесплатный лимит \`15 запросов/минуту\`.\n" +
+          "⏳ Подожди 1 минуту и повтори запись.\n" +
+          "_Аудио не было скачано, трафик не потрачен._",
+          true
+        );
+        return;
+      }
+
+      if (preflightRes && preflightRes.status === 401) {
+        await tgSend("❌ Gemini API ключ недействителен. Обнови ключ через /reset", true);
         return;
       }
 
@@ -336,50 +370,40 @@ ${trimmedTranscript}`;
         { model: "gemini-1.5-flash", api: "v1" },
       ];
 
-      // Try user's key first, then server fallback key on quota errors
-      const geminiKeys = [geminiApiKey, process.env.GEMINI_API_KEY].filter(Boolean) as string[];
-      // Deduplicate (if user key == server key)
-      const uniqueKeys = [...new Set(geminiKeys)];
-
       let rawGemini = "";
-      outer:
-      for (const apiKey of uniqueKeys) {
-        for (const { model, api } of geminiModels) {
-          try {
-            const gRes = await fetch(
-              `https://generativelanguage.googleapis.com/${api}/models/${model}:generateContent?key=${apiKey}`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  contents: [{ parts: [{ text: systemPrompt }] }],
-                  generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
-                }),
-              }
-            );
-            if (!gRes.ok) {
-              const errText = await gRes.text();
-              const isQuota = gRes.status === 429;
-              console.error(`[Gemini] ${model} (key=...${apiKey.slice(-6)}) failed ${gRes.status}${isQuota ? " QUOTA" : ""}: ${errText.slice(0, 200)}`);
-              if (isQuota) break; // quota exhausted for this key, try next key
-              continue; // model not found, try next model
+      for (const { model, api } of geminiModels) {
+        try {
+          const gRes = await fetch(
+            `https://generativelanguage.googleapis.com/${api}/models/${model}:generateContent?key=${geminiApiKey}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: systemPrompt }] }],
+                generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
+              }),
             }
-            const gData = await gRes.json() as any;
-            const text = gData?.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (text) {
-              rawGemini = text;
-              console.log(`[Gemini] Success with ${model}, length=${text.length}`);
-              break outer;
-            }
-          } catch (e: any) {
-            console.error(`[Gemini] ${model} exception: ${e.message}`);
+          );
+          if (!gRes.ok) {
+            const errText = await gRes.text();
+            console.error(`[Gemini] ${model} failed ${gRes.status}: ${errText.slice(0, 200)}`);
             continue;
           }
+          const gData = await gRes.json() as any;
+          const text = gData?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text) {
+            rawGemini = text;
+            console.log(`[Gemini] Success with ${model}, length=${text.length}`);
+            break;
+          }
+        } catch (e: any) {
+          console.error(`[Gemini] ${model} exception: ${e.message}`);
+          continue;
         }
       }
 
       if (!rawGemini) {
-        console.error("[Gemini] ALL keys and models failed. Transcript length:", transcript.length);
+        console.error("[Gemini] ALL models failed. Transcript length:", transcript.length);
       }
 
       // Parse Gemini output
