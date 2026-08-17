@@ -89,14 +89,12 @@ JSON-СХЕМА:
 }`;
 
       // 5. Call Gemini REST API — multi-model cascade with exponential backoff
-      // Models ordered by availability (highest limits first)
+      // ONLY confirmed working models with 1500 req/day free tier limits
       const modelsToTry = [
-        "gemini-2.5-flash",          // Newest, highest limit (1M tokens)
-        "gemini-2.0-flash-lite",     // Very high limit, lightweight
-        "gemini-2.0-flash",          // High limit
-        "gemini-1.5-flash-8b",       // Very fast, lower demand
-        "gemini-1.5-flash",          // Classic, reliable
-        "gemini-1.5-pro",            // Pro tier, different quota pool
+        "gemini-2.0-flash",       // Primary — 1500 req/day, 15 RPM
+        "gemini-2.0-flash-lite",  // Secondary — 1500 req/day, 30 RPM
+        "gemini-1.5-flash",       // Fallback — 1500 req/day, 15 RPM
+        "gemini-1.5-flash-8b",    // Last resort — 1500 req/day, 15 RPM
       ];
 
       let raw = "";

@@ -96,7 +96,7 @@ async function validateGeminiApiKey(apiKey: string): Promise<KeyValidationResult
 
   try {
     const genAI = new GoogleGenerativeAI(trimmed);
-    const model = genAI.getGenerativeModel({ model: "gemini-flash-lite-latest" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
     await model.generateContent("ping");
     return { valid: true };
   } catch (err: any) {
@@ -517,7 +517,7 @@ async function processVoiceWithAI(
     },
   };
 
-  const modelsToTry = ["gemini-flash-lite-latest", "gemini-3.5-flash", "gemini-flash-latest"];
+  const modelsToTry = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash", "gemini-1.5-flash-8b"];
   let lastError: any = null;
 
   for (const modelName of modelsToTry) {

@@ -56,11 +56,10 @@ function chunkTranscript(text: string): string[] {
  */
 async function callGemini(prompt: string, apiKey: string): Promise<string> {
   const modelsToTry = [
-    "gemini-2.0-flash",
-    "gemini-1.5-flash",
-    "gemini-1.5-pro",
-    "gemini-2.0-flash-exp",
-    "gemini-flash-latest"
+    "gemini-2.0-flash",       // 1500 req/day, 15 RPM
+    "gemini-2.0-flash-lite",  // 1500 req/day, 30 RPM
+    "gemini-1.5-flash",       // 1500 req/day, 15 RPM
+    "gemini-1.5-flash-8b",    // 1500 req/day, 15 RPM
   ];
 
   let lastError: Error = new Error("No Gemini models succeeded");
