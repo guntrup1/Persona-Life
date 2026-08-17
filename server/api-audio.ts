@@ -1,5 +1,5 @@
-import { Express } from "express";
-import { User, ProcessedAudio, DayNote, Task, Goal } from "./mongodb";
+import mongoose from "mongoose";
+import { User, ProcessedAudio, DayNote } from "./mongodb";
 
 export function registerAudioRoutes(app: Express) {
 
@@ -532,6 +532,7 @@ ${trimmedTranscript}`;
 
       if (mode === "tasks") {
         // Create a Task for each action item
+        const TaskModel = mongoose.model("Task");
         for (const item of result.action_items) {
           const taskDate = item.date && item.date.match(/^\d{4}-\d{2}-\d{2}$/) ? item.date : today;
           
@@ -551,12 +552,13 @@ ${trimmedTranscript}`;
              taskData.noDeadline = false;
           }
 
-          await Task.create(taskData).catch((e) => console.error("Task creation failed", e));
+          await TaskModel.create(taskData).catch((e) => console.error("Task creation failed", e));
         }
       } else if (mode === "goals") {
         // Create a Goal for each action item
+        const GoalModel = mongoose.model("Goal");
         for (const item of result.action_items) {
-          await Goal.create({
+          await GoalModel.create({
             userId: (user as any)._id,
             goalId: `goal_${Date.now()}_${Math.random().toString(36).substring(7)}`,
             type: "life",
@@ -567,7 +569,8 @@ ${trimmedTranscript}`;
         }
       } else if (mode === "notes") {
         // Create a Note
-        await DayNote.create({
+        const DayNoteModel = mongoose.model("DayNote");
+        await DayNoteModel.create({
           userId: (user as any)._id,
           noteId: `audio_${processed._id}`,
           date: today,

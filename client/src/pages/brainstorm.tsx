@@ -225,6 +225,7 @@ export default function BrainstormPage() {
   const [selectedNotes, setSelectedNotes] = useState<Set<string>>(new Set());
   const [sessions, setSessions] = useState<BrainstormSession[]>([]);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [showOnlyToday, setShowOnlyToday] = useState(false);
   
   const [prompt, setPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -425,14 +426,26 @@ export default function BrainstormPage() {
           </div>
         </div>
 
-        {/* History Drawer */}
-        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-          <SheetTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-9 gap-2 text-white/60 hover:text-white hover:bg-white/10 rounded-xl">
-              <History className="w-4 h-4" />
-              <span className="hidden sm:inline">История</span>
-            </Button>
-          </SheetTrigger>
+        <div className="flex items-center gap-2">
+          {/* Today Filter Toggle */}
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setShowOnlyToday(!showOnlyToday)}
+            className={`h-9 gap-2 rounded-xl transition-colors ${showOnlyToday ? "bg-indigo-500/20 text-indigo-400" : "text-white/60 hover:text-white hover:bg-white/10"}`}
+          >
+            <Calendar className="w-4 h-4" />
+            <span className="hidden sm:inline">Сегодня</span>
+          </Button>
+
+          {/* History Drawer */}
+          <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-9 gap-2 text-white/60 hover:text-white hover:bg-white/10 rounded-xl">
+                <History className="w-4 h-4" />
+                <span className="hidden sm:inline">История</span>
+              </Button>
+            </SheetTrigger>
           <SheetContent className="bg-[#121212] border-l border-white/5 text-white w-[85vw] sm:max-w-md p-0">
             <SheetHeader className="p-6 border-b border-white/5">
               <SheetTitle className="text-white">История сессий</SheetTitle>
@@ -464,7 +477,7 @@ export default function BrainstormPage() {
               )}
             </ScrollArea>
           </SheetContent>
-        </Sheet>
+        </div>
       </div>
 
       {/* Main Feed Area - overflow-y-auto with hardware acceleration */}
@@ -490,7 +503,9 @@ export default function BrainstormPage() {
           </div>
         ) : (
           <div className="flex flex-col justify-end min-h-full pb-10">
-            {sessions.map(session => (
+            {sessions
+              .filter(session => !showOnlyToday || new Date(session.createdAt).toISOString().slice(0, 10) === getTodayDate())
+              .map(session => (
               <div
                 key={session._id}
                 id={`session-${session._id}`}
