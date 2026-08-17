@@ -52,17 +52,23 @@ const userDataBackupSchema = new mongoose.Schema({
 // ── Brainstorm Session Schema ──
 const BrainstormSessionSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  theme: { type: String, required: true }, // Short title/theme for the brainstorm
-  prompt: { type: String, required: true }, // The prompt used to generate this
-  sourceNoteIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'ProcessedAudio' }], // the input notes
-  keyInsights: [{ type: String }],
-  actionPlan: [{
-    step: { type: Number },
-    task: { type: String }
+  theme: { type: String, required: true },
+  prompt: { type: String, required: true },
+  sourceNoteIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'ProcessedAudio' }],
+  // snake_case fields — match frontend BrainstormSession interface exactly
+  executive_summary: { type: String, default: "" },
+  key_insights: [{ type: String }],
+  patterns_found: [{ type: String }],
+  contradictions: [{ type: String }],
+  action_items: [{
+    task: { type: String },
+    priority: { type: String, default: "medium" },
   }],
   newIdeas: [{ type: String }],
-  createdAt: { type: Date, default: Date.now }
-});
+  questions_raised: [{ type: String }],
+  createdAt: { type: Date, default: Date.now },
+}, { strict: false }); // strict: false allows any extra fields without error
+
 
 export const User = mongoose.model("User", userSchema);
 export const UserData = mongoose.model("UserData", userDataSchema);

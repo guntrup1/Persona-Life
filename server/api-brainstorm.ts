@@ -27,12 +27,12 @@ export function registerBrainstormRoutes(app: Express) {
         return res.status(400).json({ error: "Не выбраны заметки для штурма" });
       }
 
-      // 1. Fetch user to get their Gemini API key
+      // 1. Fetch user to get their Gemini API key (user's own key only — no server fallback)
       const user = await User.findById(req.session.userId).select("geminiApiKey");
-      const geminiApiKey = (user as any)?.geminiApiKey || process.env.GEMINI_API_KEY;
+      const geminiApiKey = (user as any)?.geminiApiKey;
       
       if (!geminiApiKey) {
-        return res.status(400).json({ error: "Gemini API ключ не настроен. Привяжите его в настройках Telegram-бота." });
+        return res.status(400).json({ error: "Ваш Gemini API ключ не найден. Привяжите его в настройках Telegram-бота (/reset)." });
       }
 
       // 2. Fetch the notes (only for this user)
@@ -95,12 +95,13 @@ JSON-СХЕМА (строго соблюдать):
 
 НАЧИНАЙ JSON СЕЙЧАС:`;
 
-      // Available models for this API key in 2026
+      // Models in priority order (highest daily limits first) — only models confirmed in AI Studio
       const modelsToTry = [
-        { model: "gemini-3.6-flash",        apiVersion: "v1beta" },
-        { model: "gemini-3.7-flash",        apiVersion: "v1beta" },
-        { model: "gemini-flash-latest",     apiVersion: "v1beta" },
-        { model: "gemini-2.5-flash",        apiVersion: "v1beta" }
+        { model: "gemini-3.5-flash-lite", apiVersion: "v1beta" }, // 15 RPM, 500 RPD
+        { model: "gemini-2.5-flash-lite", apiVersion: "v1beta" }, // 10 RPM, 20 RPD
+        { model: "gemini-3.7-flash",      apiVersion: "v1beta" }, // 5 RPM, 20 RPD
+        { model: "gemini-3.6-flash",      apiVersion: "v1beta" }, // 5 RPM, 20 RPD
+        { model: "gemini-2.5-flash",      apiVersion: "v1beta" }, // 5 RPM, 20 RPD
       ];
 
       let raw = "";
@@ -111,7 +112,7 @@ JSON-СХЕМА (строго соблюдать):
       for (const { model, apiVersion } of modelsToTry) {
         const geminiUrl = `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent?key=${geminiApiKey}`;
         
-        for (let attempt = 1; attempt <= 3; attempt++) {
+        for (let attempt = 1; attempt <= 2; attempt++) {
           try {
             const geminiRes = await fetch(geminiUrl, {
               method: "POST",
@@ -130,19 +131,26 @@ JSON-СХЕМА (строго соблюдать):
               lastErrText = await geminiRes.text();
               const status = geminiRes.status;
               
-              if (status === 404 || status === 400) {
-                console.warn(`[brainstorm] Model ${model} (${apiVersion}) not found (${status}), skipping`);
+              if (status === 404 || status === 400 || status === 403) {
+                console.warn(`[brainstorm] Model ${model} (${apiVersion}) not available (${status}), trying next`);
                 break; // next model
               }
               
               if (status === 429) {
-                rateLimitError = `Превышен лимит запросов (Quota Exceeded) на модели ${model}. Пожалуйста, подождите минуту.`;
-                break; // Try next model
+                if (attempt === 1) {
+                  console.warn(`[brainstorm] ${model} hit 429, waiting 65s before retry...`);
+                  await new Promise((r) => setTimeout(r, 65000));
+                  continue; // retry same model
+                }
+                // Second attempt also 429 — try next model
+                rateLimitError = `Превышен лимит запросов на модели ${model}. Перехожу на следующую...`;
+                console.warn(`[brainstorm] ${model} hit 429 on retry, trying next model`);
+                break; // next model
               }
 
               if (status === 503) {
                 const delay = attempt * 1500;
-                console.warn(`[brainstorm] ${model} returned ${status}, retrying in ${delay}ms (attempt ${attempt}/3)`);
+                console.warn(`[brainstorm] ${model} returned ${status}, retrying in ${delay}ms (attempt ${attempt}/2)`);
                 await new Promise((r) => setTimeout(r, delay));
                 continue;
               }
@@ -211,23 +219,23 @@ JSON-СХЕМА (строго соблюдать):
         return res.status(502).json({ error: "Модель вернула некорректный JSON. Попробуйте ещё раз или измените запрос." });
       }
 
-      // 7. Save to DB
+      // 7. Save to DB — use snake_case fields to match frontend BrainstormSession interface
       const session = await BrainstormSession.create({
         userId: req.session.userId,
         theme: parsed.theme || "Без названия",
         prompt: userPrompt,
         sourceNoteIds: noteIds,
-        executiveSummary: parsed.executive_summary || "",
-        keyInsights: parsed.key_insights || [],
-        patternsFound: parsed.patterns_found || [],
+        // snake_case: matches frontend interface (executive_summary, key_insights, etc.)
+        executive_summary: parsed.executive_summary || "",
+        key_insights: parsed.key_insights || [],
+        patterns_found: parsed.patterns_found || [],
         contradictions: parsed.contradictions || [],
-        actionPlan: (parsed.action_plan || []).map((a: any, i: number) => ({
-          step: a.step ?? i + 1,
+        action_items: (parsed.action_plan || []).map((a: any, i: number) => ({
           task: a.task || "",
           priority: a.priority || "medium",
         })),
         newIdeas: parsed.new_ideas || [],
-        questionsToExplore: parsed.questions_to_explore || [],
+        questions_raised: parsed.questions_to_explore || [],
       });
 
       return res.json({ session });
