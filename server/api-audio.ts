@@ -338,7 +338,8 @@ ${trimmedTranscript}`;
 
       const geminiModels = [
         { model: "gemini-3.6-flash", api: "v1beta" },
-        { model: "gemini-3.1-pro", api: "v1beta" }
+        { model: "gemini-1.5-flash", api: "v1beta" },
+        { model: "gemini-1.5-pro", api: "v1beta" }
       ];
 
       // Helper: call Gemini with one retry on 429
@@ -388,8 +389,12 @@ ${trimmedTranscript}`;
                 }
               }
               if (gRes.status === 401) {
-                await tgSend("❌ Gemini API ключ недействителен. Обнови через /reset", true);
+                await tgSend("❌ Gemini API ключ недействителен (Ошибка 401). Обнови через /reset", true);
                 return "";
+              }
+              if (gRes.status === 403) {
+                console.warn(`[Gemini] ${model} failed 403: Permission Denied. Trying next model...`);
+                continue;
               }
               if (!gRes.ok) {
                 const errText = await gRes.text();
