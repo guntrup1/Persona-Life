@@ -302,7 +302,7 @@ export function registerAudioRoutes(app: Express) {
         notes: "\nMODE: NOTES. Extract key thoughts, facts, observations.",
       };
 
-const todayDateStr = new Date().toISOString().slice(0, 10);
+      const todayDateStr = new Date().toISOString().slice(0, 10);
       // Trim very long transcripts to avoid token limits (8000 chars ≈ 6000 tokens)
       const trimmedTranscript = transcript.length > 8000 ? transcript.slice(0, 8000) + "..." : transcript;
       const systemPrompt = `You are an elite cognitive extraction AI. Analyze the voice transcript and return ONLY a valid JSON object.
@@ -332,7 +332,6 @@ TRANSCRIPT:
 ${trimmedTranscript}`;
 
       const geminiModels = [
-        { model: "gemini-3.6-flash", api: "v1beta" },
         { model: "gemini-2.5-flash", api: "v1beta" },
         { model: "gemini-2.0-flash", api: "v1beta" },
         { model: "gemini-1.5-flash-latest", api: "v1" },
@@ -352,11 +351,22 @@ ${trimmedTranscript}`;
               }),
             }
           );
-          if (!gRes.ok) continue;
+          if (!gRes.ok) {
+            const errText = await gRes.text();
+            console.error(`[Gemini] ${model} failed ${gRes.status}: ${errText.slice(0, 300)}`);
+            continue;
+          }
           const gData = await gRes.json() as any;
           const text = gData?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (text) { rawGemini = text; break; }
-        } catch { continue; }
+          if (text) { rawGemini = text; console.log(`[Gemini] Success with ${model}, length=${text.length}`); break; }
+        } catch (e: any) {
+          console.error(`[Gemini] ${model} exception: ${e.message}`);
+          continue;
+        }
+      }
+
+      if (!rawGemini) {
+        console.error("[Gemini] ALL models failed. Transcript length:", transcript.length);
       }
 
       // Parse Gemini output
