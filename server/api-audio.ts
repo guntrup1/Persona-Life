@@ -250,35 +250,6 @@ export function registerAudioRoutes(app: Express) {
         return;
       }
 
-      // 2. Pre-flight Gemini check — verify key and quota BEFORE heavy audio work
-      const preflightRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${geminiApiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: "ping" }] }],
-            generationConfig: { maxOutputTokens: 10 },
-          }),
-        }
-      ).catch(() => null);
-
-      if (preflightRes && preflightRes.status === 429) {
-        await tgSend(
-          "⚠️ *Лимит Gemini API исчерпан*\n" +
-          "Твой Gemini ключ превысил бесплатный лимит \`15 запросов/минуту\`.\n" +
-          "⏳ Подожди 1 минуту и повтори запись.\n" +
-          "_Аудио не было скачано, трафик не потрачен._",
-          true
-        );
-        return;
-      }
-
-      if (preflightRes && preflightRes.status === 401) {
-        await tgSend("❌ Gemini API ключ недействителен. Обнови ключ через /reset", true);
-        return;
-      }
-
       // 2. Get file path from Telegram
       const getFileRes = await fetch(`https://api.telegram.org/bot${botToken}/getFile?file_id=${fileId}`);
       const getFileData = await getFileRes.json() as any;
@@ -370,37 +341,77 @@ ${trimmedTranscript}`;
         { model: "gemini-1.5-flash", api: "v1" },
       ];
 
-      let rawGemini = "";
-      for (const { model, api } of geminiModels) {
-        try {
-          const gRes = await fetch(
-            `https://generativelanguage.googleapis.com/${api}/models/${model}:generateContent?key=${geminiApiKey}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                contents: [{ parts: [{ text: systemPrompt }] }],
-                generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
-              }),
+      // Helper: call Gemini with one retry on 429
+      async function callGemini(): Promise<string> {
+        for (let attempt = 0; attempt < 2; attempt++) {
+          for (const { model, api } of geminiModels) {
+            try {
+              const gRes = await fetch(
+                `https://generativelanguage.googleapis.com/${api}/models/${model}:generateContent?key=${geminiApiKey}`,
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    contents: [{ parts: [{ text: systemPrompt }] }],
+                    generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
+                  }),
+                }
+              );
+              if (gRes.status === 429) {
+                console.warn(`[Gemini] ${model} hit 429 (attempt ${attempt + 1})`);
+                if (attempt === 0) {
+                  // Notify user that we're waiting, then retry
+                  if (progressMsgId) {
+                    await fetch(`https://api.telegram.org/bot${botToken}/editMessageText`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        chat_id: chatId,
+                        message_id: Number(progressMsgId),
+                        text: `⏳ *Gemini перегружен...*\n\`Лимит 15 запросов/мин. Ожидаю 65 сек и повторяю...\``,
+                        parse_mode: "Markdown",
+                      }),
+                    }).catch(() => {});
+                  }
+                  // Wait 65 seconds before retry (60s window + buffer)
+                  await new Promise(r => setTimeout(r, 65000));
+                  break; // break model loop, go to next attempt
+                } else {
+                  // Second attempt also 429 - give up
+                  await tgSend(
+                    "⚠️ *Gemini API перегружен*\n" +
+                    "Превышен лимит \`15 запросов/мин\`.\n" +
+                    "Твой транскрипт сохранён. Повтори через несколько минут.",
+                    true
+                  );
+                  return "";
+                }
+              }
+              if (gRes.status === 401) {
+                await tgSend("❌ Gemini API ключ недействителен. Обнови через /reset", true);
+                return "";
+              }
+              if (!gRes.ok) {
+                const errText = await gRes.text();
+                console.error(`[Gemini] ${model} failed ${gRes.status}: ${errText.slice(0, 200)}`);
+                continue;
+              }
+              const gData = await gRes.json() as any;
+              const text = gData?.candidates?.[0]?.content?.parts?.[0]?.text;
+              if (text) {
+                console.log(`[Gemini] ✓ ${model} OK, length=${text.length}`);
+                return text;
+              }
+            } catch (e: any) {
+              console.error(`[Gemini] ${model} exception: ${e.message}`);
+              continue;
             }
-          );
-          if (!gRes.ok) {
-            const errText = await gRes.text();
-            console.error(`[Gemini] ${model} failed ${gRes.status}: ${errText.slice(0, 200)}`);
-            continue;
           }
-          const gData = await gRes.json() as any;
-          const text = gData?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (text) {
-            rawGemini = text;
-            console.log(`[Gemini] Success with ${model}, length=${text.length}`);
-            break;
-          }
-        } catch (e: any) {
-          console.error(`[Gemini] ${model} exception: ${e.message}`);
-          continue;
         }
+        return "";
       }
+
+      const rawGemini = await callGemini();
 
       if (!rawGemini) {
         console.error("[Gemini] ALL models failed. Transcript length:", transcript.length);
