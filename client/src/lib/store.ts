@@ -863,7 +863,10 @@ function mergeArraysById<T extends { id: string }>(local: T[], server: T[], dele
   for (const item of local) {
     const existing = map.get(item.id);
     if (existing && 'completed' in item && 'completed' in existing) {
-      map.set(item.id, { ...item, completed: (item as any).completed || (existing as any).completed } as T);
+      const serverTime = (existing as any).updatedAt || (existing as any).completedAt || "";
+      const localTime = (item as any).updatedAt || (item as any).completedAt || "";
+      const winner = localTime >= serverTime ? item : existing;
+      map.set(winner.id, winner);
     } else {
       map.set(item.id, item);
     }
@@ -883,19 +886,23 @@ function mergeArraysByKey<T extends { id: string }>(local: T[], server: T[], key
   }
   for (const item of local) {
     const key = keyFn(item);
-    if (byKey.has(key) && !byId.has(item.id)) {
-      byId.delete(byKey.get(key)!.id);
+    let existing = byId.get(item.id);
+
+    if (!existing && byKey.has(key)) {
+      existing = byKey.get(key);
+      byId.delete(existing!.id);
     }
-    const existing = byId.get(item.id);
+
     if (existing && 'completed' in item && 'completed' in existing) {
       const serverTime = (existing as any).updatedAt || (existing as any).completedAt || "";
       const localTime = (item as any).updatedAt || (item as any).completedAt || "";
       const winner = localTime >= serverTime ? item : existing;
       byId.set(winner.id, winner);
+      byKey.set(key, winner);
     } else {
       byId.set(item.id, item);
+      byKey.set(key, item);
     }
-    byKey.set(key, item);
   }
   if (deletedIds) {
     for (const id of deletedIds) byId.delete(id);
@@ -990,16 +997,7 @@ export async function syncFromServer(): Promise<boolean> {
     if (!res.ok) return false;
     const json = await res.json();
     if (json?.data) {
-      const serverData = json.data as AppState;
-      globalState = autoLoadRoutine({
-        ...DEFAULT_STATE,
-        ...serverData,
-        xp: { ...DEFAULT_XP, ...serverData.xp },
-        streak: { ...DEFAULT_STATE.streak, ...serverData.streak },
-      });
-      globalState = { ...globalState, xp: recalcXP(globalState) };
-      saveState(globalState);
-      notify();
+      loadFromServerData(json.data as AppState, false);
       return true;
     }
     return false;
