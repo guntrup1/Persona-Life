@@ -552,7 +552,7 @@ export function registerAuthRoutes(app: Express) {
       const settings = await UserSettings.findOneAndUpdate(
         { userId: req.session.userId },
         { utcOffset, workStart, workEnd, restStart, restEnd, sleepStart, sleepEnd, tradingSessions, workDays, googleReminderMinutes, updatedAt: new Date() },
-        { upsert: true, new: true }
+        { upsert: true, returnDocument: "after" }
       );
       if (googleReminderMinutes !== undefined) {
         await User.findByIdAndUpdate(req.session.userId, { googleReminderMinutes });

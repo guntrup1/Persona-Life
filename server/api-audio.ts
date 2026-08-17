@@ -52,7 +52,7 @@ export function registerAudioRoutes(app: Express) {
       const user = await User.findOneAndUpdate(
         { $or: [{ telegramId: String(telegramId) }, { telegramId: Number(telegramId) }] },
         { $set: updateData },
-        { new: true }
+        { returnDocument: "after" }
       );
 
       if (!user) return res.status(404).json({ error: "User not found" });

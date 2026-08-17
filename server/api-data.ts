@@ -228,7 +228,7 @@ export function registerDataRoutes(app: Express) {
       await Task.findOneAndUpdate(
         { userId, taskId: data.id }, 
         { ...data, taskId: data.id, userId }, 
-        { upsert: true, new: true }
+        { upsert: true, returnDocument: "after" }
       );
       res.json({ ok: true });
     } catch (err: any) {
