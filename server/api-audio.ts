@@ -249,10 +249,14 @@ export function registerAudioRoutes(app: Express) {
       const audioBuffer = Buffer.from(await audioResp.arrayBuffer());
 
       // 3. Transcribe with Groq Whisper
-      const fileName = filePath.split("/").pop() || "audio.ogg";
+      // Telegram voice messages use .oga extension — Groq only accepts .ogg/.opus/.mp3 etc.
+      // Normalize: .oga → .ogg, keep everything else as-is
+      let rawFileName = filePath.split("/").pop() || "audio.ogg";
+      const safeFileName = rawFileName.replace(/\.oga$/, ".ogg");
       const formData = new (globalThis as any).FormData();
-      const blob = new Blob([audioBuffer], { type: "audio/ogg" });
-      formData.append("file", blob, fileName);
+      // Use opus MIME type — Telegram voice messages are OGG/Opus
+      const blob = new Blob([audioBuffer], { type: "audio/ogg; codecs=opus" });
+      formData.append("file", blob, safeFileName);
       formData.append("model", "whisper-large-v3");
       formData.append("response_format", "text");
 
