@@ -84,8 +84,8 @@ async function callGemini(prompt: string, apiKey: string): Promise<string> {
 
       if (!res.ok) {
         const errText = await res.text();
-        if (res.status === 404) {
-          lastError = new Error(`Gemini API 404 on model ${model}: ${errText}`);
+        if (res.status === 404 || res.status === 429) {
+          lastError = new Error(`Gemini API ${res.status} on model ${model}: ${errText}`);
           continue;
         }
         throw new Error(`Gemini API error (${res.status}): ${errText}`);
@@ -104,7 +104,7 @@ async function callGemini(prompt: string, apiKey: string): Promise<string> {
 
       return text;
     } catch (err: any) {
-      if (err.message && err.message.includes("404")) {
+      if (err.message && (err.message.includes("404") || err.message.includes("429"))) {
         lastError = err;
         continue;
       }
