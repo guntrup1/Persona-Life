@@ -337,7 +337,8 @@ TRANSCRIPT:
 ${trimmedTranscript}`;
 
       const geminiModels = [
-        { model: "gemini-1.5-flash", api: "v1" },
+        { model: "gemini-1.5-flash", api: "v1beta" },
+        { model: "gemini-1.5-pro", api: "v1beta" },
       ];
 
       // Helper: call Gemini with one retry on 429
