@@ -477,6 +477,7 @@ export default function BrainstormPage() {
               )}
             </ScrollArea>
           </SheetContent>
+        </Sheet>
         </div>
       </div>
 
