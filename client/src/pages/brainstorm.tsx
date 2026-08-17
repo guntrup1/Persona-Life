@@ -237,7 +237,7 @@ export default function BrainstormPage() {
     try {
       const res = await fetch("/api/processed-audios", { credentials: "include" });
       const data = await res.json();
-      if (data.notes) setNotes(data.notes.filter((n: any) => n.status === "completed"));
+      if (data.audios) setNotes(data.audios.filter((n: any) => n.status === "completed"));
     } catch (err) {
       console.error(err);
     } finally {
@@ -356,7 +356,7 @@ export default function BrainstormPage() {
   };
 
   return (
-    <div className="relative flex flex-col h-[calc(100vh-80px)] md:h-[calc(100vh-32px)] bg-[#0A0A0A] text-white overflow-hidden rounded-3xl mx-2 md:mx-6 border border-white/5 shadow-2xl">
+    <div className="relative flex flex-col h-[calc(100dvh-130px)] md:h-[calc(100dvh-80px)] mt-2 md:mt-4 bg-[#0A0A0A] text-white overflow-hidden rounded-3xl mx-2 md:mx-6 border border-white/5 shadow-2xl">
       
       {/* Top Header */}
       <div className="absolute top-0 inset-x-0 h-16 bg-[#0A0A0A]/80 backdrop-blur-md z-10 border-b border-white/5 flex items-center justify-between px-4 sm:px-6">
