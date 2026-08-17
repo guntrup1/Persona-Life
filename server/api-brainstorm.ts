@@ -117,7 +117,7 @@ JSON-СХЕМА:
 
           if (!geminiRes.ok) {
             lastErrText = await geminiRes.text();
-            if (geminiRes.status === 404 || geminiRes.status === 429) continue;
+            if (geminiRes.status === 404 || geminiRes.status === 429 || geminiRes.status >= 500) continue;
             console.error(`[brainstorm] Gemini error on ${model}:`, lastErrText);
             continue;
           }
