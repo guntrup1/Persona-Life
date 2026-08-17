@@ -225,9 +225,16 @@ export function registerDataRoutes(app: Express) {
     try {
       const data = taskSchema.parse(req.body);
       const userId = req.session.userId;
+      
+      // Extract completion fields to avoid overwriting them if a PATCH (toggle) arrived before this POST
+      const { completed, completedAt, ...restData } = data as any;
+      
       await Task.findOneAndUpdate(
         { userId, taskId: data.id }, 
-        { ...data, taskId: data.id, userId }, 
+        { 
+          $set: { ...restData, taskId: data.id, userId },
+          $setOnInsert: { completed: completed ?? false, completedAt }
+        }, 
         { upsert: true, returnDocument: "after" }
       );
       res.json({ ok: true });
@@ -240,7 +247,11 @@ export function registerDataRoutes(app: Express) {
     try {
       const userId = req.session.userId;
       const updates = req.body;
-      await Task.findOneAndUpdate({ userId, taskId: req.params.id }, { ...updates, taskId: req.params.id, userId }, { upsert: true });
+      await Task.findOneAndUpdate(
+        { userId, taskId: req.params.id }, 
+        { $set: updates }, 
+        { upsert: true }
+      );
       res.json({ ok: true });
     } catch (err: any) {
       res.status(400).json({ ok: false });

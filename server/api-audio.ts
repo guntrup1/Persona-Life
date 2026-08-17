@@ -105,7 +105,7 @@ export function registerAudioRoutes(app: Express) {
       const {
         telegramId, messageId, transcript, summary,
         actionItems, tags, mindMap, keyInsights,
-        topics, sentiment, noteType, questionsRaised,
+        topics, sentiment, noteType, questionsRaised, mode,
       } = req.body;
 
       // Find user by telegram ID (support String or Number)
@@ -114,7 +114,7 @@ export function registerAudioRoutes(app: Express) {
       }).lean();
       if (!user) return res.status(404).json({ error: "User not found" });
 
-      // Save ProcessedAudio record
+      // Save ProcessedAudio record (always — appears in Brainstorm panel)
       const processed = await ProcessedAudio.create({
         userId: user._id,
         telegramMessageId: messageId,
@@ -123,28 +123,36 @@ export function registerAudioRoutes(app: Express) {
         action_items: actionItems || [],
         semantic_tags: tags || [],
         mind_map_nodes: mindMap || [],
+        key_insights: keyInsights || [],
+        topics: topics || [],
+        sentiment: sentiment || "neutral",
+        questions_raised: questionsRaised || [],
+        note_type: noteType || "note",
         status: "completed",
+        mode: mode || "notes",
       });
 
-      // Auto-create a DayNote so it appears in the app immediately
-      const today = new Date().toISOString().slice(0, 10);
-      await DayNote.create({
-        userId: user._id,
-        noteId: `audio_${processed._id}`,
-        date: today,
-        title: summary ? summary.slice(0, 80) : "Голосовая заметка",
-        content: [
-          summary || "",
-          "",
-          keyInsights?.length ? `💡 Ключевые мысли:\n${keyInsights.map((i: string) => `• ${i}`).join("\n")}` : "",
-          actionItems?.length ? `✅ Задачи:\n${actionItems.map((a: any) => `• ${a.task}`).join("\n")}` : "",
-          tags?.length ? `🏷 Теги: ${tags.join(", ")}` : "",
-          "",
-          `📝 Полная расшифровка:\n${transcript}`,
-        ].filter(Boolean).join("\n"),
-        noteType: noteType === "idea" ? "idea" : "note",
-        ideaCategory: tags?.[0] || "",
-      });
+      // Auto-create a DayNote ONLY for non-brainstorm modes so it appears in the app's Notes/Tasks sections
+      if (mode !== "brainstorm") {
+        const today = new Date().toISOString().slice(0, 10);
+        await DayNote.create({
+          userId: user._id,
+          noteId: `audio_${processed._id}`,
+          date: today,
+          title: summary ? summary.slice(0, 80) : "Голосовая заметка",
+          content: [
+            summary || "",
+            "",
+            keyInsights?.length ? `💡 Ключевые мысли:\n${keyInsights.map((i: string) => `• ${i}`).join("\n")}` : "",
+            actionItems?.length ? `✅ Задачи:\n${actionItems.map((a: any) => `• ${a.task}`).join("\n")}` : "",
+            tags?.length ? `🏷 Теги: ${tags.join(", ")}` : "",
+            "",
+            `📝 Расшифровка:\n${transcript}`,
+          ].filter(Boolean).join("\n"),
+          noteType: noteType === "idea" ? "idea" : "note",
+          ideaCategory: tags?.[0] || "",
+        });
+      }
 
       return res.json({ ok: true, id: processed._id });
     } catch (e: any) {

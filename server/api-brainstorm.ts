@@ -65,28 +65,35 @@ export function registerBrainstormRoutes(app: Express) {
       const defaultPrompt = "Выяви ключевые инсайты и сформулируй конкретный план действий из этих заметок.";
       const userPrompt = prompt && prompt.trim().length > 3 ? prompt.trim() : defaultPrompt;
 
-      const fullPrompt = `Ты — AI-ассистент для брейн-шторминга. Проанализируй записи и создай структурированный вывод на основе запроса пользователя.
+      const fullPrompt = `Ты — AI-ассистент для брейн-шторминга высшего уровня. Анализируй записи пользователя и создай детальный JSON-вывод.
 
 ЗАПРОС ПОЛЬЗОВАТЕЛЯ: ${userPrompt}
 
-КОНТЕКСТ (Голосовые заметки):
+КОНТЕКСТ (Голосовые заметки / записи):
 ${contextData}
 
-СТРОГИЕ ПРАВИЛА:
-- Верни ТОЛЬКО чистый JSON без разметки Markdown, без блоков кода, без комментариев.
-- Начни с { и заканчивай }
-- Язык вывода должен совпадать с языком заметок (скорее всего русский).
+АБСОЛЮТНЫЕ ПРАВИЛА — НАРУШЕНИЕ СЛОМАЕТ СИСТЕМУ:
+1. Твой ОТВЕТ — это ОДИН чистый JSON-объект. Без прозы, без объяснений, без Markdown.
+2. Начинай с { и заканчивай }. Больше ничего.
+3. Язык вывода — русский (совпадает с языком записей).
+4. Заполни ВСЕ поля схемы. Не опускай ни одного.
 
-JSON-СХЕМА:
+JSON-СХЕМА (строго соблюдать):
 {
-  "theme": "Краткое название брейн-шторма (макс. 6 слов)",
-  "key_insights": ["инсайт 1", "инсайт 2", "инсайт 3"],
+  "theme": "Краткое название сессии (3-6 слов)",
+  "executive_summary": "Глубокий анализ в 2-3 предложениях: о чём записи, что важно, что открыто",
+  "key_insights": ["concrete insight 1", "concrete insight 2", "concrete insight 3", "concrete insight 4"],
+  "patterns_found": ["повторяющаяся тема или шаблон 1", "шаблон 2"],
+  "contradictions": ["противоречие или напряжение если есть"],
   "action_plan": [
-    { "step": 1, "task": "конкретное действие" },
-    { "step": 2, "task": "конкретное действие" }
+    { "step": 1, "task": "конкретное действие", "priority": "high" },
+    { "step": 2, "task": "конкретное действие", "priority": "medium" }
   ],
-  "new_ideas": ["новая идея 1", "новая идея 2"]
-}`;
+  "new_ideas": ["новая идея 1", "новая идея 2"],
+  "questions_to_explore": ["вопрос для глубинного изучения"]
+}
+
+НАЧИНАЙ JSON СЕЙЧАС:`;
 
       // Available models for this API key in 2026
       const modelsToTry = [
@@ -112,8 +119,9 @@ JSON-СХЕМА:
               body: JSON.stringify({
                 contents: [{ parts: [{ text: fullPrompt }] }],
                 generationConfig: {
-                  temperature: 0.6,
-                  maxOutputTokens: 1200,
+                  temperature: 0.5,
+                  maxOutputTokens: 2500,
+                  responseMimeType: "application/json",
                 },
               }),
             });
@@ -171,16 +179,36 @@ JSON-СХЕМА:
         return res.status(502).json({ error: friendlyMsg });
       }
 
-      // 6. Parse JSON
+      // 6. Parse JSON with multi-strategy extraction
       let parsed: any;
       try {
-        // Find the first JSON object or array in the response to ignore any preceding/trailing text
-        const match = raw.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
-        const cleaned = match ? match[0] : raw;
-        parsed = JSON.parse(cleaned);
+        const trimmed = raw.trim();
+        // Try strategies in order of reliability
+        let candidate: string | null = null;
+        
+        // S1: Already clean JSON
+        if (trimmed.startsWith("{")) {
+          candidate = trimmed;
+        }
+        // S2: Find first { and last } 
+        if (!candidate) {
+          const first = trimmed.indexOf("{");
+          const last = trimmed.lastIndexOf("}");
+          if (first !== -1 && last > first) candidate = trimmed.slice(first, last + 1);
+        }
+        // S3: Strip markdown fences then retry
+        if (!candidate) {
+          const stripped = trimmed.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "").trim();
+          const sf = stripped.indexOf("{");
+          const sl = stripped.lastIndexOf("}");
+          if (sf !== -1 && sl > sf) candidate = stripped.slice(sf, sl + 1);
+        }
+        
+        if (!candidate) throw new Error("No JSON object found");
+        parsed = JSON.parse(candidate);
       } catch (parseErr) {
-        console.error("[brainstorm] JSON parse error. Raw:", raw);
-        return res.status(502).json({ error: "Модель вернула некорректный JSON" });
+        console.error("[brainstorm] JSON parse error. Raw length:", raw.length, "First 500:", raw.slice(0, 500));
+        return res.status(502).json({ error: "Модель вернула некорректный JSON. Попробуйте ещё раз или измените запрос." });
       }
 
       // 7. Save to DB
@@ -189,9 +217,17 @@ JSON-СХЕМА:
         theme: parsed.theme || "Без названия",
         prompt: userPrompt,
         sourceNoteIds: noteIds,
+        executiveSummary: parsed.executive_summary || "",
         keyInsights: parsed.key_insights || [],
-        actionPlan: parsed.action_plan || [],
+        patternsFound: parsed.patterns_found || [],
+        contradictions: parsed.contradictions || [],
+        actionPlan: (parsed.action_plan || []).map((a: any, i: number) => ({
+          step: a.step ?? i + 1,
+          task: a.task || "",
+          priority: a.priority || "medium",
+        })),
         newIdeas: parsed.new_ideas || [],
+        questionsToExplore: parsed.questions_to_explore || [],
       });
 
       return res.json({ session });

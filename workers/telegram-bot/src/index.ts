@@ -172,7 +172,8 @@ async function pushResultToServer(
   transcript: string,
   result: Awaited<ReturnType<typeof runPocketPipeline>>,
   renderUrl: string,
-  workerSecret: string
+  workerSecret: string,
+  mode: string
 ): Promise<boolean> {
   try {
     const baseUrl = getCleanUrl(renderUrl);
@@ -196,6 +197,7 @@ async function pushResultToServer(
         sentiment: result.sentiment,
         noteType: result.note_type,
         questionsRaised: result.questions_raised,
+        mode, // Pass mode so server knows NOT to create DayNote for brainstorm
       }),
     });
 
@@ -212,40 +214,82 @@ async function pushResultToServer(
 }
 
 // ── Format beautiful Telegram response ──
-function formatResultMessage(result: Awaited<ReturnType<typeof runPocketPipeline>>, transcript: string): string {
+function formatResultMessage(
+  result: Awaited<ReturnType<typeof runPocketPipeline>>,
+  mode: string
+): string {
   const lines: string[] = [];
 
-  lines.push(`🧠 *Анализ голосовой заметки*`);
+  const modeEmoji: Record<string, string> = {
+    brainstorm: "🧠",
+    tasks: "📝",
+    goals: "🎯",
+    notes: "💡",
+  };
+  const modeTitle: Record<string, string> = {
+    brainstorm: "Брейн-шторм",
+    tasks: "Задачи из записи",
+    goals: "Цели из записи",
+    notes: "Анализ заметки",
+  };
+  const emoji = modeEmoji[mode] || "💡";
+  const title = modeTitle[mode] || "Анализ записи";
+
+  lines.push(`${emoji} *${title}*`);
   lines.push(`━━━━━━━━━━━━━━━━━━━━━━`);
 
-  if (result.executive_summary) {
-    lines.push(`\n📋 *Суть:*\n${result.executive_summary}`);
+  // Guard: ensure executive_summary is actually a string, not an object
+  const summary = typeof result.executive_summary === "string"
+    ? result.executive_summary
+    : JSON.stringify(result.executive_summary);
+
+  if (summary) {
+    lines.push(`\n📋 *Суть:*\n${summary}`);
   }
 
   if (result.key_insights?.length) {
     lines.push(`\n💡 *Ключевые мысли:*`);
-    result.key_insights.slice(0, 4).forEach((i: string) => lines.push(`• ${i}`));
+    result.key_insights.slice(0, 5).forEach((i: string) => {
+      const ins = typeof i === "string" ? i : JSON.stringify(i);
+      lines.push(`• ${ins}`);
+    });
   }
 
   if (result.action_items?.length) {
     lines.push(`\n✅ *Задачи:*`);
     result.action_items.slice(0, 5).forEach((a: any) => {
       const priority = a.priority === "high" ? "🔴" : a.priority === "medium" ? "🟡" : "⚪";
-      lines.push(`${priority} ${a.task}`);
+      const task = typeof a.task === "string" ? a.task : JSON.stringify(a.task);
+      lines.push(`${priority} ${task}`);
     });
   }
 
+  if (result.questions_raised?.length) {
+    lines.push(`\n❓ *Открытые вопросы:*`);
+    result.questions_raised.slice(0, 3).forEach((q: string) => lines.push(`• ${q}`));
+  }
+
   if (result.semantic_tags?.length) {
-    lines.push(`\n🏷 *Теги:* ${result.semantic_tags.slice(0, 6).map((t: string) => `#${t}`).join(" ")}`);
+    lines.push(`\n🏷 *Теги:* ${result.semantic_tags.slice(0, 6).map((t: string) => `#${t.replace(/\s+/g, "_")}`).join(" ")}`);
   }
 
   if (result.sentiment) {
     const mood: Record<string, string> = { positive: "😊", neutral: "😐", negative: "😔", mixed: "🤔" };
-    lines.push(`\n${mood[result.sentiment] || "😐"} *Настроение:* ${result.sentiment}`);
+    const sentimentLabels: Record<string, string> = { positive: "Позитивное", neutral: "Нейтральное", negative: "Негативное", mixed: "Смешанное" };
+    lines.push(`\n${mood[result.sentiment] || "😐"} *Настроение:* ${sentimentLabels[result.sentiment] || result.sentiment}`);
   }
 
   lines.push(`\n━━━━━━━━━━━━━━━━━━━━━━`);
-  lines.push(`✅ _Заметка сохранена в Persona Life_`);
+  if (mode === "brainstorm") {
+    lines.push(`🧠 _Запись сохранена в Брейн-шторм_`);
+    lines.push(`_Открой вкладку Brainstorm в приложении для анализа!_`);
+  } else if (mode === "tasks") {
+    lines.push(`📝 _Задачи сохранены в Persona Life_`);
+  } else if (mode === "goals") {
+    lines.push(`🎯 _Цели сохранены в Persona Life_`);
+  } else {
+    lines.push(`✅ _Заметка сохранена в Persona Life_`);
+  }
 
   return lines.join("\n");
 }
@@ -447,9 +491,9 @@ export default {
         // Pass the current mode to the pipeline
         const result = await runPocketPipeline(transcript, geminiKey, currentMode);
 
-        await pushResultToServer(telegramId, message.message_id, transcript, result, env.RENDER_APP_URL, env.WORKER_SECRET_TOKEN);
+        await pushResultToServer(telegramId, message.message_id, transcript, result, env.RENDER_APP_URL, env.WORKER_SECRET_TOKEN, currentMode);
 
-        const replyText = formatResultMessage(result, transcript);
+        const replyText = formatResultMessage(result, currentMode);
         await sendTelegramMessage(chatId, replyText, env.TELEGRAM_BOT_TOKEN, "Markdown", getMainMenuKeyboard());
 
       } catch (err: any) {

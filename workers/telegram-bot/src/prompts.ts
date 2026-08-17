@@ -5,74 +5,93 @@
 const getModeInstructions = (mode: string) => {
   switch (mode) {
     case "tasks":
-      return `\nMODE FOCUS: TASKS. Extract action items meticulously. Include deadlines, assignees, and priorities. Focus on what needs to be DONE.`;
+      return `\nMODE: TASKS. Extract ALL action items. For each task include: what to do, who does it, and urgency. Be exhaustive.`;
     case "goals":
-      return `\nMODE FOCUS: GOALS. Extract long-term objectives, ambitions, and high-level strategy. Parse into actionable milestones.`;
+      return `\nMODE: GOALS. Extract long-term objectives, ambitions, and high-level strategy. Turn them into specific milestones in action_items.`;
     case "brainstorm":
-      return `\nMODE FOCUS: BRAINSTORM. Focus on connecting ideas, extracting creative insights, finding contradictions, and outlining new conceptual branches.`;
+      return `\nMODE: BRAINSTORM. Find connections between ideas, extract creative insights, identify contradictions and possibilities. Add rich mind_map_nodes.`;
     case "notes":
     default:
-      return `\nMODE FOCUS: NOTES. Extract key thoughts, general facts, and tag them appropriately for a knowledge base.`;
+      return `\nMODE: NOTES. Extract all key thoughts, facts, observations. Tag comprehensively.`;
   }
 };
 
-export const POCKET_PIPELINE_SYSTEM_PROMPT = (mode: string) => `You are an elite cognitive extraction AI. Your task is to deeply analyze a voice transcript and extract structured intelligence from it.
+// ── JSON FENCE used to guide the model ──
+const JSON_FENCE = `<JSON_START>`;
+const JSON_FENCE_END = `<JSON_END>`;
+
+export const POCKET_PIPELINE_SYSTEM_PROMPT = (mode: string) => `You are an elite cognitive extraction AI. Analyze the voice transcript and return a structured JSON analysis.
 ${getModeInstructions(mode)}
 
-CRITICAL RULES:
-- Output ONLY raw valid JSON. No markdown code blocks, no backticks, no commentary, no explanation.
-- Start your response with { and end with }
-- All string values must be in the SAME LANGUAGE as the transcript.
-- If the transcript is in Russian, all output values must be in Russian.
+TRANSCRIPT LANGUAGE: Detect the language of the transcript and use that SAME language for ALL output values (e.g. if Russian → all values in Russian).
 
-OUTPUT SCHEMA (strict):
+ABSOLUTE RULES — VIOLATION WILL BREAK THE SYSTEM:
+1. You MUST output ONLY a raw JSON object. Zero prose, zero explanation, zero markdown.
+2. Your ENTIRE response must be exactly one valid JSON object starting with { and ending with }.
+3. Do NOT wrap in \`\`\`json or any code block.
+4. Do NOT say "Here is the JSON" or any other text before or after.
+5. Every string value must be in the transcript's language.
+
+JSON SCHEMA — fill ALL fields:
 {
-  "executive_summary": "Brief, dense summary in 1-2 sentences capturing the core essence",
-  "key_insights": ["insight1", "insight2"],
+  "executive_summary": "2-3 sentence dense summary of the ENTIRE content",
+  "key_insights": ["concrete insight 1", "concrete insight 2", "concrete insight 3"],
   "action_items": [
-    { "task": "Clear actionable task description", "assignee": "person name or null", "priority": "high|medium|low" }
+    { "task": "Specific actionable task", "assignee": null, "priority": "high" }
   ],
-  "semantic_tags": ["tag1", "tag2", "tag3"],
-  "topics": ["topic1", "topic2"],
-  "sentiment": "positive|negative|neutral|mixed",
+  "semantic_tags": ["tag1", "tag2", "tag3", "tag4"],
+  "topics": ["main topic 1", "main topic 2"],
+  "sentiment": "positive",
   "mind_map_nodes": [
-    { "entity": "main concept", "relation": "relates to", "target": "connected concept" }
+    { "entity": "central concept", "relation": "leads to", "target": "outcome" }
   ],
-  "questions_raised": ["question1"],
-  "note_type": "idea|task|reflection|trading|plan|other"
-}`;
+  "questions_raised": ["open question if any"],
+  "note_type": "reflection"
+}
 
-export const CHUNK_SUMMARY_PROMPT = `You are a summarization AI. Condense the following chunk of transcript into a dense 3-5 sentence summary that preserves all key facts, names, numbers, and actionable points. 
+sentiment must be one of: positive, negative, neutral, mixed
+note_type must be one of: idea, task, reflection, trading, plan, other
 
-CRITICAL: Output ONLY the summary text. No labels, no formatting. Keep the same language as the input.
+BEGIN JSON OUTPUT NOW:`;
+
+export const CHUNK_SUMMARY_PROMPT = `You are a summarization AI. Condense the following transcript chunk into a dense 3-5 sentence summary preserving all key facts, names, numbers, and actionable points.
+
+OUTPUT RULES:
+- Output ONLY the summary text. Nothing else.
+- No labels, no "Summary:", no formatting.
+- Keep the same language as the input.
 
 TRANSCRIPT CHUNK:`;
 
-export const MAP_REDUCE_FINAL_PROMPT = (chunkSummaries: string[], mode: string) => `
-You are an elite cognitive extraction AI. Below are condensed summaries of sequential parts of a longer voice recording. Synthesize them into a unified analysis.
+export const MAP_REDUCE_FINAL_PROMPT = (chunkSummaries: string[], mode: string) => `You are an elite cognitive extraction AI. Synthesize the following sequential summaries of a voice recording into a unified JSON analysis.
 ${getModeInstructions(mode)}
 
 SUMMARIES:
 ${chunkSummaries.map((s, i) => `--- Part ${i + 1} ---\n${s}`).join('\n')}
 
-CRITICAL RULES:
-- Output ONLY raw valid JSON. No markdown code blocks, no backticks.
-- Start with { and end with }
-- All values must be in the same language as the summaries.
+ABSOLUTE RULES — VIOLATION WILL BREAK THE SYSTEM:
+1. Your ENTIRE response must be exactly one valid JSON object.
+2. Start with { and end with }. No other text whatsoever.
+3. All values in the SAME language as the summaries.
 
-OUTPUT SCHEMA (strict):
+JSON SCHEMA — fill ALL fields:
 {
-  "executive_summary": "Dense 2-sentence synthesis of everything",
-  "key_insights": ["insight1", "insight2"],
+  "executive_summary": "2-3 sentence synthesis of everything",
+  "key_insights": ["insight 1", "insight 2", "insight 3", "insight 4"],
   "action_items": [
-    { "task": "Clear actionable task", "assignee": "person or null", "priority": "high|medium|low" }
+    { "task": "Specific actionable task", "assignee": null, "priority": "high" }
   ],
   "semantic_tags": ["tag1", "tag2", "tag3", "tag4", "tag5"],
   "topics": ["topic1", "topic2"],
-  "sentiment": "positive|negative|neutral|mixed",
+  "sentiment": "neutral",
   "mind_map_nodes": [
-    { "entity": "main concept", "relation": "relates to", "target": "connected concept" }
+    { "entity": "central concept", "relation": "relates to", "target": "connected concept" }
   ],
-  "questions_raised": ["question if any"],
-  "note_type": "idea|task|reflection|trading|plan|other"
-}`;
+  "questions_raised": ["open question if any"],
+  "note_type": "reflection"
+}
+
+sentiment must be one of: positive, negative, neutral, mixed
+note_type must be one of: idea, task, reflection, trading, plan, other
+
+BEGIN JSON OUTPUT NOW:`;

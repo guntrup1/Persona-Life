@@ -52,6 +52,118 @@ function chunkTranscript(text: string): string[] {
 }
 
 /**
+ * Robustly extract JSON from an LLM response that may contain extra text.
+ * Tries multiple strategies to find and parse valid JSON.
+ */
+function extractJson(raw: string): any | null {
+  if (!raw || typeof raw !== "string") return null;
+  
+  const trimmed = raw.trim();
+
+  // Strategy 1: The response is already pure JSON
+  if (trimmed.startsWith("{")) {
+    try {
+      return JSON.parse(trimmed);
+    } catch { /* fall through */ }
+  }
+
+  // Strategy 2: Find the LAST { and match to its closing } (handles preamble text)
+  const firstBrace = trimmed.indexOf("{");
+  const lastBrace = trimmed.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    const candidate = trimmed.slice(firstBrace, lastBrace + 1);
+    try {
+      return JSON.parse(candidate);
+    } catch { /* fall through */ }
+  }
+
+  // Strategy 3: Strip markdown code fences
+  const stripped = trimmed
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+  const sf = stripped.indexOf("{");
+  const sl = stripped.lastIndexOf("}");
+  if (sf !== -1 && sl !== -1 && sl > sf) {
+    const candidate = stripped.slice(sf, sl + 1);
+    try {
+      return JSON.parse(candidate);
+    } catch { /* fall through */ }
+  }
+
+  // Strategy 4: Try to fix truncated JSON by adding missing closing brackets/braces
+  if (firstBrace !== -1) {
+    let candidate = trimmed.slice(firstBrace);
+    // count open brackets and add missing closing ones
+    let opens = 0, openSquare = 0;
+    for (const ch of candidate) {
+      if (ch === "{") opens++;
+      else if (ch === "}") opens--;
+      else if (ch === "[") openSquare++;
+      else if (ch === "]") openSquare--;
+    }
+    candidate = candidate + "]".repeat(Math.max(0, openSquare)) + "}".repeat(Math.max(0, opens));
+    try {
+      return JSON.parse(candidate);
+    } catch { /* give up */ }
+  }
+
+  return null;
+}
+
+function parseJson(raw: string): PocketResult {
+  const parsed = extractJson(raw);
+
+  if (parsed && typeof parsed === "object" && parsed.executive_summary) {
+    // Validate and normalise each field
+    return {
+      executive_summary: String(parsed.executive_summary || ""),
+      key_insights: Array.isArray(parsed.key_insights)
+        ? parsed.key_insights.map(String)
+        : [],
+      action_items: Array.isArray(parsed.action_items)
+        ? parsed.action_items.map((a: any) => ({
+            task: String(a.task || ""),
+            assignee: a.assignee ?? null,
+            priority: String(a.priority || "medium"),
+          }))
+        : [],
+      semantic_tags: Array.isArray(parsed.semantic_tags)
+        ? parsed.semantic_tags.map(String)
+        : [],
+      topics: Array.isArray(parsed.topics) ? parsed.topics.map(String) : [],
+      sentiment: String(parsed.sentiment || "neutral"),
+      mind_map_nodes: Array.isArray(parsed.mind_map_nodes)
+        ? parsed.mind_map_nodes.map((n: any) => ({
+            entity: String(n.entity || ""),
+            relation: String(n.relation || ""),
+            target: String(n.target || ""),
+          }))
+        : [],
+      questions_raised: Array.isArray(parsed.questions_raised)
+        ? parsed.questions_raised.map(String)
+        : [],
+      note_type: String(parsed.note_type || "note"),
+    };
+  }
+
+  // Absolute fallback: raw text as summary
+  console.error("[pipeline] All JSON extraction strategies failed. Raw:", raw.slice(0, 300));
+  return {
+    executive_summary: raw.slice(0, 500) || "Обработка завершена",
+    key_insights: [],
+    action_items: [],
+    semantic_tags: ["голосовое"],
+    topics: [],
+    sentiment: "neutral",
+    mind_map_nodes: [],
+    questions_raised: [],
+    note_type: "note",
+  };
+}
+
+/**
  * Call Gemini API with a given prompt and return the response text.
  */
 async function callGemini(prompt: string, apiKey: string): Promise<string> {
@@ -72,7 +184,8 @@ async function callGemini(prompt: string, apiKey: string): Promise<string> {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: 0.1,
-        maxOutputTokens: 2048,
+        maxOutputTokens: 3000,
+        responseMimeType: "application/json",
       },
     };
 
@@ -87,12 +200,29 @@ async function callGemini(prompt: string, apiKey: string): Promise<string> {
         if (!res.ok) {
           const errText = await res.text();
           if (res.status === 404 || res.status === 400) {
+            // 400 may mean responseMimeType is not supported – retry without it
+            if (res.status === 400 && attempt === 1) {
+              const body2 = {
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: { temperature: 0.1, maxOutputTokens: 3000 },
+              };
+              const res2 = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body2),
+              });
+              if (res2.ok) {
+                const d2 = await res2.json() as any;
+                const text2 = d2?.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (text2) return text2;
+              }
+            }
             lastError = new Error(`Gemini API ${res.status} on ${model} (${apiVersion}): ${errText}`);
-            break; // Break the attempt loop to try the NEXT model
+            break; // try next model
           }
           if (res.status === 429) {
-            rateLimitError = new Error(`Gemini API Rate Limit (429) Exceeded on ${model}. Пожалуйста, подождите немного.`); 
-            break; // Quota is per-model, try next model!
+            rateLimitError = new Error(`Gemini API Rate Limit (429) на ${model}. Подождите и попробуйте снова.`);
+            break; // try next model
           }
           if (res.status === 503) {
             lastError = new Error(`Gemini API 503 on model ${model}`);
@@ -100,7 +230,7 @@ async function callGemini(prompt: string, apiKey: string): Promise<string> {
               await new Promise((r) => setTimeout(r, 1500));
               continue;
             }
-            break; 
+            break;
           }
           throw new Error(`Gemini API error (${res.status}): ${errText}`);
         }
@@ -124,30 +254,6 @@ async function callGemini(prompt: string, apiKey: string): Promise<string> {
     throw rateLimitError;
   }
   throw lastError;
-}
-
-/**
- * Parse raw LLM output into PocketResult, stripping any markdown wrappers.
- */
-function parseJson(raw: string): PocketResult {
-  const match = raw.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
-  const cleaned = match ? match[0] : raw;
-
-  try {
-    return JSON.parse(cleaned) as PocketResult;
-  } catch {
-    return {
-      executive_summary: cleaned.slice(0, 300) || "Обработка завершена",
-      key_insights: [cleaned.slice(0, 200)].filter(Boolean),
-      action_items: [],
-      semantic_tags: ["голосовое"],
-      topics: [],
-      sentiment: "neutral",
-      mind_map_nodes: [],
-      questions_raised: [],
-      note_type: "note",
-    };
-  }
 }
 
 /**
