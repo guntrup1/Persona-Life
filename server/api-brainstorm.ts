@@ -88,20 +88,20 @@ JSON-СХЕМА:
   "new_ideas": ["новая идея 1", "новая идея 2"]
 }`;
 
-      // 5. Call Gemini REST API — multi-model cascade with exponential backoff
-      // ONLY confirmed working models with 1500 req/day free tier limits
+      // 5. Call Gemini REST API — correct API version per model family
       const modelsToTry = [
-        "gemini-2.0-flash",       // Primary — 1500 req/day, 15 RPM
-        "gemini-2.0-flash-lite",  // Secondary — 1500 req/day, 30 RPM
-        "gemini-1.5-flash",       // Fallback — 1500 req/day, 15 RPM
+        { model: "gemini-2.0-flash",      apiVersion: "v1beta" },
+        { model: "gemini-2.0-flash-lite", apiVersion: "v1beta" },
+        { model: "gemini-1.5-flash",      apiVersion: "v1beta" },
+        { model: "gemini-1.5-flash",      apiVersion: "v1"     },
       ];
 
       let raw = "";
       let lastErrText = "";
 
       modelLoop:
-      for (const model of modelsToTry) {
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`;
+      for (const { model, apiVersion } of modelsToTry) {
+        const geminiUrl = `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent?key=${geminiApiKey}`;
         
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
@@ -111,7 +111,6 @@ JSON-СХЕМА:
               body: JSON.stringify({
                 contents: [{ parts: [{ text: fullPrompt }] }],
                 generationConfig: {
-                  responseMimeType: "application/json",
                   temperature: 0.6,
                   maxOutputTokens: 1200,
                 },
@@ -123,29 +122,25 @@ JSON-СХЕМА:
               const status = geminiRes.status;
               
               if (status === 404 || status === 400) {
-                // Model doesn't exist — skip to next immediately
-                console.warn(`[brainstorm] Model ${model} not found (${status}), skipping`);
+                console.warn(`[brainstorm] Model ${model} (${apiVersion}) not found (${status}), skipping`);
                 break; // next model
               }
               
               if (status === 503 || status === 429) {
-                // Overloaded — exponential backoff then retry same model, then next
-                const delay = attempt * 1500; // 1.5s, 3s, 4.5s
+                const delay = attempt * 1500;
                 console.warn(`[brainstorm] ${model} returned ${status}, retrying in ${delay}ms (attempt ${attempt}/3)`);
                 await new Promise((r) => setTimeout(r, delay));
-                continue; // retry same model
+                continue;
               }
               
-              // Other server error — skip model
               console.error(`[brainstorm] ${model} returned ${status}:`, lastErrText.slice(0, 200));
               break;
             }
 
             const geminiData = await geminiRes.json() as any;
             raw = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-            if (raw) break modelLoop; // success!
+            if (raw) break modelLoop;
             
-            // Empty response — try next model
             console.warn(`[brainstorm] ${model} returned empty response`);
             break;
             

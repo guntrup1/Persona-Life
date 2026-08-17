@@ -55,26 +55,26 @@ function chunkTranscript(text: string): string[] {
  * Call Gemini API with a given prompt and return the response text.
  */
 async function callGemini(prompt: string, apiKey: string): Promise<string> {
+  // Try 2.0 and 1.5 models with appropriate API versions
   const modelsToTry = [
-    "gemini-2.0-flash",       // 1500 req/day, 15 RPM
-    "gemini-2.0-flash-lite",  // 1500 req/day, 30 RPM
-    "gemini-1.5-flash",       // 1500 req/day, 15 RPM
+    { model: "gemini-2.0-flash",      apiVersion: "v1beta" },
+    { model: "gemini-2.0-flash-lite", apiVersion: "v1beta" },
+    { model: "gemini-1.5-flash",      apiVersion: "v1beta" },
+    { model: "gemini-1.5-flash",      apiVersion: "v1"     },
   ];
 
   let lastError: Error = new Error("No Gemini models succeeded");
 
-  for (const model of modelsToTry) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  for (const { model, apiVersion } of modelsToTry) {
+    const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent?key=${apiKey}`;
     const body = {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
-        responseMimeType: "application/json",
         temperature: 0.1,
         maxOutputTokens: 2048,
       },
     };
 
-    // Up to 2 attempts per model with a 1s delay on 503/429
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
         const res = await fetch(url, {
@@ -85,36 +85,36 @@ async function callGemini(prompt: string, apiKey: string): Promise<string> {
 
         if (!res.ok) {
           const errText = await res.text();
+          if (res.status === 404 || res.status === 400) {
+            lastError = new Error(`Gemini API ${res.status} on ${model} (${apiVersion}): ${errText}`);
+            break; // skip to next model
+          }
           if (res.status === 503 || res.status === 429) {
             lastError = new Error(`Gemini API ${res.status} on model ${model}: ${errText}`);
             if (attempt === 1) {
-              await new Promise((r) => setTimeout(r, 1000));
-              continue; // retry same model once after 1s
+              await new Promise((r) => setTimeout(r, 1500));
+              continue;
             }
-          }
-          if (res.status === 404 || res.status >= 500) {
-            lastError = new Error(`Gemini API ${res.status} on model ${model}: ${errText}`);
-            break; // switch to next model
+            break; // try next model
           }
           throw new Error(`Gemini API error (${res.status}): ${errText}`);
         }
 
         const data = await res.json() as any;
         const candidate = data.candidates?.[0];
-        if (!candidate) {
-          throw new Error("Gemini returned no candidates (blocked or empty)");
-        }
+        if (!candidate) throw new Error("Gemini returned no candidates (blocked or empty)");
 
         const text = candidate.content?.parts?.[0]?.text;
-        if (!text) {
-          throw new Error("Gemini returned empty text response");
-        }
+        if (!text) throw new Error("Gemini returned empty text response");
 
         return text;
       } catch (err: any) {
         lastError = err;
-        if (err.message && (err.message.includes("404") || err.message.includes("429") || err.message.includes("503") || err.message.includes("500"))) {
-          break; // switch to next model
+        if (err.message && (err.message.includes("404") || err.message.includes("400"))) {
+          break; // skip to next model
+        }
+        if (err.message && (err.message.includes("429") || err.message.includes("503"))) {
+          break; // skip to next model after retries
         }
         throw err;
       }

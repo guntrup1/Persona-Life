@@ -239,8 +239,8 @@ export function registerDataRoutes(app: Express) {
   app.patch("/api/tasks/:id", requireAuth, async (req: any, res) => {
     try {
       const userId = req.session.userId;
-      const updates = req.body; // Can add partial Zod schema validation here
-      await Task.findOneAndUpdate({ userId, taskId: req.params.id }, updates);
+      const updates = req.body;
+      await Task.findOneAndUpdate({ userId, taskId: req.params.id }, { ...updates, taskId: req.params.id, userId }, { upsert: true });
       res.json({ ok: true });
     } catch (err: any) {
       res.status(400).json({ ok: false });

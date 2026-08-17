@@ -888,16 +888,9 @@ function mergeArraysByKey<T extends { id: string }>(local: T[], server: T[], key
     }
     const existing = byId.get(item.id);
     if (existing && 'completed' in item && 'completed' in existing) {
-      // Победитель тот у кого completed: true, или у кого есть completedAt
-      const serverCompleted = (existing as any).completed;
-      const localCompleted = (item as any).completed;
-      const serverTime = (existing as any).completedAt || "";
-      const localTime = (item as any).completedAt || "";
-      const winner = (serverCompleted && !localCompleted)
-        ? existing
-        : (localCompleted && !serverCompleted)
-          ? item
-          : localTime >= serverTime ? item : existing;
+      const serverTime = (existing as any).updatedAt || (existing as any).completedAt || "";
+      const localTime = (item as any).updatedAt || (item as any).completedAt || "";
+      const winner = localTime >= serverTime ? item : existing;
       byId.set(winner.id, winner);
     } else {
       byId.set(item.id, item);
@@ -1242,12 +1235,13 @@ export function useStore() {
     toggleTask: useCallback((id: string) => {
       let isCompleted = false;
       let completedAt: string | undefined;
+      const now = new Date().toISOString();
       mutate(s => {
         const updated = s.todayTasks.map(t => {
           if (t.id === id) {
             isCompleted = !t.completed;
-            completedAt = isCompleted ? new Date().toISOString() : undefined;
-            return { ...t, completed: isCompleted, completedAt };
+            completedAt = isCompleted ? now : undefined;
+            return { ...t, completed: isCompleted, completedAt, updatedAt: now };
           }
           return t;
         });
@@ -1255,7 +1249,7 @@ export function useStore() {
         const streak = checkAndUpdateStreak(newState);
         return { ...newState, streak };
       });
-      apiCall('PATCH', `/api/tasks/${id}`, { completed: isCompleted, completedAt });
+      apiCall('PATCH', `/api/tasks/${id}`, { completed: isCompleted, completedAt, updatedAt: now });
       // We should also sync stats because streak might have updated
       const state = getSnapshot();
       apiCall('POST', '/api/user/stats', { xp: state.xp, streak: state.streak });
