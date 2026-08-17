@@ -55,40 +55,64 @@ function chunkTranscript(text: string): string[] {
  * Call Gemini API with a given prompt and return the response text.
  */
 async function callGemini(prompt: string, apiKey: string): Promise<string> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  const modelsToTry = [
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+    "gemini-2.5-flash",
+    "gemini-flash-latest"
+  ];
 
-  const body = {
-    contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: {
-      responseMimeType: "application/json",
-      temperature: 0.1,
-      maxOutputTokens: 2048,
-    },
-  };
+  let lastError: Error = new Error("No Gemini models succeeded");
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  for (const model of modelsToTry) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const body = {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: "application/json",
+        temperature: 0.1,
+        maxOutputTokens: 2048,
+      },
+    };
 
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Gemini API error: ${res.status} - ${errText}`);
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        if (res.status === 404) {
+          lastError = new Error(`Gemini API 404 on model ${model}: ${errText}`);
+          continue;
+        }
+        throw new Error(`Gemini API error (${res.status}): ${errText}`);
+      }
+
+      const data = await res.json() as any;
+      const candidate = data.candidates?.[0];
+      if (!candidate) {
+        throw new Error("Gemini returned no candidates (blocked or empty)");
+      }
+
+      const text = candidate.content?.parts?.[0]?.text;
+      if (!text) {
+        throw new Error("Gemini returned empty text response");
+      }
+
+      return text;
+    } catch (err: any) {
+      if (err.message && err.message.includes("404")) {
+        lastError = err;
+        continue;
+      }
+      throw err;
+    }
   }
 
-  const data = await res.json() as any;
-  const candidate = data.candidates?.[0];
-  if (!candidate) {
-    throw new Error("Gemini returned no candidates (blocked or empty)");
-  }
-
-  const text = candidate.content?.parts?.[0]?.text;
-  if (!text) {
-    throw new Error("Gemini returned empty text response");
-  }
-
-  return text;
+  throw lastError;
 }
 
 /**

@@ -88,33 +88,50 @@ JSON-СХЕМА:
   "new_ideas": ["новая идея 1", "новая идея 2"]
 }`;
 
-      // 5. Call Gemini REST API directly (avoid SDK version issues)
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`;
-      
-      const geminiRes = await fetch(geminiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: fullPrompt }] }],
-          generationConfig: {
-            responseMimeType: "application/json",
-            temperature: 0.6,
-            maxOutputTokens: 800,
-          },
-        }),
-      });
+      // 5. Call Gemini REST API directly with multi-model fallback
+      const modelsToTry = [
+        "gemini-2.0-flash",
+        "gemini-1.5-flash",
+        "gemini-2.5-flash",
+        "gemini-flash-latest"
+      ];
 
-      if (!geminiRes.ok) {
-        const errText = await geminiRes.text();
-        console.error("[brainstorm] Gemini error:", errText);
-        return res.status(502).json({ error: "Ошибка Gemini API: " + geminiRes.status });
+      let raw = "";
+      let lastErrText = "";
+
+      for (const model of modelsToTry) {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`;
+        try {
+          const geminiRes = await fetch(geminiUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: fullPrompt }] }],
+              generationConfig: {
+                responseMimeType: "application/json",
+                temperature: 0.6,
+                maxOutputTokens: 800,
+              },
+            }),
+          });
+
+          if (!geminiRes.ok) {
+            lastErrText = await geminiRes.text();
+            if (geminiRes.status === 404) continue;
+            console.error(`[brainstorm] Gemini error on ${model}:`, lastErrText);
+            continue;
+          }
+
+          const geminiData = await geminiRes.json() as any;
+          raw = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          if (raw) break;
+        } catch (e: any) {
+          lastErrText = e.message;
+        }
       }
-
-      const geminiData = await geminiRes.json() as any;
-      const raw = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
       
       if (!raw) {
-        return res.status(502).json({ error: "Gemini вернул пустой ответ" });
+        return res.status(502).json({ error: "Ошибка Gemini API: " + (lastErrText || "Не удалось получить ответ ни от одной модели") });
       }
 
       // 6. Parse JSON
