@@ -175,19 +175,18 @@ export function registerAudioRoutes(app: Express) {
     }
   });
 
-  // ── POST /api/internal/analyze-transcript ──
-  // Worker sends transcript text here; server does Gemini + saves + replies to Telegram
-  // (Audio downloading and Groq Whisper is handled entirely by Cloudflare to save Render bandwidth)
-  app.post("/api/internal/analyze-transcript", requireWorkerSecret, async (req: any, res: any) => {
-    // Immediately acknowledge so Worker can return 200 to Telegram
+  // ── POST /api/internal/process-audio ──
+  // Worker sends fileId here; server downloads audio, transcribes with Groq, analyzes with Gemini, saves, and replies to Telegram
+  app.post("/api/internal/process-audio", requireWorkerSecret, async (req: any, res: any) => {
+    // Immediately acknowledge so Worker can return 200 to Telegram and avoid timeout
     res.json({ ok: true, status: "processing" });
 
     const {
-      telegramId, chatId, messageId, transcript, botToken, mode = "notes", progressMsgId = null
+      telegramId, chatId, messageId, fileId, botToken, mode = "notes", progressMsgId = null
     } = req.body;
 
-    if (!telegramId || !chatId || !transcript || !botToken) {
-      console.error("[analyze-transcript] Missing required fields");
+    if (!telegramId || !chatId || !fileId || !botToken) {
+      console.error("[process-audio] Missing required fields");
       return;
     }
 
@@ -234,9 +233,64 @@ export function registerAudioRoutes(app: Express) {
         return;
       }
 
+      const groqApiKey = (user as any).groqApiKey;
       const geminiApiKey = (user as any).geminiApiKey || process.env.GEMINI_API_KEY;
 
-      // 4. Analyze with Gemini
+      if (!groqApiKey) {
+        await tgSend("❌ Groq API ключ не найден. Настрой ключи через /reset");
+        return;
+      }
+
+      // 2. Get file path from Telegram
+      const getFileRes = await fetch(`https://api.telegram.org/bot${botToken}/getFile?file_id=${fileId}`);
+      const getFileData = await getFileRes.json() as any;
+      if (!getFileData.ok) throw new Error("Failed to get file from Telegram");
+      const filePath = getFileData.result.file_path;
+
+      // 3. Download audio file from Telegram
+      const fileRes = await fetch(`https://api.telegram.org/file/bot${botToken}/${filePath}`);
+      const arrayBuffer = await fileRes.arrayBuffer();
+      const blob = new Blob([arrayBuffer], { type: "audio/ogg" });
+
+      // 4. Transcribe with Groq
+      const formData = new FormData();
+      formData.append("file", blob, "audio.ogg");
+      formData.append("model", "whisper-large-v3");
+
+      const groqRes = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${groqApiKey}` },
+        body: formData as any,
+      });
+
+      if (!groqRes.ok) {
+        const errorText = await groqRes.text();
+        throw new Error(`Groq API Error: ${errorText}`);
+      }
+
+      const groqData = await groqRes.json() as any;
+      const transcript = groqData.text;
+
+      if (!transcript || transcript.length < 3) {
+        await tgSend("⚠️ Не удалось распознать речь. Попробуй ещё раз.");
+        return;
+      }
+
+      // Update progress message if we have one
+      if (progressMsgId) {
+        await fetch(`https://api.telegram.org/bot${botToken}/editMessageText`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: chatId,
+            message_id: Number(progressMsgId),
+            text: `🧠 *Анализирую...*\n\`Gemini обрабатывает текст\``,
+            parse_mode: "Markdown",
+          }),
+        }).catch(() => {});
+      }
+
+      // 5. Analyze with Gemini
       const modeInstructions: Record<string, string> = {
         tasks: "\nMODE: TASKS. Extract ALL action items with priority.",
         goals: "\nMODE: GOALS. Extract long-term objectives as milestones.",

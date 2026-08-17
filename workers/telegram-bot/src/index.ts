@@ -467,10 +467,9 @@ export default {
     const currentMode = userConfig.botRecordMode || "notes";
     const modeLabels: Record<string, string> = { tasks: "📝 Задачи", goals: "🎯 Цели", notes: "💡 Заметки", brainstorm: "🧠 Брейн-шторм" };
 
-    // Send initial progress message and remember its message_id for live updates
+    // Send progress message with estimated time based on audio duration
     const audioDuration = voiceData.duration || 30;
-    // Estimate: ~4s per minute of audio for Groq + 10s for Gemini
-    const estimatedSec = Math.max(20, Math.min(60, Math.round(audioDuration * 0.25) + 12));
+    const estimatedSec = Math.max(20, Math.min(90, Math.round(audioDuration * 0.5) + 15));
 
     const progressRes = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
       method: "POST",
@@ -484,111 +483,36 @@ export default {
     const progressData = await progressRes.json() as any;
     const progressMsgId: number | null = progressData?.result?.message_id || null;
 
-    // ── Hybrid Architecture ──
-    // Cloudflare handles: audio download (3.5MB) + Groq transcription
-    // Render receives: only the transcript TEXT (~0.5KB)
+    // ── Simple & Reliable Architecture ──
+    // Worker: receives webhook + sends file_id to Render (no CPU-heavy work)
+    // Render: downloads audio from Telegram (inbound = FREE), transcribes Groq, analyzes Gemini, replies
+    // Why: Cloudflare free plan has 30s wall-clock limit — audio download alone can exceed it
     const baseUrl = getCleanUrl(env.RENDER_APP_URL);
 
-    ctx.waitUntil((async () => {
-      const startedAt = Date.now();
-
-      // Live countdown: edit the progress message every 5s
-      let timerStopped = false;
-      const countdownInterval = (async () => {
-        let tick = 0;
-        while (!timerStopped) {
-          await new Promise(r => setTimeout(r, 5000));
-          if (timerStopped) break;
-          tick += 5;
-          const elapsed = Math.round((Date.now() - startedAt) / 1000);
-          const remaining = Math.max(3, estimatedSec - elapsed);
-          if (progressMsgId) {
-            const dots = ".".repeat((tick / 5) % 4 + 1);
-            await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/editMessageText`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                chat_id: chatId,
-                message_id: progressMsgId,
-                text: `⏳ *Обрабатываю (${modeLabels[currentMode]})${dots}*\n\`~${remaining} сек осталось\``,
-                parse_mode: "Markdown",
-              }),
-            }).catch(() => {});
-          }
-        }
-      })();
-
-      try {
-        // Step 1: Download audio from Telegram (Cloudflare bandwidth = free/unlimited)
-        const filePath = await getTelegramFilePath(voiceData.file_id, env.TELEGRAM_BOT_TOKEN);
-
-        // Step 2: Transcribe with Groq using user's own API key
-        const transcript = await transcribeAudioInMemory(filePath, env.TELEGRAM_BOT_TOKEN, groqApiKey);
-
-        timerStopped = true; // stop countdown
-
-        if (!transcript || transcript.length < 3) {
-          if (progressMsgId) {
-            await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/deleteMessage`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ chat_id: chatId, message_id: progressMsgId }),
-            }).catch(() => {});
-          }
-          await sendTelegramMessage(chatId, `⚠️ Не удалось распознать речь. Попробуй ещё раз.`, env.TELEGRAM_BOT_TOKEN);
-          return;
-        }
-
-        // Step 3: Update progress — now sending to Gemini
-        if (progressMsgId) {
-          await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/editMessageText`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              chat_id: chatId,
-              message_id: progressMsgId,
-              text: `🧠 *Анализирую (${modeLabels[currentMode]})...*\n\`Gemini обрабатывает текст\``,
-              parse_mode: "Markdown",
-            }),
-          }).catch(() => {});
-        }
-
-        // Step 4: Send ONLY the transcript text to Render (~0.5KB instead of 3.5MB)
-        await fetch(`${baseUrl}/api/internal/analyze-transcript`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-worker-secret": env.WORKER_SECRET_TOKEN,
-          },
-          body: JSON.stringify({
-            telegramId,
-            chatId: String(chatId),
-            messageId: String(message.message_id),
-            progressMsgId: progressMsgId ? String(progressMsgId) : null,
-            transcript,
-            botToken: env.TELEGRAM_BOT_TOKEN,
-            mode: currentMode,
-          }),
-        });
-
-        // Render will delete progress message and send the final result with keyboard
-      } catch (err: any) {
-        timerStopped = true;
-        console.error("[Worker] Processing error:", err.message);
-        // Delete progress message
-        if (progressMsgId) {
-          await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/deleteMessage`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ chat_id: chatId, message_id: progressMsgId }),
-          }).catch(() => {});
-        }
-        await sendTelegramMessage(chatId, `❌ Ошибка: _${err.message?.slice(0, 150) || "Неизвестная ошибка"}_`, env.TELEGRAM_BOT_TOKEN, "Markdown");
-      }
-
-      await countdownInterval; // ensure interval loop exits
-    })());
+    ctx.waitUntil(
+      fetch(`${baseUrl}/api/internal/process-audio`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-worker-secret": env.WORKER_SECRET_TOKEN,
+        },
+        body: JSON.stringify({
+          telegramId,
+          chatId: String(chatId),
+          messageId: String(message.message_id),
+          progressMsgId: progressMsgId ? String(progressMsgId) : null,
+          fileId: voiceData.file_id,
+          botToken: env.TELEGRAM_BOT_TOKEN,
+          mode: currentMode,
+        }),
+      }).catch((e) => {
+        console.error("[Worker] Failed to call process-audio:", e.message);
+        sendTelegramMessage(chatId, `❌ Сервер недоступен. Попробуй позже.`, env.TELEGRAM_BOT_TOKEN);
+      })
+    );
 
     return new Response("OK");
   },
 };
+
+
