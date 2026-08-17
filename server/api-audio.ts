@@ -337,6 +337,7 @@ TRANSCRIPT:
 ${trimmedTranscript}`;
 
       const geminiModels = [
+        { model: "gemini-3.5-flash-lite", api: "v1beta" },
         { model: "gemini-3.6-flash", api: "v1beta" },
         { model: "gemini-1.5-flash", api: "v1beta" },
         { model: "gemini-1.5-pro", api: "v1beta" }
