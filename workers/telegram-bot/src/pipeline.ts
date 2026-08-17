@@ -130,11 +130,8 @@ async function callGemini(prompt: string, apiKey: string): Promise<string> {
  * Parse raw LLM output into PocketResult, stripping any markdown wrappers.
  */
 function parseJson(raw: string): PocketResult {
-  const cleaned = raw
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/\s*```$/i, "")
-    .trim();
+  const match = raw.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+  const cleaned = match ? match[0] : raw;
 
   try {
     return JSON.parse(cleaned) as PocketResult;

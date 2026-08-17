@@ -775,6 +775,12 @@ function autoLoadRoutine(state: AppState): AppState {
     noDeadline: true,
   }));
 
+  if (typeof window !== "undefined") {
+    for (const t of newTasks) {
+      apiCall('POST', '/api/tasks', t);
+    }
+  }
+
   return {
     ...state,
     todayTasks: [...state.todayTasks, ...newTasks],
