@@ -460,46 +460,32 @@ export default {
 
     const currentMode = userConfig.botRecordMode || "notes";
     const modeLabels: Record<string, string> = { tasks: "📝 Задачи", goals: "🎯 Цели", notes: "💡 Заметки", brainstorm: "🧠 Брейн-шторм" };
-    
-    // Process audio asynchronously so Telegram receives 200 OK immediately
-    ctx.waitUntil((async () => {
-      await sendTelegramMessage(chatId, `⏳ *Обрабатываю (${modeLabels[currentMode]})...*`, env.TELEGRAM_BOT_TOKEN, "Markdown", getMainMenuKeyboard());
 
-      try {
-        const groqApiKey = userConfig.groqApiKey || (env as any).GROQ_API_KEY;
-        const geminiKey = userConfig.geminiApiKey || env.GEMINI_API_KEY;
+    // Send "Processing..." immediately
+    await sendTelegramMessage(chatId, `⏳ *Обрабатываю (${modeLabels[currentMode]})...*`, env.TELEGRAM_BOT_TOKEN, "Markdown");
 
-        if (!groqApiKey) {
-          await sendTelegramMessage(chatId, `❌ Groq API ключ не найден. /reset`, env.TELEGRAM_BOT_TOKEN);
-          return;
-        }
-
-        const filePath = await getTelegramFilePath(voiceData.file_id, env.TELEGRAM_BOT_TOKEN);
-        let transcript: string;
-        try {
-          transcript = await transcribeAudioInMemory(filePath, env.TELEGRAM_BOT_TOKEN, groqApiKey);
-        } catch (whisperErr: any) {
-          await sendTelegramMessage(chatId, `❌ Ошибка транскрибации: ${whisperErr.message}`, env.TELEGRAM_BOT_TOKEN);
-          return;
-        }
-
-        if (!transcript || transcript.length < 3) {
-          await sendTelegramMessage(chatId, `⚠️ Не удалось распознать речь.`, env.TELEGRAM_BOT_TOKEN);
-          return;
-        }
-
-        // Pass the current mode to the pipeline
-        const result = await runPocketPipeline(transcript, geminiKey, currentMode);
-
-        await pushResultToServer(telegramId, message.message_id, transcript, result, env.RENDER_APP_URL, env.WORKER_SECRET_TOKEN, currentMode);
-
-        const replyText = formatResultMessage(result, currentMode);
-        await sendTelegramMessage(chatId, replyText, env.TELEGRAM_BOT_TOKEN, "Markdown", getMainMenuKeyboard());
-
-      } catch (err: any) {
-        await sendTelegramMessage(chatId, `❌ Ошибка: _${err?.message || "Неизвестная ошибка"}_`, env.TELEGRAM_BOT_TOKEN);
-      }
-    })());
+    // Offload ALL heavy work to the Render server — avoids Cloudflare CPU timeout
+    const baseUrl = getCleanUrl(env.RENDER_APP_URL);
+    ctx.waitUntil(
+      fetch(`${baseUrl}/api/internal/process-audio`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-worker-secret": env.WORKER_SECRET_TOKEN,
+        },
+        body: JSON.stringify({
+          telegramId,
+          chatId: String(chatId),
+          messageId: String(message.message_id),
+          fileId: voiceData.file_id,
+          botToken: env.TELEGRAM_BOT_TOKEN,
+          mode: currentMode,
+        }),
+      }).catch((e) => {
+        console.error("[Worker] Failed to call process-audio:", e.message);
+        sendTelegramMessage(chatId, `❌ Сервер недоступен. Попробуй позже.`, env.TELEGRAM_BOT_TOKEN);
+      })
+    );
 
     return new Response("OK");
   },
