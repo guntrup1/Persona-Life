@@ -18,7 +18,9 @@ export function registerAudioRoutes(app: Express) {
       const { telegramId } = req.query;
       if (!telegramId) return res.status(400).json({ error: "Missing telegramId" });
 
-      const user = await User.findOne({ telegramId: String(telegramId) })
+      const user = await User.findOne({
+        $or: [{ telegramId: String(telegramId) }, { telegramId: Number(telegramId) }]
+      })
         .select("groqApiKey geminiApiKey botSetupStep botRecordMode")
         .lean();
 
@@ -48,7 +50,7 @@ export function registerAudioRoutes(app: Express) {
       if (botRecordMode !== undefined) updateData.botRecordMode = botRecordMode;
 
       const user = await User.findOneAndUpdate(
-        { telegramId: String(telegramId) },
+        { $or: [{ telegramId: String(telegramId) }, { telegramId: Number(telegramId) }] },
         { $set: updateData },
         { new: true }
       );
@@ -76,7 +78,9 @@ export function registerAudioRoutes(app: Express) {
       if (!user) return res.status(404).json({ error: "Token invalid or expired" });
 
       // Check if this telegramId is already used by another account
-      const existing = await User.findOne({ telegramId: String(telegramId) });
+      const existing = await User.findOne({
+        $or: [{ telegramId: String(telegramId) }, { telegramId: Number(telegramId) }]
+      });
       if (existing && existing._id.toString() !== user._id.toString()) {
         return res.status(409).json({ error: "Telegram already linked to another account" });
       }
@@ -104,8 +108,10 @@ export function registerAudioRoutes(app: Express) {
         topics, sentiment, noteType, questionsRaised,
       } = req.body;
 
-      // Find user by telegram ID
-      const user = await User.findOne({ telegramId }).lean();
+      // Find user by telegram ID (support String or Number)
+      const user = await User.findOne({
+        $or: [{ telegramId: String(telegramId) }, { telegramId: Number(telegramId) }]
+      }).lean();
       if (!user) return res.status(404).json({ error: "User not found" });
 
       // Save ProcessedAudio record

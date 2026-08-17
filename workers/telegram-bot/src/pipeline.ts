@@ -77,11 +77,18 @@ async function callGemini(prompt: string, apiKey: string): Promise<string> {
     throw new Error(`Gemini API error: ${res.status} - ${errText}`);
   }
 
-  const data = await res.json() as {
-    candidates: Array<{ content: { parts: Array<{ text: string }> } }>;
-  };
+  const data = await res.json() as any;
+  const candidate = data.candidates?.[0];
+  if (!candidate) {
+    throw new Error("Gemini returned no candidates (blocked or empty)");
+  }
 
-  return data.candidates[0]?.content?.parts[0]?.text || "";
+  const text = candidate.content?.parts?.[0]?.text;
+  if (!text) {
+    throw new Error("Gemini returned empty text response");
+  }
+
+  return text;
 }
 
 /**
@@ -94,7 +101,21 @@ function parseJson(raw: string): PocketResult {
     .replace(/\s*```$/i, "")
     .trim();
 
-  return JSON.parse(cleaned) as PocketResult;
+  try {
+    return JSON.parse(cleaned) as PocketResult;
+  } catch {
+    return {
+      executive_summary: cleaned.slice(0, 300) || "Обработка завершена",
+      key_insights: [cleaned.slice(0, 200)].filter(Boolean),
+      action_items: [],
+      semantic_tags: ["голосовое"],
+      topics: [],
+      sentiment: "neutral",
+      mind_map_nodes: [],
+      questions_raised: [],
+      note_type: "note",
+    };
+  }
 }
 
 /**

@@ -55,16 +55,26 @@ interface UserConfig {
 }
 
 // ── Send Telegram message helper ──
-async function sendTelegramMessage(chatId: number, text: string, botToken: string, parseMode: string = "Markdown", replyMarkup?: any): Promise<void> {
-  const body: any = { chat_id: chatId, text, parse_mode: parseMode, disable_web_page_preview: true };
-  if (replyMarkup) {
-    body.reply_markup = replyMarkup;
-  }
-  await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+async function sendTelegramMessage(chatId: number, text: string, botToken: string, parseMode?: string, replyMarkup?: any): Promise<void> {
+  const body: any = { chat_id: chatId, text, disable_web_page_preview: true };
+  if (parseMode) body.parse_mode = parseMode;
+  if (replyMarkup) body.reply_markup = replyMarkup;
+
+  const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+
+  if (!res.ok && parseMode) {
+    // Retry without formatting if Telegram fails to parse Markdown/HTML entities
+    delete body.parse_mode;
+    await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
 }
 
 // ── Answer callback query helper ──
@@ -100,10 +110,15 @@ function getInlineModesKeyboard() {
   };
 }
 
+function getCleanUrl(url: string): string {
+  return (url || "").trim().replace(/\/$/, "");
+}
+
 // ── Lookup user's config from the main app's API ──
 async function fetchUserConfig(telegramId: string, renderUrl: string, workerSecret: string): Promise<UserConfig | null> {
   try {
-    const res = await fetch(`${renderUrl}/api/internal/user-config?telegramId=${telegramId}`, {
+    const baseUrl = getCleanUrl(renderUrl);
+    const res = await fetch(`${baseUrl}/api/internal/user-config?telegramId=${telegramId}`, {
       headers: { "x-worker-secret": workerSecret },
     });
     if (!res.ok) return null;
@@ -116,7 +131,8 @@ async function fetchUserConfig(telegramId: string, renderUrl: string, workerSecr
 // ── Update user's config ──
 async function updateUserConfig(telegramId: string, updates: any, renderUrl: string, workerSecret: string): Promise<{ ok: boolean, error?: string }> {
   try {
-    const res = await fetch(`${renderUrl}/api/internal/user-config`, {
+    const baseUrl = getCleanUrl(renderUrl);
+    const res = await fetch(`${baseUrl}/api/internal/user-config`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -134,7 +150,8 @@ async function updateUserConfig(telegramId: string, updates: any, renderUrl: str
 // ── Link Telegram account to Persona Life via magic token ──
 async function linkAccount(token: string, telegramId: string, renderUrl: string, workerSecret: string): Promise<{ ok: boolean, email?: string, hasKeys?: boolean, error?: string }> {
   try {
-    const res = await fetch(`${renderUrl}/api/internal/link-telegram`, {
+    const baseUrl = getCleanUrl(renderUrl);
+    const res = await fetch(`${baseUrl}/api/internal/link-telegram`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -156,29 +173,42 @@ async function pushResultToServer(
   result: Awaited<ReturnType<typeof runPocketPipeline>>,
   renderUrl: string,
   workerSecret: string
-): Promise<void> {
-  await fetch(`${renderUrl}/api/internal/audio-result`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-worker-secret": workerSecret,
-    },
-    body: JSON.stringify({
-      secretToken: workerSecret,
-      telegramId,
-      messageId: String(messageId),
-      transcript,
-      summary: result.executive_summary,
-      actionItems: result.action_items,
-      tags: result.semantic_tags,
-      mindMap: result.mind_map_nodes,
-      keyInsights: result.key_insights,
-      topics: result.topics,
-      sentiment: result.sentiment,
-      noteType: result.note_type,
-      questionsRaised: result.questions_raised,
-    }),
-  });
+): Promise<boolean> {
+  try {
+    const baseUrl = getCleanUrl(renderUrl);
+    const res = await fetch(`${baseUrl}/api/internal/audio-result`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-worker-secret": workerSecret,
+      },
+      body: JSON.stringify({
+        secretToken: workerSecret,
+        telegramId,
+        messageId: String(messageId),
+        transcript,
+        summary: result.executive_summary,
+        actionItems: result.action_items,
+        tags: result.semantic_tags,
+        mindMap: result.mind_map_nodes,
+        keyInsights: result.key_insights,
+        topics: result.topics,
+        sentiment: result.sentiment,
+        noteType: result.note_type,
+        questionsRaised: result.questions_raised,
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`[pushResultToServer] Failed HTTP ${res.status}: ${errText}`);
+      return false;
+    }
+    return true;
+  } catch (err: any) {
+    console.error(`[pushResultToServer] Network error: ${err.message}`);
+    return false;
+  }
 }
 
 // ── Format beautiful Telegram response ──

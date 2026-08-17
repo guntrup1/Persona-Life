@@ -44,6 +44,9 @@ export async function transcribeAudioInMemory(
     throw new Error(`Failed to download audio from Telegram: ${audioResponse.status}`);
   }
   const audioBuffer = await audioResponse.arrayBuffer();
+  if (audioBuffer.byteLength === 0) {
+    throw new Error("Downloaded audio file is empty (0 bytes)");
+  }
 
   // 2. Build FormData with in-memory Blob (no disk write)
   const formData = new FormData();
