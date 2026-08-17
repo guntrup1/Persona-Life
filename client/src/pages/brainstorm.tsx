@@ -552,6 +552,7 @@ export default function BrainstormPage() {
               value={prompt}
               onChange={e => setPrompt(e.target.value)}
               onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleGenerate()}
+              disabled={isGenerating}
               className="border-0 bg-transparent shadow-none focus-visible:ring-0 px-2 h-10 text-[15px] placeholder:text-white/30 text-white flex-1"
             />
 
@@ -566,7 +567,7 @@ export default function BrainstormPage() {
                   : "bg-white/5 text-white/20 hover:bg-white/5 cursor-not-allowed"
               }`}
             >
-              <ArrowUp className="w-5 h-5" />
+              {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowUp className="w-5 h-5" />}
             </Button>
           </div>
           
