@@ -106,9 +106,13 @@ export default function SettingsPage() {
       .then(data => {
         if (data && typeof data.linked === "boolean") {
           setTelegramStatus(data);
+        } else {
+          setTelegramStatus({ linked: false, telegramId: null });
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        setTelegramStatus({ linked: false, telegramId: null });
+      });
 
     fetch("/api/auth/google/status", { credentials: "include" })
       .then(r => r.json())

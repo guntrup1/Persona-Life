@@ -337,10 +337,11 @@ TRANSCRIPT:
 ${trimmedTranscript}`;
 
       const geminiModels = [
-        { model: "gemini-3.5-flash-lite", api: "v1beta" },
-        { model: "gemini-3.6-flash", api: "v1beta" },
-        { model: "gemini-1.5-flash", api: "v1beta" },
-        { model: "gemini-1.5-pro", api: "v1beta" }
+        { model: "gemini-3.5-flash-lite", api: "v1beta" }, // 15 RPM, 500 RPD
+        { model: "gemini-2.5-flash-lite", api: "v1beta" }, // 10 RPM, 20 RPD
+        { model: "gemini-3.7-flash", api: "v1beta" },      // 5 RPM, 20 RPD
+        { model: "gemini-3.6-flash", api: "v1beta" },      // 5 RPM, 20 RPD
+        { model: "gemini-2.5-flash", api: "v1beta" }       // 5 RPM, 20 RPD
       ];
 
       // Helper: call Gemini with one retry on 429
