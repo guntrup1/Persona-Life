@@ -1,5 +1,5 @@
 import { Express } from "express";
-import { User, ProcessedAudio, DayNote } from "./mongodb";
+import { User, ProcessedAudio, DayNote, Task, Goal } from "./mongodb";
 
 export function registerAudioRoutes(app: Express) {
 
@@ -398,9 +398,38 @@ ${transcript}`;
         mode,
       });
 
-      // Auto-create DayNote only for non-brainstorm modes
-      if (mode !== "brainstorm") {
-        const today = new Date().toISOString().slice(0, 10);
+      // 6. Create corresponding entities based on mode
+      const today = new Date().toISOString().slice(0, 10);
+      const category = result.semantic_tags[0] || "General";
+
+      if (mode === "tasks") {
+        // Create a Task for each action item
+        for (const item of result.action_items) {
+          await Task.create({
+            userId: (user as any)._id,
+            taskId: `task_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+            name: item.task || "Новая задача",
+            description: result.executive_summary,
+            category: category,
+            date: today,
+            type: "daily",
+            noDeadline: true,
+          }).catch((e) => console.error("Task creation failed", e));
+        }
+      } else if (mode === "goals") {
+        // Create a Goal for each action item
+        for (const item of result.action_items) {
+          await Goal.create({
+            userId: (user as any)._id,
+            goalId: `goal_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+            type: "life",
+            title: item.task || "Новая цель",
+            description: result.executive_summary,
+            category: category,
+          }).catch((e) => console.error("Goal creation failed", e));
+        }
+      } else if (mode === "notes") {
+        // Create a Note
         await DayNote.create({
           userId: (user as any)._id,
           noteId: `audio_${processed._id}`,
@@ -416,11 +445,11 @@ ${transcript}`;
             `📝 Расшифровка:\n${transcript}`,
           ].filter(Boolean).join("\n"),
           noteType: result.note_type === "idea" ? "idea" : "note",
-          ideaCategory: result.semantic_tags[0] || "",
-        }).catch(() => {}); // Non-critical
+          ideaCategory: category,
+        }).catch(() => {});
       }
 
-      // 6. Send result to Telegram
+      // 7. Send result to Telegram
       const modeEmoji: Record<string, string> = { brainstorm: "🧠", tasks: "📝", goals: "🎯", notes: "💡" };
       const modeTitle: Record<string, string> = { brainstorm: "Брейн-шторм", tasks: "Задачи из записи", goals: "Цели из записи", notes: "Анализ заметки" };
       const emoji = modeEmoji[mode] || "💡";
