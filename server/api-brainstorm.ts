@@ -88,22 +88,25 @@ JSON-СХЕМА:
   "new_ideas": ["новая идея 1", "новая идея 2"]
 }`;
 
-      // 5. Call Gemini REST API directly with multi-model fallback & retry
+      // 5. Call Gemini REST API — multi-model cascade with exponential backoff
+      // Models ordered by availability (highest limits first)
       const modelsToTry = [
-        "gemini-2.0-flash",
-        "gemini-1.5-flash",
-        "gemini-1.5-pro",
-        "gemini-2.0-flash-exp",
-        "gemini-flash-latest"
+        "gemini-2.5-flash",          // Newest, highest limit (1M tokens)
+        "gemini-2.0-flash-lite",     // Very high limit, lightweight
+        "gemini-2.0-flash",          // High limit
+        "gemini-1.5-flash-8b",       // Very fast, lower demand
+        "gemini-1.5-flash",          // Classic, reliable
+        "gemini-1.5-pro",            // Pro tier, different quota pool
       ];
 
       let raw = "";
       let lastErrText = "";
 
+      modelLoop:
       for (const model of modelsToTry) {
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`;
         
-        for (let attempt = 1; attempt <= 2; attempt++) {
+        for (let attempt = 1; attempt <= 3; attempt++) {
           try {
             const geminiRes = await fetch(geminiUrl, {
               method: "POST",
@@ -113,33 +116,48 @@ JSON-СХЕМА:
                 generationConfig: {
                   responseMimeType: "application/json",
                   temperature: 0.6,
-                  maxOutputTokens: 800,
+                  maxOutputTokens: 1200,
                 },
               }),
             });
 
             if (!geminiRes.ok) {
               lastErrText = await geminiRes.text();
-              if ((geminiRes.status === 503 || geminiRes.status === 429) && attempt === 1) {
-                await new Promise((r) => setTimeout(r, 1000));
-                continue; // retry same model once after 1s
+              const status = geminiRes.status;
+              
+              if (status === 404 || status === 400) {
+                // Model doesn't exist — skip to next immediately
+                console.warn(`[brainstorm] Model ${model} not found (${status}), skipping`);
+                break; // next model
               }
-              if (geminiRes.status === 404 || geminiRes.status >= 500 || geminiRes.status === 429) {
-                break; // switch to next model
+              
+              if (status === 503 || status === 429) {
+                // Overloaded — exponential backoff then retry same model, then next
+                const delay = attempt * 1500; // 1.5s, 3s, 4.5s
+                console.warn(`[brainstorm] ${model} returned ${status}, retrying in ${delay}ms (attempt ${attempt}/3)`);
+                await new Promise((r) => setTimeout(r, delay));
+                continue; // retry same model
               }
-              console.error(`[brainstorm] Gemini error on ${model}:`, lastErrText);
+              
+              // Other server error — skip model
+              console.error(`[brainstorm] ${model} returned ${status}:`, lastErrText.slice(0, 200));
               break;
             }
 
             const geminiData = await geminiRes.json() as any;
             raw = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-            if (raw) break;
+            if (raw) break modelLoop; // success!
+            
+            // Empty response — try next model
+            console.warn(`[brainstorm] ${model} returned empty response`);
+            break;
+            
           } catch (e: any) {
             lastErrText = e.message;
-            break;
+            console.error(`[brainstorm] Network error on ${model}:`, e.message);
+            await new Promise((r) => setTimeout(r, 1000));
           }
         }
-        if (raw) break;
       }
       
       if (!raw) {

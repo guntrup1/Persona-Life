@@ -565,7 +565,10 @@ function AppShell() {
 
           <GoalNotificationBanner />
 
-          <main className="flex-1 overflow-auto" style={{ contain: "paint layout" }}>
+          <main
+            className={`flex-1 ${location === "/brainstorm" ? "overflow-hidden" : "overflow-auto"}`}
+            style={{ contain: "paint layout" }}
+          >
             <WelcomePopup />
             <Router />
           </main>
