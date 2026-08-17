@@ -224,6 +224,7 @@ export default function BrainstormPage() {
   const [notes, setNotes] = useState<ProcessedNote[]>([]);
   const [selectedNotes, setSelectedNotes] = useState<Set<string>>(new Set());
   const [sessions, setSessions] = useState<BrainstormSession[]>([]);
+  const [sheetOpen, setSheetOpen] = useState(false);
   
   const [prompt, setPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -231,6 +232,8 @@ export default function BrainstormPage() {
   const [loadingSessions, setLoadingSessions] = useState(true);
   
   const feedRef = useRef<HTMLDivElement>(null);
+  // Map of session._id -> DOM element for anchor navigation
+  const sessionRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const PRESETS = [
     "Найди противоречия",
@@ -275,12 +278,32 @@ export default function BrainstormPage() {
     loadSessions();
   }, []);
 
+  // ── Auto-scroll to bottom on new session (non-blocking) ──
   useEffect(() => {
-    // Scroll to bottom when sessions change or generating state changes
-    if (feedRef.current) {
-      feedRef.current.scrollTop = feedRef.current.scrollHeight;
-    }
-  }, [sessions, isGenerating]);
+    if (!feedRef.current || isGenerating) return;
+    requestAnimationFrame(() => {
+      if (feedRef.current) {
+        feedRef.current.scrollTop = feedRef.current.scrollHeight;
+      }
+    });
+  }, [sessions]);
+
+  // ── Scroll to specific session (anchor navigation from history) ──
+  const scrollToSession = useCallback((sessionId: string) => {
+    setSheetOpen(false);
+    // Small delay to let the sheet close animation finish
+    setTimeout(() => {
+      const el = sessionRefs.current[sessionId];
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        // Flash highlight
+        el.style.transition = "box-shadow 0.3s ease";
+        el.style.boxShadow = "0 0 0 2px rgba(99, 102, 241, 0.5)";
+        setTimeout(() => { if (el) el.style.boxShadow = ""; }, 1500);
+      }
+    }, 300);
+  }, []);
+
 
   const toggleNote = (id: string) => {
     const newSet = new Set(selectedNotes);
@@ -403,7 +426,7 @@ export default function BrainstormPage() {
         </div>
 
         {/* History Drawer */}
-        <Sheet>
+        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="sm" className="h-9 gap-2 text-white/60 hover:text-white hover:bg-white/10 rounded-xl">
               <History className="w-4 h-4" />
@@ -425,9 +448,14 @@ export default function BrainstormPage() {
                         {formatDate(dateKey)}
                       </div>
                       {sessions.filter(s => getDateKey(s.createdAt) === dateKey).reverse().map(session => (
-                        <div key={session._id} className="bg-[#1C1C1E] p-3 rounded-xl border border-white/5 cursor-pointer hover:bg-[#252528] transition-colors">
-                          <p className="text-sm font-medium text-white/90 truncate">{session.theme}</p>
+                        <div
+                          key={session._id}
+                          onClick={() => scrollToSession(session._id)}
+                          className="bg-[#1C1C1E] p-3 rounded-xl border border-white/5 cursor-pointer hover:bg-[#252528] hover:border-indigo-500/30 transition-all duration-200 group"
+                        >
+                          <p className="text-sm font-medium text-white/90 truncate group-hover:text-white transition-colors">{session.theme}</p>
                           <p className="text-xs text-white/40 mt-1 truncate">{session.prompt || "Авто-анализ"}</p>
+                          <p className="text-[10px] text-indigo-400/50 mt-1.5 font-medium">↗ Перейти к сессии</p>
                         </div>
                       ))}
                     </div>
@@ -439,10 +467,11 @@ export default function BrainstormPage() {
         </Sheet>
       </div>
 
-      {/* Main Feed Area */}
+      {/* Main Feed Area - overflow-y-auto with hardware acceleration */}
       <div 
         ref={feedRef}
-        className="flex-1 overflow-y-auto pt-24 pb-48 px-4 sm:px-6 md:px-10 scroll-smooth"
+        className="flex-1 overflow-y-auto pt-24 pb-48 px-4 sm:px-6 md:px-10"
+        style={{ WebkitOverflowScrolling: "touch", willChange: "scroll-position" }}
       >
         {loadingSessions ? (
           <div className="flex justify-center items-center h-full">
@@ -462,15 +491,21 @@ export default function BrainstormPage() {
         ) : (
           <div className="flex flex-col justify-end min-h-full pb-10">
             {sessions.map(session => (
-              <RichResponseCard
+              <div
                 key={session._id}
-                session={session}
-                onExportIdea={handleExportIdea}
-                onExportTask={handleExportTask}
-                onExportInsight={handleExportInsight}
-                onCopy={handleCopy}
-                onDelete={handleDelete}
-              />
+                id={`session-${session._id}`}
+                ref={el => { sessionRefs.current[session._id] = el; }}
+                className="scroll-mt-20"
+              >
+                <RichResponseCard
+                  session={session}
+                  onExportIdea={handleExportIdea}
+                  onExportTask={handleExportTask}
+                  onExportInsight={handleExportInsight}
+                  onCopy={handleCopy}
+                  onDelete={handleDelete}
+                />
+              </div>
             ))}
             {isGenerating && (
               <div className="flex justify-start w-full mt-6 mb-2 animate-in fade-in slide-in-from-bottom-4">
