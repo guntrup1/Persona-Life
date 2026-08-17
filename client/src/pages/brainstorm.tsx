@@ -53,11 +53,15 @@ function getDateKey(dateStr: string) {
 function RichResponseCard({
   session,
   onExportIdea,
+  onExportTask,
+  onExportInsight,
   onCopy,
   onDelete,
 }: {
   session: BrainstormSession;
   onExportIdea: (idea: string) => void;
+  onExportTask: (task: string) => void;
+  onExportInsight: (insight: string) => void;
   onCopy: (text: string) => void;
   onDelete: (id: string) => void;
 }) {
@@ -126,12 +130,17 @@ function RichResponseCard({
               </div>
               <div className="space-y-2">
                 {session.actionPlan.map((step, idx) => (
-                  <div key={idx} className="flex items-start gap-3 bg-white/[0.02] border border-white/[0.05] p-3 rounded-xl hover:bg-white/[0.04] transition-colors">
-                    <Checkbox id={`step-${session._id}-${idx}`} className="mt-0.5 border-white/20 data-[state=checked]:bg-indigo-500" />
-                    <label htmlFor={`step-${session._id}-${idx}`} className="text-sm text-white/80 leading-snug cursor-pointer select-none">
-                      <span className="font-semibold text-white/50 mr-2">{step.step}.</span>
-                      {step.task}
-                    </label>
+                  <div key={idx} className="flex items-start justify-between gap-3 bg-white/[0.02] border border-white/[0.05] p-3 rounded-xl hover:bg-white/[0.04] transition-colors group/task">
+                    <div className="flex items-start gap-3">
+                      <Checkbox id={`step-${session._id}-${idx}`} className="mt-0.5 border-white/20 data-[state=checked]:bg-indigo-500" />
+                      <label htmlFor={`step-${session._id}-${idx}`} className="text-sm text-white/80 leading-snug cursor-pointer select-none">
+                        <span className="font-semibold text-white/50 mr-2">{step.step}.</span>
+                        {step.task}
+                      </label>
+                    </div>
+                    <Button onClick={() => onExportTask(step.task)} size="icon" variant="ghost" className="h-7 w-7 text-indigo-400/70 hover:text-indigo-400 hover:bg-indigo-400/10 opacity-0 group-hover/task:opacity-100 transition-opacity flex-shrink-0">
+                      <Save className="w-3.5 h-3.5" />
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -150,14 +159,14 @@ function RichResponseCard({
                   <div key={idx} className="bg-gradient-to-br from-purple-500/10 to-transparent border border-purple-500/20 p-4 rounded-xl text-sm text-purple-100/80 leading-relaxed relative overflow-hidden group/insight">
                     <div className="absolute top-0 left-0 w-1 h-full bg-purple-500/50" />
                     {insight}
-                    <Button
-                      onClick={() => onCopy(insight)}
-                      size="icon"
-                      variant="ghost"
-                      className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover/insight:opacity-100 bg-[#121212]/80 hover:bg-[#1C1C1E] text-white/50"
-                    >
-                      <Copy className="w-3 h-3" />
-                    </Button>
+                    <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover/insight:opacity-100 transition-opacity bg-[#121212]/80 backdrop-blur-md rounded-md px-1 py-0.5">
+                      <Button onClick={() => onCopy(insight)} size="icon" variant="ghost" className="h-6 w-6 text-white/50 hover:text-white hover:bg-white/10">
+                        <Copy className="w-3 h-3" />
+                      </Button>
+                      <Button onClick={() => onExportInsight(insight)} size="icon" variant="ghost" className="h-6 w-6 text-purple-400/70 hover:text-purple-400 hover:bg-purple-400/10">
+                        <Save className="w-3 h-3" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -313,6 +322,23 @@ export default function BrainstormPage() {
     toast({ title: "💡 Идея сохранена!" });
   };
 
+  const handleExportTask = (task: string) => {
+    actions.addTodayTask({ 
+      name: task, 
+      type: "today", 
+      date: getTodayDate(), 
+      difficulty: "medium", 
+      category: "Mind", 
+      xp: 25
+    });
+    toast({ title: "✅ Задача добавлена в план на сегодня!" });
+  };
+
+  const handleExportInsight = (insight: string) => {
+    actions.addDayNote(getTodayDate(), insight, "note", "Brainstorm Insight");
+    toast({ title: "🧠 Инсайт сохранен в заметки!" });
+  };
+
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
     toast({ title: "Скопировано" });
@@ -408,6 +434,8 @@ export default function BrainstormPage() {
                 key={session._id}
                 session={session}
                 onExportIdea={handleExportIdea}
+                onExportTask={handleExportTask}
+                onExportInsight={handleExportInsight}
                 onCopy={handleCopy}
                 onDelete={handleDelete}
               />
