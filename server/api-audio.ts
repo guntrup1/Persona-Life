@@ -165,7 +165,11 @@ export function registerAudioRoutes(app: Express) {
   app.get("/api/processed-audios", async (req: any, res: any) => {
     try {
       if (!req.session?.userId) return res.status(401).json({ error: "Unauthorized" });
-      const audios = await ProcessedAudio.find({ userId: req.session.userId })
+      const query: any = { userId: req.session.userId };
+      if (req.query.mode) {
+        query.mode = req.query.mode;
+      }
+      const audios = await ProcessedAudio.find(query)
         .sort({ createdAt: -1 })
         .limit(50)
         .lean();
@@ -298,6 +302,7 @@ export function registerAudioRoutes(app: Express) {
         notes: "\nMODE: NOTES. Extract key thoughts, facts, observations.",
       };
 
+const todayDateStr = new Date().toISOString().slice(0, 10);
       const systemPrompt = `You are an elite cognitive extraction AI. Analyze the voice transcript and return ONLY a valid JSON object.
 ${modeInstructions[mode] || modeInstructions.notes}
 
@@ -305,12 +310,13 @@ RULES:
 1. Output ONLY raw JSON starting with { and ending with }
 2. No markdown, no explanation, no code blocks
 3. All string values must be in the transcript's language
+4. Today's date is ${todayDateStr}. If the user mentions "завтра" (tomorrow), calculate the correct YYYY-MM-DD date. If no date is specified for a task, use ${todayDateStr}.
 
 JSON SCHEMA:
 {
   "executive_summary": "2-3 sentence dense summary",
   "key_insights": ["insight 1", "insight 2"],
-  "action_items": [{"task": "...", "assignee": null, "priority": "high"}],
+  "action_items": [{"task": "...", "date": "YYYY-MM-DD", "priority": "high"}],
   "semantic_tags": ["tag1", "tag2"],
   "topics": ["topic1"],
   "sentiment": "neutral",
@@ -405,13 +411,14 @@ ${transcript}`;
       if (mode === "tasks") {
         // Create a Task for each action item
         for (const item of result.action_items) {
+          const taskDate = item.date && item.date.match(/^\d{4}-\d{2}-\d{2}$/) ? item.date : today;
           await Task.create({
             userId: (user as any)._id,
             taskId: `task_${Date.now()}_${Math.random().toString(36).substring(7)}`,
             name: item.task || "Новая задача",
             description: result.executive_summary,
             category: category,
-            date: today,
+            date: taskDate,
             type: "daily",
             noDeadline: true,
           }).catch((e) => console.error("Task creation failed", e));
