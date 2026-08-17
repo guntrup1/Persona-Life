@@ -175,18 +175,19 @@ export function registerAudioRoutes(app: Express) {
     }
   });
 
-  // ── POST /api/internal/process-audio ──
-  // Worker sends audio bytes here; server does Groq + Gemini + saves + replies to Telegram
-  app.post("/api/internal/process-audio", requireWorkerSecret, async (req: any, res: any) => {
+  // ── POST /api/internal/analyze-transcript ──
+  // Worker sends transcript text here; server does Gemini + saves + replies to Telegram
+  // (Audio downloading and Groq Whisper is handled entirely by Cloudflare to save Render bandwidth)
+  app.post("/api/internal/analyze-transcript", requireWorkerSecret, async (req: any, res: any) => {
     // Immediately acknowledge so Worker can return 200 to Telegram
     res.json({ ok: true, status: "processing" });
 
     const {
-      telegramId, chatId, messageId, fileId, botToken, mode = "notes"
+      telegramId, chatId, messageId, transcript, botToken, mode = "notes"
     } = req.body;
 
-    if (!telegramId || !chatId || !fileId || !botToken) {
-      console.error("[process-audio] Missing required fields");
+    if (!telegramId || !chatId || !transcript || !botToken) {
+      console.error("[analyze-transcript] Missing required fields");
       return;
     }
 
@@ -199,7 +200,7 @@ export function registerAudioRoutes(app: Express) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
-        if (!r.ok) {
+        if (!r.ok && text.includes("Markdown")) {
           // retry without parse_mode on Markdown parse error
           delete body.parse_mode;
           await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
@@ -223,66 +224,13 @@ export function registerAudioRoutes(app: Express) {
         return;
       }
 
-      const groqApiKey = (user as any).groqApiKey;
       const geminiApiKey = (user as any).geminiApiKey || process.env.GEMINI_API_KEY;
-
-      if (!groqApiKey) {
-        await tgSend("❌ Groq API ключ не настроен. Сбрось настройки через /reset");
-        return;
-      }
-
-      // 2. Download audio from Telegram
-      const getFileRes = await fetch(`https://api.telegram.org/bot${botToken}/getFile?file_id=${fileId}`);
-      const getFileData = await getFileRes.json() as any;
-      if (!getFileData.ok) {
-        await tgSend("❌ Не удалось получить аудиофайл от Telegram");
-        return;
-      }
-      const filePath = getFileData.result.file_path;
-      const audioUrl = `https://api.telegram.org/file/bot${botToken}/${filePath}`;
-
-      const audioResp = await fetch(audioUrl);
-      if (!audioResp.ok) {
-        await tgSend("❌ Не удалось скачать аудио");
-        return;
-      }
-      const audioBuffer = Buffer.from(await audioResp.arrayBuffer());
-
-      // 3. Transcribe with Groq Whisper
-      // Telegram voice messages use .oga extension — Groq only accepts .ogg/.opus/.mp3 etc.
-      // Normalize: .oga → .ogg, keep everything else as-is
-      let rawFileName = filePath.split("/").pop() || "audio.ogg";
-      const safeFileName = rawFileName.replace(/\.oga$/, ".ogg");
-      const formData = new (globalThis as any).FormData();
-      // Use opus MIME type — Telegram voice messages are OGG/Opus
-      const blob = new Blob([audioBuffer], { type: "audio/ogg; codecs=opus" });
-      formData.append("file", blob, safeFileName);
-      formData.append("model", "whisper-large-v3");
-      formData.append("response_format", "text");
-
-      const groqRes = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${groqApiKey}` },
-        body: formData,
-      });
-
-      if (!groqRes.ok) {
-        const errText = await groqRes.text();
-        await tgSend(`❌ Ошибка транскрибации (Groq ${groqRes.status}): ${errText.slice(0, 200)}`);
-        return;
-      }
-
-      const transcript = (await groqRes.text()).trim();
-      if (!transcript || transcript.length < 3) {
-        await tgSend("⚠️ Не удалось распознать речь. Попробуй ещё раз.");
-        return;
-      }
 
       // 4. Analyze with Gemini
       const modeInstructions: Record<string, string> = {
         tasks: "\nMODE: TASKS. Extract ALL action items with priority.",
         goals: "\nMODE: GOALS. Extract long-term objectives as milestones.",
-        brainstorm: "\nMODE: BRAINSTORM. Find connections, creative insights, contradictions.",
+        brainstorm: "\nMODE: BRAINSTORM. Be highly detailed and comprehensive. Provide a thorough executive summary, extract deep key insights, generate expanded new ideas/connections (put them in mind_map_nodes or key_insights), and formulate a detailed action plan if applicable.",
         notes: "\nMODE: NOTES. Extract key thoughts, facts, observations.",
       };
 

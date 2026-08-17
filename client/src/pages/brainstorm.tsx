@@ -21,6 +21,7 @@ interface BrainstormSession {
   _id: string;
   theme: string;
   prompt: string;
+  executiveSummary?: string;
   keyInsights: string[];
   actionPlan: Array<{ step: number; task: string }>;
   newIdeas: string[];
@@ -121,33 +122,14 @@ function RichResponseCard({
             </div>
           </div>
 
-          {/* Action Plan */}
-          {session.actionPlan?.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-indigo-400">
-                <ListChecks className="w-4 h-4" />
-                <h4 className="text-sm font-semibold uppercase tracking-wider">План действий</h4>
-              </div>
-              <div className="space-y-2">
-                {session.actionPlan.map((step, idx) => (
-                  <div key={idx} className="flex items-start justify-between gap-3 bg-white/[0.02] border border-white/[0.05] p-3 rounded-xl hover:bg-white/[0.04] transition-colors group/task">
-                    <div className="flex items-start gap-3">
-                      <Checkbox id={`step-${session._id}-${idx}`} className="mt-0.5 border-white/20 data-[state=checked]:bg-indigo-500" />
-                      <label htmlFor={`step-${session._id}-${idx}`} className="text-sm text-white/80 leading-snug cursor-pointer select-none">
-                        <span className="font-semibold text-white/50 mr-2">{step.step}.</span>
-                        {step.task}
-                      </label>
-                    </div>
-                    <Button onClick={() => onExportTask(step.task)} size="icon" variant="ghost" className="h-7 w-7 text-indigo-400/70 hover:text-indigo-400 hover:bg-indigo-400/10 opacity-0 group-hover/task:opacity-100 transition-opacity flex-shrink-0">
-                      <Save className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
+          {/* Executive Summary (Краткая выжимка) */}
+          {session.executiveSummary && (
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-white/80 leading-relaxed italic border-l-4 border-l-indigo-500">
+              {session.executiveSummary}
             </div>
           )}
 
-          {/* Key Insights */}
+          {/* Key Insights (Ключевые инсайты) */}
           {session.keyInsights?.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-purple-400">
@@ -192,6 +174,32 @@ function RichResponseCard({
                         <Save className="w-3.5 h-3.5" />
                       </Button>
                     </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Action Plan */}
+          {session.actionPlan?.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-indigo-400">
+                <ListChecks className="w-4 h-4" />
+                <h4 className="text-sm font-semibold uppercase tracking-wider">План действий</h4>
+              </div>
+              <div className="space-y-2">
+                {session.actionPlan.map((step, idx) => (
+                  <div key={idx} className="flex items-start justify-between gap-3 bg-white/[0.02] border border-white/[0.05] p-3 rounded-xl hover:bg-white/[0.04] transition-colors group/task">
+                    <div className="flex items-start gap-3">
+                      <Checkbox id={`step-${session._id}-${idx}`} className="mt-0.5 border-white/20 data-[state=checked]:bg-indigo-500" />
+                      <label htmlFor={`step-${session._id}-${idx}`} className="text-sm text-white/80 leading-snug cursor-pointer select-none">
+                        <span className="font-semibold text-white/50 mr-2">{step.step}.</span>
+                        {step.task}
+                      </label>
+                    </div>
+                    <Button onClick={() => onExportTask(step.task)} size="icon" variant="ghost" className="h-7 w-7 text-indigo-400/70 hover:text-indigo-400 hover:bg-indigo-400/10 opacity-0 group-hover/task:opacity-100 transition-opacity flex-shrink-0">
+                      <Save className="w-3.5 h-3.5" />
+                    </Button>
                   </div>
                 ))}
               </div>

@@ -458,34 +458,57 @@ export default {
       return new Response("OK");
     }
 
+    const groqApiKey = userConfig.groqApiKey;
+    if (!groqApiKey) {
+      await sendTelegramMessage(chatId, `❌ Groq API ключ не настроен. Сбрось через /reset`, env.TELEGRAM_BOT_TOKEN);
+      return new Response("OK");
+    }
+
     const currentMode = userConfig.botRecordMode || "notes";
     const modeLabels: Record<string, string> = { tasks: "📝 Задачи", goals: "🎯 Цели", notes: "💡 Заметки", brainstorm: "🧠 Брейн-шторм" };
 
-    // Send "Processing..." immediately
+    // Acknowledge immediately to Telegram
     await sendTelegramMessage(chatId, `⏳ *Обрабатываю (${modeLabels[currentMode]})...*`, env.TELEGRAM_BOT_TOKEN, "Markdown");
 
-    // Offload ALL heavy work to the Render server — avoids Cloudflare CPU timeout
+    // ── Hybrid Architecture ──
+    // Cloudflare handles: audio download (3.5MB) + Groq transcription (~10s)
+    // Render receives: only the transcript TEXT (~0.5KB) + Gemini analysis + save + reply
+    // Result: Render bandwidth reduced ~7000x vs sending file_id
     const baseUrl = getCleanUrl(env.RENDER_APP_URL);
-    ctx.waitUntil(
-      fetch(`${baseUrl}/api/internal/process-audio`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-worker-secret": env.WORKER_SECRET_TOKEN,
-        },
-        body: JSON.stringify({
-          telegramId,
-          chatId: String(chatId),
-          messageId: String(message.message_id),
-          fileId: voiceData.file_id,
-          botToken: env.TELEGRAM_BOT_TOKEN,
-          mode: currentMode,
-        }),
-      }).catch((e) => {
-        console.error("[Worker] Failed to call process-audio:", e.message);
-        sendTelegramMessage(chatId, `❌ Сервер недоступен. Попробуй позже.`, env.TELEGRAM_BOT_TOKEN);
-      })
-    );
+    ctx.waitUntil((async () => {
+      try {
+        // Step 1: Download audio from Telegram (Cloudflare bandwidth = free/unlimited)
+        const filePath = await getTelegramFilePath(voiceData.file_id, env.TELEGRAM_BOT_TOKEN);
+
+        // Step 2: Transcribe with Groq using user's own API key
+        const transcript = await transcribeAudioInMemory(filePath, env.TELEGRAM_BOT_TOKEN, groqApiKey);
+
+        if (!transcript || transcript.length < 3) {
+          await sendTelegramMessage(chatId, `⚠️ Не удалось распознать речь. Попробуй ещё раз.`, env.TELEGRAM_BOT_TOKEN);
+          return;
+        }
+
+        // Step 3: Send ONLY the transcript text to Render (~0.5KB instead of 3.5MB)
+        await fetch(`${baseUrl}/api/internal/analyze-transcript`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-worker-secret": env.WORKER_SECRET_TOKEN,
+          },
+          body: JSON.stringify({
+            telegramId,
+            chatId: String(chatId),
+            messageId: String(message.message_id),
+            transcript,
+            botToken: env.TELEGRAM_BOT_TOKEN,
+            mode: currentMode,
+          }),
+        });
+      } catch (err: any) {
+        console.error("[Worker] Processing error:", err.message);
+        await sendTelegramMessage(chatId, `❌ Ошибка: _${err.message?.slice(0, 150) || "Неизвестная ошибка"}_`, env.TELEGRAM_BOT_TOKEN, "Markdown");
+      }
+    })());
 
     return new Response("OK");
   },

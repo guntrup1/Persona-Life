@@ -48,10 +48,11 @@ export async function transcribeAudioInMemory(
     throw new Error("Downloaded audio file is empty (0 bytes)");
   }
 
-  // 2. Build FormData with in-memory Blob (no disk write)
+  // 2. Build FormData with in-memory File (no disk write)
   const formData = new FormData();
-  const audioBlob = new Blob([audioBuffer], { type: "audio/ogg" });
-  formData.append("file", audioBlob, "audio.ogg");
+  // Cloudflare Workers support File constructor. Using File ensures Groq sees the .ogg extension.
+  const audioFile = new File([audioBuffer], "audio.ogg", { type: "audio/ogg" });
+  formData.append("file", audioFile);
   formData.append("model", "whisper-large-v3");
   formData.append("response_format", "text");
 
