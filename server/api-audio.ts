@@ -183,7 +183,7 @@ export function registerAudioRoutes(app: Express) {
     res.json({ ok: true, status: "processing" });
 
     const {
-      telegramId, chatId, messageId, transcript, botToken, mode = "notes"
+      telegramId, chatId, messageId, transcript, botToken, mode = "notes", progressMsgId = null
     } = req.body;
 
     if (!telegramId || !chatId || !transcript || !botToken) {
@@ -191,16 +191,26 @@ export function registerAudioRoutes(app: Express) {
       return;
     }
 
+    // Main menu keyboard — always restore after processing
+    const mainMenuKeyboard = {
+      keyboard: [
+        [{ text: "➕ Добавить" }],
+        [{ text: "👤 Мой аккаунт" }, { text: "❓ Помощь" }],
+      ],
+      resize_keyboard: true,
+    };
+
     // Helper to send Telegram message without blocking
-    async function tgSend(text: string) {
+    async function tgSend(text: string, withKeyboard = false) {
       try {
         const body: any = { chat_id: chatId, text, parse_mode: "Markdown", disable_web_page_preview: true };
+        if (withKeyboard) body.reply_markup = mainMenuKeyboard;
         const r = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
-        if (!r.ok && text.includes("Markdown")) {
+        if (!r.ok) {
           // retry without parse_mode on Markdown parse error
           delete body.parse_mode;
           await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
@@ -373,18 +383,25 @@ ${transcript}`;
         lines.push(`\n✅ *Задачи:*\n${items.join("\n")}`);
       }
       if (result.semantic_tags.length) lines.push(`\n🏷 _${result.semantic_tags.join(" · ")}_`);
+      lines.push(`\n━━━━━━━━━━━━━━━━━━━━━━`);
+      lines.push(`_Отправь ещё голосовое или выбери режим ➕_`);
 
-      await tgSend(lines.join("\n"));
-
-    } catch (err: any) {
-      console.error("[process-audio] Unhandled error:", err);
-      try {
-        await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      // Delete progress message before sending final result
+      if (progressMsgId) {
+        await fetch(`https://api.telegram.org/bot${botToken}/deleteMessage`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_id: chatId, text: `❌ Ошибка обработки: ${err?.message?.slice(0, 200) || "Неизвестная ошибка"}` }),
-        });
-      } catch { /* ignore */ }
+          body: JSON.stringify({ chat_id: chatId, message_id: Number(progressMsgId) }),
+        }).catch(() => {});
+      }
+
+      // Send final result WITH main menu keyboard restored
+      await tgSend(lines.join("\n"), true);
+
+    } catch (err: any) {
+      console.error("[analyze-transcript] Unhandled error:", err);
+      // Always restore keyboard even on error
+      await tgSend(`❌ Ошибка обработки: _${err?.message?.slice(0, 200) || "Неизвестная ошибка"}_`, true);
     }
   });
 }
