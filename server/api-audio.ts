@@ -332,9 +332,9 @@ TRANSCRIPT:
 ${trimmedTranscript}`;
 
       const geminiModels = [
-        { model: "gemini-2.5-flash", api: "v1beta" },
-        { model: "gemini-2.0-flash", api: "v1beta" },
-        { model: "gemini-1.5-flash-latest", api: "v1" },
+        { model: "gemini-3.6-flash", api: "v1beta" },
+        { model: "gemini-2.5-flash-preview-05-20", api: "v1beta" },
+        { model: "gemini-1.5-flash", api: "v1beta" },
       ];
 
       let rawGemini = "";
