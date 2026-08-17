@@ -333,40 +333,53 @@ ${trimmedTranscript}`;
 
       const geminiModels = [
         { model: "gemini-3.6-flash", api: "v1beta" },
-        { model: "gemini-2.5-flash-preview-05-20", api: "v1beta" },
-        { model: "gemini-1.5-flash", api: "v1beta" },
+        { model: "gemini-1.5-flash", api: "v1" },
       ];
 
+      // Try user's key first, then server fallback key on quota errors
+      const geminiKeys = [geminiApiKey, process.env.GEMINI_API_KEY].filter(Boolean) as string[];
+      // Deduplicate (if user key == server key)
+      const uniqueKeys = [...new Set(geminiKeys)];
+
       let rawGemini = "";
-      for (const { model, api } of geminiModels) {
-        try {
-          const gRes = await fetch(
-            `https://generativelanguage.googleapis.com/${api}/models/${model}:generateContent?key=${geminiApiKey}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                contents: [{ parts: [{ text: systemPrompt }] }],
-                generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
-              }),
+      outer:
+      for (const apiKey of uniqueKeys) {
+        for (const { model, api } of geminiModels) {
+          try {
+            const gRes = await fetch(
+              `https://generativelanguage.googleapis.com/${api}/models/${model}:generateContent?key=${apiKey}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  contents: [{ parts: [{ text: systemPrompt }] }],
+                  generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
+                }),
+              }
+            );
+            if (!gRes.ok) {
+              const errText = await gRes.text();
+              const isQuota = gRes.status === 429;
+              console.error(`[Gemini] ${model} (key=...${apiKey.slice(-6)}) failed ${gRes.status}${isQuota ? " QUOTA" : ""}: ${errText.slice(0, 200)}`);
+              if (isQuota) break; // quota exhausted for this key, try next key
+              continue; // model not found, try next model
             }
-          );
-          if (!gRes.ok) {
-            const errText = await gRes.text();
-            console.error(`[Gemini] ${model} failed ${gRes.status}: ${errText.slice(0, 300)}`);
+            const gData = await gRes.json() as any;
+            const text = gData?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text) {
+              rawGemini = text;
+              console.log(`[Gemini] Success with ${model}, length=${text.length}`);
+              break outer;
+            }
+          } catch (e: any) {
+            console.error(`[Gemini] ${model} exception: ${e.message}`);
             continue;
           }
-          const gData = await gRes.json() as any;
-          const text = gData?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (text) { rawGemini = text; console.log(`[Gemini] Success with ${model}, length=${text.length}`); break; }
-        } catch (e: any) {
-          console.error(`[Gemini] ${model} exception: ${e.message}`);
-          continue;
         }
       }
 
       if (!rawGemini) {
-        console.error("[Gemini] ALL models failed. Transcript length:", transcript.length);
+        console.error("[Gemini] ALL keys and models failed. Transcript length:", transcript.length);
       }
 
       // Parse Gemini output
