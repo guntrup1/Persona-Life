@@ -285,7 +285,6 @@ import {
 } from "./google-calendar";
 import { User, UserSettings } from "./mongodb";
 import { registerBrainstormRoutes } from "./api-brainstorm";
-import { registerTelegramWebhookRoutes } from "./telegram-webhook";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -293,7 +292,6 @@ export async function registerRoutes(
 ): Promise<Server> {
   registerAuthRoutes(app);
   registerTelegramRoutes(app);
-  registerTelegramWebhookRoutes(app);
   registerDataRoutes(app);
   registerBrainstormRoutes(app);
 
