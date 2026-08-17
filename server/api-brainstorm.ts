@@ -88,12 +88,12 @@ JSON-СХЕМА:
   "new_ideas": ["новая идея 1", "новая идея 2"]
 }`;
 
-      // 5. Call Gemini REST API — correct API version per model family
+      // 5. Call Gemini REST API — gemini-1.5-flash-latest primary
       const modelsToTry = [
-        { model: "gemini-2.0-flash",      apiVersion: "v1beta" },
-        { model: "gemini-2.0-flash-lite", apiVersion: "v1beta" },
-        { model: "gemini-1.5-flash",      apiVersion: "v1beta" },
-        { model: "gemini-1.5-flash",      apiVersion: "v1"     },
+        { model: "gemini-1.5-flash-latest", apiVersion: "v1beta" },
+        { model: "gemini-2.0-flash",        apiVersion: "v1beta" },
+        { model: "gemini-2.0-flash-lite",   apiVersion: "v1beta" },
+        { model: "gemini-1.5-flash",        apiVersion: "v1beta" },
       ];
 
       let raw = "";

@@ -55,12 +55,12 @@ function chunkTranscript(text: string): string[] {
  * Call Gemini API with a given prompt and return the response text.
  */
 async function callGemini(prompt: string, apiKey: string): Promise<string> {
-  // Try 2.0 and 1.5 models with appropriate API versions
+  // Models to try (gemini-1.5-flash-latest primary)
   const modelsToTry = [
-    { model: "gemini-2.0-flash",      apiVersion: "v1beta" },
-    { model: "gemini-2.0-flash-lite", apiVersion: "v1beta" },
-    { model: "gemini-1.5-flash",      apiVersion: "v1beta" },
-    { model: "gemini-1.5-flash",      apiVersion: "v1"     },
+    { model: "gemini-1.5-flash-latest", apiVersion: "v1beta" },
+    { model: "gemini-2.0-flash",        apiVersion: "v1beta" },
+    { model: "gemini-2.0-flash-lite",   apiVersion: "v1beta" },
+    { model: "gemini-1.5-flash",        apiVersion: "v1beta" },
   ];
 
   let lastError: Error = new Error("No Gemini models succeeded");
