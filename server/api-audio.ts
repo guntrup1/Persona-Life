@@ -179,6 +179,29 @@ export function registerAudioRoutes(app: Express) {
     }
   });
 
+  // ── DELETE /api/processed-audios/all — Clear all voice notes for user ──
+  app.delete("/api/processed-audios/all", async (req: any, res: any) => {
+    try {
+      if (!req.session?.userId) return res.status(401).json({ error: "Unauthorized" });
+      await ProcessedAudio.deleteMany({ userId: req.session.userId });
+      return res.json({ ok: true });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  // ── DELETE /api/processed-audios/:id — Delete a single voice note ──
+  app.delete("/api/processed-audios/:id", async (req: any, res: any) => {
+    try {
+      if (!req.session?.userId) return res.status(401).json({ error: "Unauthorized" });
+      const deleted = await ProcessedAudio.findOneAndDelete({ _id: req.params.id, userId: req.session.userId });
+      if (!deleted) return res.status(404).json({ error: "Not found" });
+      return res.json({ ok: true });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
   // ── POST /api/internal/process-audio ──
   // Worker sends fileId here; server downloads audio, transcribes with Groq, analyzes with Gemini, saves, and replies to Telegram
   app.post("/api/internal/process-audio", requireWorkerSecret, async (req: any, res: any) => {
@@ -301,40 +324,71 @@ export function registerAudioRoutes(app: Express) {
 
       // 5. Analyze with Gemini
       const modeInstructions: Record<string, string> = {
-        tasks: "\nMODE: TASKS. Extract ALL action items with priority.",
-        goals: "\nMODE: GOALS. Extract long-term objectives as milestones.",
-        brainstorm: "\nMODE: BRAINSTORM. Be highly detailed and comprehensive. Provide a thorough executive summary, extract deep key insights, generate expanded new ideas/connections (put them in mind_map_nodes or key_insights), and formulate a detailed action plan if applicable.",
-        notes: "\nMODE: NOTES. Extract key thoughts, facts, observations.",
+        tasks: `
+MODE: TASKS
+- Extract EVERY action item, even small ones
+- Assign realistic priority: high / medium / low
+- Parse dates: "завтра" = tomorrow, "в пятницу" = nearest Friday, "через неделю" = +7 days
+- Parse exact times if mentioned (e.g. "в 15:00", "после обеда" = 14:00)
+- If no date mentioned for a task, use today: ${todayDateStr}
+- The executive_summary must briefly describe what kind of tasks were extracted`,
+
+        goals: `
+MODE: GOALS
+- Extract long-term objectives and break them into concrete milestones
+- Identify underlying motivation / "why" behind each goal
+- Each action_item is a milestone with a realistic target date
+- key_insights should reveal what obstacles or dependencies were mentioned
+- executive_summary: what the person ultimately wants to achieve and why`,
+
+        brainstorm: `
+MODE: BRAINSTORM — MAXIMUM DEPTH REQUIRED
+- executive_summary: write 3-5 sentences. Capture the CORE THESIS of the recording. What is the central idea? What problem is being solved? What conclusion was reached?
+- key_insights: extract 4-8 non-obvious insights. Each insight must be a standalone valuable observation that a reader could act on or think about. Not just summaries — real analytical value.
+- action_items: extract concrete next steps if any were mentioned. Each step should be specific and actionable.
+- mind_map_nodes: map the key concepts and how they relate to each other (at least 5 nodes)
+- questions_raised: list unanswered questions or open problems the speaker raised
+- semantic_tags: 5-8 relevant tags`,
+
+        notes: `
+MODE: NOTES
+- executive_summary: 2-3 sentence summary of the main thought or observation
+- key_insights: 2-4 key takeaways
+- semantic_tags: relevant topic tags`,
       };
 
       const todayDateStr = new Date().toISOString().slice(0, 10);
-      // Trim very long transcripts to avoid token limits (8000 chars ≈ 6000 tokens)
-      const trimmedTranscript = transcript.length > 8000 ? transcript.slice(0, 8000) + "..." : transcript;
-      const systemPrompt = `You are an elite cognitive extraction AI. Analyze the voice transcript and return ONLY a valid JSON object.
+      // Trim very long transcripts to avoid token limits (12000 chars ≈ 9000 tokens)
+      const trimmedTranscript = transcript.length > 12000 ? transcript.slice(0, 12000) + "..." : transcript;
+      const systemPrompt = `You are an expert cognitive analyst AI. Your job is to extract maximum analytical value from voice recordings. Analyze the transcript below and return ONLY a valid JSON object — no markdown, no explanation, no code blocks.
+
 ${modeInstructions[mode] || modeInstructions.notes}
 
-RULES:
+CRITICAL RULES:
 1. Output ONLY raw JSON starting with { and ending with }
-2. No markdown, no explanation, no code blocks
-3. All string values must be in the transcript's language
-4. Today's date is ${todayDateStr}. If the user mentions "завтра" (tomorrow), calculate the correct YYYY-MM-DD date. If no date is specified for a task, use ${todayDateStr}.
-5. Extract time (e.g., "14:00") if the user mentions it. Use HH:MM format. If no time is specified, leave "time" as null.
+2. NO markdown, NO explanation, NO code blocks, NO backticks
+3. All string values MUST be in the same language as the transcript (Russian if Russian)
+4. Today's date is ${todayDateStr}
+5. Be THOROUGH and DETAILED — this is for a productivity system, shallow analysis is useless
+6. executive_summary is MANDATORY and must be substantive (not empty, not generic)
+7. key_insights must contain real insights, not just rephrased sentences from the transcript
 
-JSON SCHEMA:
+JSON SCHEMA (return ALL fields, use empty arrays [] if not applicable):
 {
-  "executive_summary": "2-3 sentence dense summary",
-  "key_insights": ["insight 1", "insight 2"],
-  "action_items": [{"task": "...", "date": "YYYY-MM-DD", "time": "HH:MM", "priority": "high"}],
-  "semantic_tags": ["tag1", "tag2"],
-  "topics": ["topic1"],
-  "sentiment": "neutral",
-  "mind_map_nodes": [{"entity": "...", "relation": "leads to", "target": "..."}],
-  "questions_raised": [],
-  "note_type": "note"
+  "executive_summary": "3-5 sentences capturing the core thesis, main idea, and key conclusion of the recording",
+  "key_insights": ["non-obvious insight 1", "non-obvious insight 2", "...up to 8 insights"],
+  "action_items": [{"task": "specific actionable step", "date": "YYYY-MM-DD", "time": "HH:MM or null", "priority": "high|medium|low"}],
+  "semantic_tags": ["tag1", "tag2", "tag3"],
+  "topics": ["main topic", "secondary topic"],
+  "sentiment": "positive|neutral|negative|mixed",
+  "mind_map_nodes": [{"entity": "concept A", "relation": "leads to", "target": "concept B"}],
+  "questions_raised": ["open question 1", "open question 2"],
+  "note_type": "note|task|goal|idea|reflection"
 }
 
 TRANSCRIPT:
 ${trimmedTranscript}`;
+
 
       const geminiModels = [
         { model: "gemini-3.5-flash-lite", api: "v1beta" }, // 15 RPM, 500 RPD

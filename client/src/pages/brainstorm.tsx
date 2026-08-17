@@ -363,6 +363,30 @@ export default function BrainstormPage() {
     }
   };
 
+  const handleDeleteNote = async (noteId: string) => {
+    try {
+      const res = await fetch(`/api/processed-audios/${noteId}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error("Ошибка удаления");
+      setNotes(prev => prev.filter(n => n._id !== noteId));
+      setSelectedNotes(prev => { const s = new Set(prev); s.delete(noteId); return s; });
+      toast({ title: "Голосовая заметка удалена" });
+    } catch (err: any) {
+      toast({ title: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleClearAllNotes = async () => {
+    try {
+      const res = await fetch("/api/processed-audios/all", { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error("Ошибка очистки");
+      setNotes([]);
+      setSelectedNotes(new Set());
+      toast({ title: "Все голосовые заметки удалены" });
+    } catch (err: any) {
+      toast({ title: err.message, variant: "destructive" });
+    }
+  };
+
   return (
     <div className="relative flex flex-col h-full bg-[#0A0A0A] text-white overflow-hidden">
       
@@ -517,28 +541,50 @@ export default function BrainstormPage() {
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="start" side="top" className="w-[calc(100vw-32px)] sm:w-80 p-0 bg-[#1C1C1E] border-white/10 rounded-2xl shadow-xl shadow-black/50 overflow-hidden mb-2 z-50">
-                <div className="p-3 border-b border-white/5 bg-[#121212]">
+                <div className="p-3 border-b border-white/5 bg-[#121212] flex items-center justify-between">
+                <div>
                   <h4 className="font-semibold text-sm text-white/90">Прикрепить контекст</h4>
                   <p className="text-xs text-white/50">Выберите голосовые заметки для анализа</p>
                 </div>
+                {notes.length > 0 && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button size="sm" variant="ghost" className="text-[10px] text-red-400/70 hover:text-red-400 hover:bg-red-500/10 h-7 px-2 gap-1">
+                        <Trash2 className="w-3 h-3" />
+                        Очистить всё
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="bg-[#1C1C1E] border-white/10 text-white">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Удалить все голосовые заметки?</AlertDialogTitle>
+                        <AlertDialogDescription className="text-white/60">Это действие нельзя отменить. Все {notes.length} заметок будут удалены.</AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel className="bg-transparent border-white/10 hover:bg-white/5 hover:text-white">Отмена</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleClearAllNotes} className="bg-red-500/80 hover:bg-red-500 text-white">Удалить всё</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+              </div>
                 <ScrollArea className="h-64 p-2">
                   {notes.length === 0 ? (
                     <p className="text-xs text-center text-white/40 py-10">Нет доступных заметок</p>
                   ) : (
                     <div className="space-y-1">
                       {notes.map(note => (
-                        <label
+                        <div
                           key={note._id}
-                          className={`flex items-start gap-3 p-2.5 rounded-xl cursor-pointer transition-colors ${
+                          className={`flex items-start gap-3 p-2.5 rounded-xl transition-colors group/note ${
                             selectedNotes.has(note._id) ? "bg-indigo-500/10" : "hover:bg-white/5"
                           }`}
                         >
                           <Checkbox
                             checked={selectedNotes.has(note._id)}
                             onCheckedChange={() => toggleNote(note._id)}
-                            className="mt-0.5 border-white/20 data-[state=checked]:bg-indigo-500"
+                            className="mt-0.5 border-white/20 data-[state=checked]:bg-indigo-500 flex-shrink-0 cursor-pointer"
                           />
-                          <div className="flex-1 min-w-0">
+                          <div className="flex-1 min-w-0 cursor-pointer" onClick={() => toggleNote(note._id)}>
                             <p className="text-sm font-medium text-white/80 leading-snug truncate">
                               {note.executive_summary || note.raw_transcript?.slice(0, 40) || "Без названия"}
                             </p>
@@ -546,7 +592,24 @@ export default function BrainstormPage() {
                               {new Date(note.createdAt).toLocaleDateString("ru-RU")}
                             </p>
                           </div>
-                        </label>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button size="icon" variant="ghost" className="h-6 w-6 flex-shrink-0 opacity-0 group-hover/note:opacity-100 transition-opacity text-white/30 hover:text-red-400 hover:bg-red-500/10">
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent className="bg-[#1C1C1E] border-white/10 text-white">
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Удалить эту заметку?</AlertDialogTitle>
+                                <AlertDialogDescription className="text-white/60">Это действие нельзя отменить.</AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel className="bg-transparent border-white/10 hover:bg-white/5 hover:text-white">Отмена</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteNote(note._id)} className="bg-red-500/80 hover:bg-red-500 text-white">Удалить</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       ))}
                     </div>
                   )}
