@@ -57,13 +57,14 @@ function chunkTranscript(text: string): string[] {
 async function callGemini(prompt: string, apiKey: string): Promise<string> {
   // Available models for this API key in 2026
   const modelsToTry = [
-    { model: "gemini-3.7-flash",        apiVersion: "v1beta" },
     { model: "gemini-3.6-flash",        apiVersion: "v1beta" },
+    { model: "gemini-3.7-flash",        apiVersion: "v1beta" },
     { model: "gemini-flash-latest",     apiVersion: "v1beta" },
     { model: "gemini-2.5-flash",        apiVersion: "v1beta" }
   ];
 
   let lastError: Error = new Error("No Gemini models succeeded");
+  let rateLimitError: Error | null = null;
 
   for (const { model, apiVersion } of modelsToTry) {
     const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent?key=${apiKey}`;
@@ -90,7 +91,8 @@ async function callGemini(prompt: string, apiKey: string): Promise<string> {
             break; // Break the attempt loop to try the NEXT model
           }
           if (res.status === 429) {
-            throw new Error(`Gemini API Rate Limit (429) Exceeded. Пожалуйста, подождите немного перед следующим запросом.`); 
+            rateLimitError = new Error(`Gemini API Rate Limit (429) Exceeded on ${model}. Пожалуйста, подождите немного.`); 
+            break; // Quota is per-model, try next model!
           }
           if (res.status === 503) {
             lastError = new Error(`Gemini API 503 on model ${model}`);
@@ -112,16 +114,15 @@ async function callGemini(prompt: string, apiKey: string): Promise<string> {
 
         return text;
       } catch (err: any) {
-        // If it's a rate limit or another fatal error we deliberately threw, abort everything
-        if (err.message.includes("Rate Limit (429)") || !err.message.includes("Gemini API 404")) {
-           throw err; 
-        }
         lastError = err;
         break; // break attempt loop, try next model
       }
     }
   }
 
+  if (rateLimitError) {
+    throw rateLimitError;
+  }
   throw lastError;
 }
 

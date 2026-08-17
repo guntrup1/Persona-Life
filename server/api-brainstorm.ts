@@ -90,14 +90,15 @@ JSON-СХЕМА:
 
       // Available models for this API key in 2026
       const modelsToTry = [
-        { model: "gemini-3.7-flash",        apiVersion: "v1beta" },
         { model: "gemini-3.6-flash",        apiVersion: "v1beta" },
+        { model: "gemini-3.7-flash",        apiVersion: "v1beta" },
         { model: "gemini-flash-latest",     apiVersion: "v1beta" },
         { model: "gemini-2.5-flash",        apiVersion: "v1beta" }
       ];
 
       let raw = "";
       let lastErrText = "";
+      let rateLimitError: string | null = null;
 
       modelLoop:
       for (const { model, apiVersion } of modelsToTry) {
@@ -127,7 +128,8 @@ JSON-СХЕМА:
               }
               
               if (status === 429) {
-                return res.status(429).json({ ok: false, message: "Превышен лимит запросов (Quota Exceeded). Пожалуйста, подождите или обновите тарифный план." });
+                rateLimitError = `Превышен лимит запросов (Quota Exceeded) на модели ${model}. Пожалуйста, подождите минуту.`;
+                break; // Try next model
               }
 
               if (status === 503) {
@@ -151,13 +153,17 @@ JSON-СХЕМА:
           } catch (e: any) {
             lastErrText = e.message;
             console.error(`[brainstorm] Network error on ${model}:`, e.message);
-            await new Promise((r) => setTimeout(r, 1000));
+            break;
           }
         }
       }
       
       if (!raw) {
-        // Determine if it's a quota issue or model issue
+        if (rateLimitError) {
+          return res.status(429).json({ error: rateLimitError });
+        }
+        
+        // Determine if it's a quota issue or model issue based on lastErrText
         const isQuota = lastErrText.includes("429") || lastErrText.includes("RESOURCE_EXHAUSTED") || lastErrText.includes("quota");
         const friendlyMsg = isQuota
           ? "Квота Gemini API исчерпана (лимит запросов в минуту). Подождите минуту и попробуйте снова."

@@ -518,12 +518,14 @@ async function processVoiceWithAI(
   };
 
   const modelsToTry = [
-    "gemini-1.5-flash-latest",
-    "gemini-1.5-flash",
-    "gemini-1.5-flash-002",
-    "gemini-1.5-flash-001"
+    "gemini-3.6-flash",
+    "gemini-3.7-flash",
+    "gemini-flash-latest",
+    "gemini-2.5-flash"
   ];
+  
   let lastError: any = null;
+  let rateLimitError: any = null;
 
   for (const modelName of modelsToTry) {
     try {
@@ -542,9 +544,13 @@ async function processVoiceWithAI(
     } catch (err: any) {
       console.warn(`[processVoiceWithAI] Model ${modelName} failed, trying next...`, err?.message || err);
       lastError = err;
+      if (err?.message?.includes("429") || err?.message?.includes("Quota")) {
+        rateLimitError = err;
+      }
     }
   }
 
+  if (rateLimitError) throw rateLimitError;
   throw lastError || new Error("Не удалось обработать голосовую запись нейросетью.");
 }
 
