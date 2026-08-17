@@ -303,6 +303,8 @@ export function registerAudioRoutes(app: Express) {
       };
 
 const todayDateStr = new Date().toISOString().slice(0, 10);
+      // Trim very long transcripts to avoid token limits (8000 chars ≈ 6000 tokens)
+      const trimmedTranscript = transcript.length > 8000 ? transcript.slice(0, 8000) + "..." : transcript;
       const systemPrompt = `You are an elite cognitive extraction AI. Analyze the voice transcript and return ONLY a valid JSON object.
 ${modeInstructions[mode] || modeInstructions.notes}
 
@@ -327,7 +329,7 @@ JSON SCHEMA:
 }
 
 TRANSCRIPT:
-${transcript}`;
+${trimmedTranscript}`;
 
       const geminiModels = [
         { model: "gemini-3.6-flash", api: "v1beta" },
@@ -346,7 +348,7 @@ ${transcript}`;
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 contents: [{ parts: [{ text: systemPrompt }] }],
-                generationConfig: { temperature: 0.1, maxOutputTokens: 3000 },
+                generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
               }),
             }
           );
@@ -494,8 +496,29 @@ ${transcript}`;
         }).catch(() => {});
       }
 
-      // Send final result WITH main menu keyboard restored
-      await tgSend(lines.join("\n"), true);
+      // Send final result — split into chunks if > 4000 chars to avoid Telegram limit
+      const fullText = lines.join("\n");
+      const CHUNK_SIZE = 3900;
+      if (fullText.length <= CHUNK_SIZE) {
+        await tgSend(fullText, true);
+      } else {
+        // Split by paragraphs (\n\n)
+        const parts: string[] = [];
+        let current = "";
+        for (const segment of fullText.split("\n")) {
+          if ((current + "\n" + segment).length > CHUNK_SIZE) {
+            if (current) parts.push(current);
+            current = segment;
+          } else {
+            current = current ? current + "\n" + segment : segment;
+          }
+        }
+        if (current) parts.push(current);
+
+        for (let i = 0; i < parts.length; i++) {
+          await tgSend(parts[i], i === parts.length - 1); // keyboard only on last chunk
+        }
+      }
 
     } catch (err: any) {
       console.error("[analyze-transcript] Unhandled error:", err);
