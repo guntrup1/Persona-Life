@@ -534,10 +534,8 @@ async function processVoiceWithAI(
       const response = result.response;
       const text = response.text();
 
-      const cleaned = text
-        .replace(/```json\s*/gi, "")
-        .replace(/```\s*/gi, "")
-        .trim();
+      const match = text.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+      const cleaned = match ? match[0] : text;
 
       const parsed = JSON.parse(cleaned) as AIResponse;
       return parsed;

@@ -174,11 +174,9 @@ JSON-СХЕМА:
       // 6. Parse JSON
       let parsed: any;
       try {
-        const cleaned = raw
-          .replace(/^```json\s*/i, "")
-          .replace(/^```\s*/i, "")
-          .replace(/\s*```$/i, "")
-          .trim();
+        // Find the first JSON object or array in the response to ignore any preceding/trailing text
+        const match = raw.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+        const cleaned = match ? match[0] : raw;
         parsed = JSON.parse(cleaned);
       } catch (parseErr) {
         console.error("[brainstorm] JSON parse error. Raw:", raw);
