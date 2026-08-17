@@ -94,7 +94,6 @@ JSON-СХЕМА:
         "gemini-2.0-flash",       // Primary — 1500 req/day, 15 RPM
         "gemini-2.0-flash-lite",  // Secondary — 1500 req/day, 30 RPM
         "gemini-1.5-flash",       // Fallback — 1500 req/day, 15 RPM
-        "gemini-1.5-flash-8b",    // Last resort — 1500 req/day, 15 RPM
       ];
 
       let raw = "";
@@ -159,7 +158,12 @@ JSON-СХЕМА:
       }
       
       if (!raw) {
-        return res.status(502).json({ error: "Ошибка Gemini API: " + (lastErrText || "Не удалось получить ответ ни от одной модели") });
+        // Determine if it's a quota issue or model issue
+        const isQuota = lastErrText.includes("429") || lastErrText.includes("RESOURCE_EXHAUSTED") || lastErrText.includes("quota");
+        const friendlyMsg = isQuota
+          ? "Квота Gemini API исчерпана (лимит запросов в минуту). Подождите минуту и попробуйте снова."
+          : "Не удалось получить ответ от Gemini. Попробуйте позже.";
+        return res.status(502).json({ error: friendlyMsg });
       }
 
       // 6. Parse JSON

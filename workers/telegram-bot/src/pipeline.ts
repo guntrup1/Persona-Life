@@ -59,7 +59,6 @@ async function callGemini(prompt: string, apiKey: string): Promise<string> {
     "gemini-2.0-flash",       // 1500 req/day, 15 RPM
     "gemini-2.0-flash-lite",  // 1500 req/day, 30 RPM
     "gemini-1.5-flash",       // 1500 req/day, 15 RPM
-    "gemini-1.5-flash-8b",    // 1500 req/day, 15 RPM
   ];
 
   let lastError: Error = new Error("No Gemini models succeeded");
