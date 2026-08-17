@@ -88,10 +88,10 @@ JSON-СХЕМА:
   "new_ideas": ["новая идея 1", "новая идея 2"]
 }`;
 
-      // Primary: gemini-flash-latest (as requested by user)
+      // Primary: gemini-1.5-flash (as requested by user)
       const modelsToTry = [
-        { model: "gemini-flash-latest",        apiVersion: "v1beta" },
-        { model: "gemini-flash-latest",        apiVersion: "v1" },
+        { model: "gemini-1.5-flash",        apiVersion: "v1beta" },
+        { model: "gemini-1.5-flash",        apiVersion: "v1" },
       ];
 
       let raw = "";
