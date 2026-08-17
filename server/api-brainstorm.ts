@@ -1,5 +1,5 @@
 import { Express } from "express";
-import { BrainstormSession, ProcessedAudio, User } from "./mongodb";
+import mongoose from "mongoose";
 import { requireAuth } from "./auth";
 
 export function registerBrainstormRoutes(app: Express) {
@@ -7,7 +7,7 @@ export function registerBrainstormRoutes(app: Express) {
   // ── GET all user's brainstorms (for day-by-day dashboard) ──
   app.get("/api/brainstorms", requireAuth, async (req: any, res: any) => {
     try {
-      const brainstorms = await BrainstormSession.find({ userId: req.session.userId })
+      const brainstorms = await mongoose.model("BrainstormSession").find({ userId: req.session.userId })
         .sort({ createdAt: -1 })
         .populate("sourceNoteIds", "raw_transcript executive_summary semantic_tags createdAt status")
         .lean();
@@ -28,7 +28,7 @@ export function registerBrainstormRoutes(app: Express) {
       }
 
       // 1. Fetch user to get their Gemini API key (user's own key only — no server fallback)
-      const user = await User.findById(req.session.userId).select("geminiApiKey");
+      const user = await mongoose.model("User").findById(req.session.userId).select("geminiApiKey");
       const geminiApiKey = (user as any)?.geminiApiKey;
       
       if (!geminiApiKey) {
@@ -36,7 +36,7 @@ export function registerBrainstormRoutes(app: Express) {
       }
 
       // 2. Fetch the notes (only for this user)
-      const notes = await ProcessedAudio.find({ 
+      const notes = await mongoose.model("ProcessedAudio").find({ 
         _id: { $in: noteIds }, 
         userId: req.session.userId 
       }).lean();
@@ -231,7 +231,7 @@ ${contextData}
       }
 
       // 7. Save to DB — use snake_case fields to match frontend BrainstormSession interface
-      const session = await BrainstormSession.create({
+      const session = await mongoose.model("BrainstormSession").create({
         userId: req.session.userId,
         theme: parsed.theme || "Без названия",
         prompt: userPrompt,
@@ -260,7 +260,7 @@ ${contextData}
   // ── DELETE a brainstorm session ──
   app.delete("/api/brainstorms/:id", requireAuth, async (req: any, res: any) => {
     try {
-      const session = await BrainstormSession.findOneAndDelete({
+      const session = await mongoose.model("BrainstormSession").findOneAndDelete({
         _id: req.params.id,
         userId: req.session.userId
       });

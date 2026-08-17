@@ -1,7 +1,7 @@
 import { Telegraf, Markup } from "telegraf";
 import { message } from "telegraf/filters";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { User, UserData, UserSettings, Task, Goal, DayNote, TradingNote } from "./mongodb";
+import mongoose from "mongoose";
 import { syncTaskToGoogleCalendar } from "./google-calendar";
 import crypto from "crypto";
 
@@ -186,7 +186,7 @@ async function saveVoiceHistoryToUser(
     utcOffset?: number;
   }
 ) {
-  const userData = await UserData.findOne({ userId });
+  const userData = await mongoose.model("UserData").findOne({ userId });
   if (!userData) return;
 
   const existingData = (userData.data as any) || {};
@@ -213,7 +213,7 @@ async function saveVoiceHistoryToUser(
   history.unshift(newRecord);
   if (history.length > 100) history.pop();
 
-  await UserData.findOneAndUpdate(
+  await mongoose.model("UserData").findOneAndUpdate(
     { userId },
     { data: { ...existingData, botVoiceHistory: history }, updatedAt: new Date() }
   );
@@ -615,7 +615,7 @@ async function saveTasksToUser(userId: string, tasks: BotTaskResult[]): Promise<
   const createdNames: string[] = [];
   
   // We need existing goals for fuzzy matching, they are now in the Goal collection
-  const existingGoals = await Goal.find({ userId });
+  const existingGoals = await mongoose.model("Goal").find({ userId });
 
   for (const task of tasks) {
     let matchedWeekGoalId: string | undefined = undefined;
@@ -659,7 +659,7 @@ async function saveTasksToUser(userId: string, tasks: BotTaskResult[]): Promise<
       }
     }
 
-    await Task.create(newTask);
+    await mongoose.model("Task").create(newTask);
     createdNames.push(task.name);
   }
 
@@ -678,7 +678,7 @@ async function saveNotesToUser(userId: string, notes: BotNoteResult[]): Promise<
       noteType: note.noteType || "note",
       ideaCategory: note.ideaCategory || undefined,
     };
-    await DayNote.create(newNote);
+    await mongoose.model("DayNote").create(newNote);
     createdTitles.push(note.title || "Без названия");
   }
   return createdTitles;
@@ -764,7 +764,7 @@ function getCalendarPeriod(type: "week" | "month" | "year", utcOffset = 2) {
 
 async function saveGoalsToUser(userId: string, goals: BotGoalResult[], utcOffset = 2): Promise<string[]> {
   const createdTitles: string[] = [];
-  const dbGoals = await Goal.find({ userId });
+  const dbGoals = await mongoose.model("Goal").find({ userId });
 
   for (const goal of goals) {
     const goalType = goal.goalType || "month";
@@ -808,7 +808,7 @@ async function saveGoalsToUser(userId: string, goals: BotGoalResult[], utcOffset
       status: "active",
     };
 
-    await Goal.create(newGoal);
+    await mongoose.model("Goal").create(newGoal);
     createdTitles.push(goal.title);
 
     // If user explicitly stated sub-tasks in voice, add them to todayTasks
@@ -828,7 +828,7 @@ async function saveGoalsToUser(userId: string, goals: BotGoalResult[], utcOffset
         goalId: goalId,
         noDeadline: true,
       };
-      await Task.create(subTask);
+      await mongoose.model("Task").create(subTask);
     }
   }
 
@@ -863,7 +863,7 @@ async function saveTradingNoteToUser(userId: string, notes: BotTradingNoteResult
       isTradingIdea: !!note.isTradingIdea,
       tradingIdeaDone: false,
     };
-    await TradingNote.create(newNote);
+    await mongoose.model("TradingNote").create(newNote);
     createdTitles.push(note.title || "Торговая заметка");
   }
 
@@ -949,7 +949,7 @@ export function createBot(): Telegraf | null {
 
   // ── Guard Helper: Check if user exists and has Gemini API Key ──
   const ensureUserHasApiKey = async (ctx: any): Promise<{ user: any; ok: boolean }> => {
-    const user = await User.findOne({ telegramId: String(ctx.from.id) });
+    const user = await mongoose.model("User").findOne({ telegramId: String(ctx.from.id) });
 
     if (!user) {
       await ctx.reply(
@@ -1008,7 +1008,7 @@ export function createBot(): Telegraf | null {
     const { user, ok } = await ensureUserHasApiKey(ctx);
     if (!ok || !user) return;
 
-    const userData = await UserData.findOne({ userId: user._id });
+    const userData = await mongoose.model("UserData").findOne({ userId: user._id });
     const history: BotVoiceRecord[] = Array.isArray((userData?.data as any)?.botVoiceHistory)
       ? (userData?.data as any).botVoiceHistory
       : [];
@@ -1087,12 +1087,12 @@ export function createBot(): Telegraf | null {
 
   bot.action("confirm_clear_history", async (ctx) => {
     await ctx.answerCbQuery();
-    const user = await User.findOne({ telegramId: String(ctx.from!.id) });
+    const user = await mongoose.model("User").findOne({ telegramId: String(ctx.from!.id) });
     if (user) {
-      const userData = await UserData.findOne({ userId: user._id });
+      const userData = await mongoose.model("UserData").findOne({ userId: user._id });
       if (userData) {
         const existingData = (userData.data as any) || {};
-        await UserData.findOneAndUpdate(
+        await mongoose.model("UserData").findOneAndUpdate(
           { userId: user._id },
           { data: { ...existingData, botVoiceHistory: [] }, updatedAt: new Date() }
         );
@@ -1131,7 +1131,7 @@ export function createBot(): Telegraf | null {
 
   // ── Helper: Show API Key Menu ──
   const showApiKeyMenu = async (ctx: any) => {
-    const user = await User.findOne({ telegramId: String(ctx.from.id) });
+    const user = await mongoose.model("User").findOne({ telegramId: String(ctx.from.id) });
     if (!user) {
       return ctx.reply("🔗 Сначала привяжи аккаунт Trade Persona.", getMainMenuKeyboard());
     }
@@ -1168,7 +1168,7 @@ export function createBot(): Telegraf | null {
 
   // ── Helper: Show Status ──
   const showStatus = async (ctx: any) => {
-    const user = await User.findOne({ telegramId: String(ctx.from.id) });
+    const user = await mongoose.model("User").findOne({ telegramId: String(ctx.from.id) });
     if (user) {
       const keyStatus = user.geminiApiKey
         ? `\`${user.geminiApiKey.substring(0, 8)}...${user.geminiApiKey.substring(user.geminiApiKey.length - 4)}\` (активен ✅)`
@@ -1240,10 +1240,10 @@ export function createBot(): Telegraf | null {
 
   bot.action("key_delete", async (ctx) => {
     await ctx.answerCbQuery();
-    const user = await User.findOne({ telegramId: String(ctx.from!.id) });
+    const user = await mongoose.model("User").findOne({ telegramId: String(ctx.from!.id) });
     if (user) {
-      await User.findByIdAndUpdate(user._id, { geminiApiKey: null });
-      await UserSettings.findOneAndUpdate({ userId: user._id }, { geminiApiKey: null });
+      await mongoose.model("User").findByIdAndUpdate(user._id, { geminiApiKey: null });
+      await mongoose.model("UserSettings").findOneAndUpdate({ userId: user._id }, { geminiApiKey: null });
     }
     await ctx.reply("🗑 *Gemini API Ключ удалён.*", {
       parse_mode: "Markdown",
@@ -1257,7 +1257,7 @@ export function createBot(): Telegraf | null {
 
     if (linkToken) {
       try {
-        const user = await User.findOne({
+        const user = await mongoose.model("User").findOne({
           telegramLinkToken: linkToken,
           telegramLinkExpires: { $gt: new Date() },
         });
@@ -1269,7 +1269,7 @@ export function createBot(): Telegraf | null {
           );
         }
 
-        const existingLink = await User.findOne({ telegramId: String(ctx.from.id) });
+        const existingLink = await mongoose.model("User").findOne({ telegramId: String(ctx.from.id) });
         if (existingLink && existingLink._id.toString() !== user._id.toString()) {
           return ctx.reply(
             "⚠️ Этот Telegram аккаунт уже привязан к другому аккаунту Trade Persona.",
@@ -1277,7 +1277,7 @@ export function createBot(): Telegraf | null {
           );
         }
 
-        await User.findByIdAndUpdate(user._id, {
+        await mongoose.model("User").findByIdAndUpdate(user._id, {
           telegramId: String(ctx.from.id),
           telegramLinkToken: null,
           telegramLinkExpires: null,
@@ -1399,7 +1399,7 @@ export function createBot(): Telegraf | null {
       const utcOffset = settings?.utcOffset ?? 2;
 
       // Fetch active goals to pass to AI for smart linking (now from Goal collection)
-      const activeGoalDocs = await Goal.find({ userId: user._id, status: { $ne: "completed" } }).lean();
+      const activeGoalDocs = await mongoose.model("Goal").find({ userId: user._id, status: { $ne: "completed" } }).lean();
       const activeGoals = activeGoalDocs.map((g: any) => ({ id: g.goalId, title: g.title, type: g.type, category: g.category }));
 
       // Fetch user's API key
@@ -1503,7 +1503,7 @@ export function createBot(): Telegraf | null {
       (txt.length >= 30 && txt.length <= 90 && !txt.includes(" ") && !txt.startsWith("/"));
 
     if (state?.awaitingKeyInput || looksLikeKey) {
-      const user = await User.findOne({ telegramId: String(ctx.from.id) });
+      const user = await mongoose.model("User").findOne({ telegramId: String(ctx.from.id) });
       if (!user) {
         return ctx.reply("🔗 Сначала привяжи аккаунт Trade Persona.", getMainMenuKeyboard());
       }
@@ -1516,8 +1516,8 @@ export function createBot(): Telegraf | null {
       } catch {}
 
       if (check.valid) {
-        await User.findByIdAndUpdate(user._id, { geminiApiKey: txt });
-        await UserSettings.findOneAndUpdate({ userId: user._id }, { geminiApiKey: txt }, { upsert: true });
+        await mongoose.model("User").findByIdAndUpdate(user._id, { geminiApiKey: txt });
+        await mongoose.model("UserSettings").findOneAndUpdate({ userId: user._id }, { geminiApiKey: txt }, { upsert: true });
 
         userState.delete(ctx.from.id);
 

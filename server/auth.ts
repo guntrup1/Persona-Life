@@ -4,7 +4,7 @@ import ConnectMongo from "connect-mongo";
 const MongoStore = (ConnectMongo as any).default || ConnectMongo;
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import { User, UserData, UserDataBackup, ResetToken, UserSettings } from "./mongodb";
+import mongoose from "mongoose";
 
 // ── Brevo email helper ──
 async function sendEmail(to: string, subject: string, html: string) {
@@ -106,7 +106,7 @@ export function registerAuthRoutes(app: Express) {
     const { email, password, lang } = parsed.data;
 
     try {
-      const existing = await User.findOne({ email: email.toLowerCase() });
+      const existing = await mongoose.model("User").findOne({ email: email.toLowerCase() });
       if (existing) {
         return res.status(409).json({ message: "Пользователь с таким email уже существует" });
       }
@@ -116,7 +116,7 @@ export function registerAuthRoutes(app: Express) {
       const verifyToken = crypto.randomBytes(32).toString("hex");
       const verifyTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-      const user = await User.create({
+      const user = await mongoose.model("User").create({
         email: email.toLowerCase(),
         password_hash: hash,
         isVerified: false,
@@ -124,7 +124,7 @@ export function registerAuthRoutes(app: Express) {
         verifyTokenExpires,
       });
 
-      await UserData.create({ userId: user._id, data: {} });
+      await mongoose.model("UserData").create({ userId: user._id, data: {} });
 
       // Отправляем письмо верификации через Brevo
       const verifyUrl = `${process.env.APP_URL || "https://persona-life.onrender.com"}/verify-email?token=${verifyToken}`;
@@ -157,8 +157,8 @@ export function registerAuthRoutes(app: Express) {
       } catch (emailErr) {
         console.error("Verify email send error:", emailErr);
         // Удаляем пользователя если письмо не отправилось
-        await User.findByIdAndDelete(user._id);
-        await UserData.deleteOne({ userId: user._id });
+        await mongoose.model("User").findByIdAndDelete(user._id);
+        await mongoose.model("UserData").deleteOne({ userId: user._id });
         return res.status(500).json({ message: "Не удалось отправить письмо подтверждения. Попробуй позже." });
       }
 
@@ -181,7 +181,7 @@ export function registerAuthRoutes(app: Express) {
     const { email, password } = parsed.data;
 
     try {
-      const user = await User.findOne({ email: email.toLowerCase() });
+      const user = await mongoose.model("User").findOne({ email: email.toLowerCase() });
       if (!user) {
         return res.status(401).json({ message: "Неверный email или пароль" });
       }
@@ -198,7 +198,7 @@ export function registerAuthRoutes(app: Express) {
       req.session.userId = user._id.toString();
       req.session.email = user.email;
 
-      const userData = await UserData.findOne({ userId: user._id });
+      const userData = await mongoose.model("UserData").findOne({ userId: user._id });
       const data = userData?.data || null;
 
       return res.json({ id: user._id, email: user.email, data });
@@ -220,7 +220,7 @@ export function registerAuthRoutes(app: Express) {
       return res.json({ user: null });
     }
     try {
-      const user = await User.findById(req.session.userId).select("email");
+      const user = await mongoose.model("User").findById(req.session.userId).select("email");
       if (!user) {
         req.session.destroy(() => {});
         return res.json({ user: null });
@@ -236,7 +236,7 @@ export function registerAuthRoutes(app: Express) {
   // Full data is fetched only when revision changes.
   app.get("/api/user/data/version", requireAuth, async (req, res) => {
     try {
-      const userData = await UserData.findOne(
+      const userData = await mongoose.model("UserData").findOne(
         { userId: req.session.userId },
         { updatedAt: 1, revision: 1, _id: 0 } // projection: only tiny fields
       ).lean();
@@ -254,7 +254,7 @@ export function registerAuthRoutes(app: Express) {
     try {
       res.set("Cache-Control", "no-store, no-cache, must-revalidate");
       res.set("Pragma", "no-cache");
-      const userData = await UserData.findOne({ userId: req.session.userId });
+      const userData = await mongoose.model("UserData").findOne({ userId: req.session.userId });
       return res.json({ data: userData?.data || null });
     } catch (err) {
       console.error("Get data error:", err);
@@ -305,7 +305,7 @@ export function registerAuthRoutes(app: Express) {
 
   async function saveWithBackup(userId: string, data: any) {
     const cleanData = sanitizeMongoInput(data);
-    const existing = await UserData.findOne({ userId });
+    const existing = await mongoose.model("UserData").findOne({ userId });
 
     if (existing?.data) {
       const integrity = verifyDataIntegrity(existing.data, cleanData);
@@ -325,10 +325,10 @@ export function registerAuthRoutes(app: Express) {
             const hasContent = (oldData.todayTasks?.length > 0) || (oldData.dayNotes?.length > 0) ||
               (oldData.tradingNotes?.length > 0) || (oldData.goals?.length > 0);
             if (hasContent) {
-              await UserDataBackup.create({ userId, data: existingCopy });
-              const backups = await UserDataBackup.find({ userId }).sort({ createdAt: -1 }).skip(10);
+              await mongoose.model("UserDataBackup").create({ userId, data: existingCopy });
+              const backups = await mongoose.model("UserDataBackup").find({ userId }).sort({ createdAt: -1 }).skip(10);
               if (backups.length > 0) {
-                await UserDataBackup.deleteMany({ _id: { $in: backups.map((b: any) => b._id) } });
+                await mongoose.model("UserDataBackup").deleteMany({ _id: { $in: backups.map((b: any) => b._id) } });
               }
             }
           } catch (err) {
@@ -338,7 +338,7 @@ export function registerAuthRoutes(app: Express) {
       }
     }
 
-    await UserData.findOneAndUpdate(
+    await mongoose.model("UserData").findOneAndUpdate(
       { userId },
       { data: cleanData, updatedAt: new Date(), $inc: { revision: 1 } },
       { upsert: true }
@@ -425,7 +425,7 @@ export function registerAuthRoutes(app: Express) {
 
   app.get("/api/user/export", requireAuth, async (req, res) => {
     try {
-      const userData = await UserData.findOne({ userId: req.session.userId });
+      const userData = await mongoose.model("UserData").findOne({ userId: req.session.userId });
       const data = userData?.data || {};
       res.setHeader("Content-Disposition", `attachment; filename="lifeos-backup-${new Date().toISOString().split("T")[0]}.json"`);
       res.setHeader("Content-Type", "application/json");
@@ -438,7 +438,7 @@ export function registerAuthRoutes(app: Express) {
 
   app.get("/api/user/backups", requireAuth, async (req, res) => {
     try {
-      const backups = await UserDataBackup.find({ userId: req.session.userId })
+      const backups = await mongoose.model("UserDataBackup").find({ userId: req.session.userId })
         .sort({ createdAt: -1 })
         .limit(10)
         .select("_id createdAt");
@@ -451,7 +451,7 @@ export function registerAuthRoutes(app: Express) {
 
   app.post("/api/user/restore/:backupId", requireAuth, async (req, res) => {
     try {
-      const backup = await UserDataBackup.findOne({ _id: req.params.backupId, userId: req.session.userId });
+      const backup = await mongoose.model("UserDataBackup").findOne({ _id: req.params.backupId, userId: req.session.userId });
       if (!backup) return res.status(404).json({ message: "Бэкап не найден" });
       await saveWithBackup(req.session.userId!, backup.data);
       return res.json({ ok: true, data: backup.data });
@@ -467,15 +467,15 @@ export function registerAuthRoutes(app: Express) {
     const { email, lang } = parsed.data;
 
     try {
-      const user = await User.findOne({ email: email.toLowerCase() });
+      const user = await mongoose.model("User").findOne({ email: email.toLowerCase() });
       if (!user) return res.json({ ok: true });
 
       const crypto = require("crypto");
       const token = crypto.randomBytes(32).toString("hex");
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
-      await ResetToken.deleteMany({ userId: user._id });
-      await ResetToken.create({ userId: user._id, token, expiresAt });
+      await mongoose.model("ResetToken").deleteMany({ userId: user._id });
+      await mongoose.model("ResetToken").create({ userId: user._id, token, expiresAt });
 
       const resetUrl = `${process.env.APP_URL || "https://persona-life.onrender.com"}/reset-password?token=${token}`;
 
@@ -519,12 +519,12 @@ export function registerAuthRoutes(app: Express) {
     const { token, password } = parsed.data;
 
     try {
-      const resetToken = await ResetToken.findOne({ token, expiresAt: { $gt: new Date() } });
+      const resetToken = await mongoose.model("ResetToken").findOne({ token, expiresAt: { $gt: new Date() } });
       if (!resetToken) return res.status(400).json({ message: "Ссылка недействительна или истекла" });
 
       const hash = await bcrypt.hash(password, 12);
-      await User.findByIdAndUpdate(resetToken.userId, { password_hash: hash });
-      await ResetToken.deleteMany({ userId: resetToken.userId });
+      await mongoose.model("User").findByIdAndUpdate(resetToken.userId, { password_hash: hash });
+      await mongoose.model("ResetToken").deleteMany({ userId: resetToken.userId });
 
       return res.json({ ok: true });
     } catch (err) {
@@ -535,9 +535,9 @@ export function registerAuthRoutes(app: Express) {
 
   app.get("/api/user/settings", requireAuth, async (req, res) => {
     try {
-      let settings = await UserSettings.findOne({ userId: req.session.userId });
+      let settings = await mongoose.model("UserSettings").findOne({ userId: req.session.userId });
       if (!settings) {
-        settings = await UserSettings.create({ userId: req.session.userId });
+        settings = await mongoose.model("UserSettings").create({ userId: req.session.userId });
       }
       return res.json({ settings });
     } catch (err) {
@@ -549,13 +549,13 @@ export function registerAuthRoutes(app: Express) {
   app.put("/api/user/settings", requireAuth, async (req, res) => {
     const { utcOffset, workStart, workEnd, restStart, restEnd, sleepStart, sleepEnd, tradingSessions, workDays, googleReminderMinutes } = req.body;
     try {
-      const settings = await UserSettings.findOneAndUpdate(
+      const settings = await mongoose.model("UserSettings").findOneAndUpdate(
         { userId: req.session.userId },
         { utcOffset, workStart, workEnd, restStart, restEnd, sleepStart, sleepEnd, tradingSessions, workDays, googleReminderMinutes, updatedAt: new Date() },
         { upsert: true, returnDocument: "after" }
       );
       if (googleReminderMinutes !== undefined) {
-        await User.findByIdAndUpdate(req.session.userId, { googleReminderMinutes });
+        await mongoose.model("User").findByIdAndUpdate(req.session.userId, { googleReminderMinutes });
       }
       return res.json({ settings });
     } catch (err) {
@@ -572,7 +572,7 @@ app.get("/api/auth/verify-email", async (req, res) => {
     }
     try {
       // Сначала ищем пользователя по токену без проверки срока
-      const user = await User.findOne({ verifyToken: token });
+      const user = await mongoose.model("User").findOne({ verifyToken: token });
 
       if (!user) {
         return res.status(400).json({ message: "Ссылка недействительна или уже использована" });
@@ -587,7 +587,7 @@ app.get("/api/auth/verify-email", async (req, res) => {
         return res.status(400).json({ message: "Ссылка истекла", expired: true });
       }
 
-      await User.findByIdAndUpdate(user._id, {
+      await mongoose.model("User").findByIdAndUpdate(user._id, {
         isVerified: true,
         verifyToken: null,
         verifyTokenExpires: null,
@@ -606,13 +606,13 @@ app.get("/api/auth/verify-email", async (req, res) => {
     if (!parsed.success) return res.status(400).json({ message: "Некорректный email" });
     const { email, lang } = parsed.data;
     try {
-      const user = await User.findOne({ email, isVerified: false });
+      const user = await mongoose.model("User").findOne({ email, isVerified: false });
       if (!user) return res.json({ ok: true });
 
       const crypto = require("crypto");
       const verifyToken = crypto.randomBytes(32).toString("hex");
       const verifyTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // было 7 дней
-      await User.findByIdAndUpdate(user._id, { verifyToken, verifyTokenExpires });
+      await mongoose.model("User").findByIdAndUpdate(user._id, { verifyToken, verifyTokenExpires });
 
       const verifyUrl = `${process.env.APP_URL || "https://persona-life.onrender.com"}/verify-email?token=${verifyToken}`;
       const isEn = lang === "en";
