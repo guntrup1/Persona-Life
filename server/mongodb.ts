@@ -250,6 +250,12 @@ const processedAudioSchema = new mongoose.Schema({
   action_items: { type: mongoose.Schema.Types.Mixed, default: [] },
   semantic_tags: { type: [String], default: [] },
   mind_map_nodes: { type: mongoose.Schema.Types.Mixed, default: [] },
+  key_insights: { type: [String], default: [] },
+  topics: { type: [String], default: [] },
+  sentiment: { type: String },
+  questions_raised: { type: [String], default: [] },
+  note_type: { type: String },
+  mode: { type: String },
   status: { type: String, enum: ['processing', 'completed', 'failed'], default: 'processing' },
 }, { timestamps: true });
 
