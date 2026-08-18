@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { LIFE_AREAS_TEXT, mapToLifeArea } from "./life-areas";
 import { encryptSecret, decryptSecret } from "./crypto";
 import { bumpRevision } from "./revision";
+import { findDuplicateTask, findDuplicateGoal, findDuplicateDayNote, findDuplicateTradingNote } from "./dedupe";
 
 export function registerAudioRoutes(app: Express) {
 
@@ -445,6 +446,7 @@ MODE: NOTES / IDEAS / TRADING
       // JSON schema shared by every Gemini call (single shot and per-chunk map calls)
       const jsonSchemaText = `JSON SCHEMA (return ALL fields, use empty arrays [] if not applicable):
 {
+  "title": "короткое название записи, до 6 слов",
   "executive_summary": "3-5 sentences capturing the core thesis, main idea, and key conclusion of the recording",
   "key_insights": ["non-obvious insight 1", "non-obvious insight 2", "...up to 8 insights"],
   "action_items": [{"task": "specific actionable step", "date": "YYYY-MM-DD", "start_time": "HH:MM or null", "end_time": "HH:MM or null", "priority": "high|medium|low"}],
@@ -478,6 +480,7 @@ CRITICAL RULES:
 5. Be THOROUGH and DETAILED — this is for a productivity system, shallow analysis is useless
 6. executive_summary is MANDATORY and must be substantive (not empty, not generic)
 7. key_insights must contain real insights, not just rephrased sentences from the transcript
+8. ALL generated texts (title, executive_summary, key_insights, notes_extracted content, mind_map_nodes, questions_raised) MUST be written in FIRST PERSON ("я", "мне", "мой") — the recording is the user's OWN thoughts. NEVER use third person ("автор", "пользователь", "он", "она").
 
 ${jsonSchemaText}
 
@@ -668,6 +671,7 @@ ${transcriptPart}`;
       }
 
       const result = {
+        title: parsed.title ? String(parsed.title) : null,
         executive_summary: String(parsed.executive_summary || transcript.slice(0, 300)),
         key_insights: Array.isArray(parsed.key_insights) ? parsed.key_insights.map(String) : [],
         action_items: Array.isArray(parsed.action_items) ? parsed.action_items : [],
@@ -694,6 +698,7 @@ ${transcriptPart}`;
         userId: (user as any)._id,
         telegramMessageId: String(messageId),
         raw_transcript: transcript,
+        title: result.title,
         executive_summary: result.executive_summary,
         action_items: result.action_items,
         semantic_tags: result.semantic_tags,
@@ -718,10 +723,14 @@ ${transcriptPart}`;
         for (const item of result.action_items) {
           const taskDate = item.date && item.date.match(/^\d{4}-\d{2}-\d{2}$/) ? item.date : today;
           
+          const taskName = item.task || "Новая задача";
+          const taskDup = await findDuplicateTask(TaskModel, (user as any)._id, taskName, taskDate);
+          if (taskDup) continue; // already have this task for that date — skip the duplicate
+          
           const taskData: any = {
             userId: (user as any)._id,
             taskId: `task_${Date.now()}_${Math.random().toString(36).substring(7)}`,
-            name: item.task || "Новая задача",
+            name: taskName,
             description: result.executive_summary,
             category: category,
             date: taskDate,
@@ -778,6 +787,10 @@ ${transcriptPart}`;
             ? item.plan_steps.map((step: string) => ({ id: `step_${Date.now()}_${Math.random().toString(36).substring(7)}`, text: step, done: false }))
             : [];
             
+          const goalTitle = item.title || "Новая цель";
+          const goalDup = await findDuplicateGoal(GoalModel, (user as any)._id, goalTitle);
+          if (goalDup) continue; // active goal with same title already exists — skip
+
           const goalCat = item.life_area ? mapToLifeArea(item.life_area) : category;
           const timeLimit = item.time_limit || "month"; // week, month, year, life, custom_date
           const validGoalTypes = ["week", "month", "year"];
@@ -787,7 +800,7 @@ ${transcriptPart}`;
             userId: (user as any)._id,
             goalId: `goal_${Date.now()}_${Math.random().toString(36).substring(7)}`,
             type: goalType,
-            title: item.title || "Новая цель",
+            title: goalTitle,
             description: result.executive_summary,
             category: goalCat,
             timeLimitType: timeLimit,
@@ -817,6 +830,8 @@ ${transcriptPart}`;
             const content = String(item.content || result.executive_summary).trim();
 
             if (isTrading) {
+              const dupT = await findDuplicateTradingNote(TradingNoteModel, (user as any)._id, content, String(item.title || ""));
+              if (dupT) continue;
               const asset = item.asset && validAssets.includes(item.asset) ? item.asset : "GER40";
               const tag = item.tag && validTags.includes(item.tag) ? item.tag : "мысль";
               await TradingNoteModel.create({
@@ -832,6 +847,8 @@ ${transcriptPart}`;
                 isTradingIdea: type === "trading_idea" || tag === "идея",
               }).catch((e) => console.error("TradingNote creation failed", e));
             } else {
+              const dupN = await findDuplicateDayNote(DayNoteModel, (user as any)._id, content, String(item.title || ""));
+              if (dupN) continue;
               await DayNoteModel.create({
                 userId: (user as any)._id,
                 noteId: `audio_${processed._id}_${idx}`,
@@ -847,7 +864,9 @@ ${transcriptPart}`;
           // Fallback: single trading note (legacy top-level classification)
           const asset = result.asset && validAssets.includes(result.asset) ? result.asset : "GER40";
           const tag = result.tag && validTags.includes(result.tag) ? result.tag : "мысль";
-          await TradingNoteModel.create({
+          const dupT = await findDuplicateTradingNote(TradingNoteModel, (user as any)._id, result.executive_summary);
+          if (!dupT) {
+            await TradingNoteModel.create({
             userId: (user as any)._id,
             noteId: `trading_${Date.now()}_${Math.random().toString(36).substring(7)}`,
             date: today,
@@ -859,9 +878,12 @@ ${transcriptPart}`;
             time: new Date().toTimeString().slice(0, 5),
             isTradingIdea: result.is_trading_idea || tag === "идея",
           }).catch((e) => console.error("TradingNote creation failed", e));
+          }
         } else {
           // Fallback: single day note from the analysis summary
-          await DayNoteModel.create({
+          const dupN = await findDuplicateDayNote(DayNoteModel, (user as any)._id, result.executive_summary);
+          if (!dupN) {
+            await DayNoteModel.create({
             userId: (user as any)._id,
             noteId: `audio_${processed._id}`,
             date: today,
@@ -876,6 +898,7 @@ ${transcriptPart}`;
             noteType: result.note_type === "idea" ? "idea" : "note",
             ideaCategory: result.idea_category || category,
           }).catch((e) => console.error("DayNote creation failed", e));
+          }
         }
       }
 

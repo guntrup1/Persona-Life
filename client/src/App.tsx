@@ -173,7 +173,7 @@ function SyncButton() {
 
   const handleSync = async () => {
     setSyncing(true);
-    const ok = await syncFromServer();
+    const ok = await syncFromServer(true);
     setSyncing(false);
     toast({ title: ok ? t.synced : t.noConnection });
   };

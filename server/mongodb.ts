@@ -253,6 +253,7 @@ const processedAudioSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
   telegramMessageId: { type: String, required: true },
   raw_transcript: { type: String, default: "" },
+  title: { type: String, default: null },
   executive_summary: { type: String, default: "" },
   action_items: { type: mongoose.Schema.Types.Mixed, default: [] },
   semantic_tags: { type: [String], default: [] },

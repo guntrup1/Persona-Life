@@ -184,6 +184,7 @@ export default function HubPage() {
   const [newNoteType, setNewNoteType] = useState<NoteType>("note");
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
+  const [notesOpen, setNotesOpen] = useState(true);
   const { toast } = useToast();
   const prevCompleted = useRef(completedToday);
 
@@ -256,10 +257,10 @@ export default function HubPage() {
         <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-4 items-start md:items-stretch flex-1 min-h-0">
 
           {/* ═══ LEFT COLUMN ═══ */}
-          <div className="flex flex-col gap-3 min-h-0 md:overflow-y-auto">
+          <div className="flex flex-col gap-3 min-h-0">
 
-            {/* Character panel */}
-            <div className="p-4 bg-card border border-card-border flex flex-col items-center gap-3 relative overflow-hidden">
+            {/* Character panel — pinned, never scrolled away by week blocks */}
+            <div className="p-4 bg-card border border-card-border flex flex-col items-center gap-3 relative overflow-hidden shrink-0">
               <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-primary via-primary/50 to-transparent" />
               <div className="absolute top-0 right-0 w-4 h-4 bg-primary" style={{ clipPath: "polygon(0 0, 100% 0, 100% 100%)" }} />
               <div className="w-32 h-36 overflow-visible flex items-center justify-center">
@@ -297,11 +298,12 @@ export default function HubPage() {
             </div>
 
             {/* ── Задачи недели + Прогресс недели (hidden on mobile) ── */}
-            <div className="hidden md:flex md:flex-col gap-3">
+            <div className="hidden md:flex md:flex-col gap-3 flex-1 min-h-0">
               <CollapsibleBlock
               title={t.hub.weekTasks}
               icon={<Milestone className="w-4 h-4 text-primary" />}
               badge={weekGoals.length > 0 && <Badge variant="secondary" className="font-mono text-[10px] h-4 px-1.5 rounded-full">{weekGoals.length}</Badge>}
+              stretch
             >
               {weekGoals.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-4">{t.hub.noWeekGoals}</p>
@@ -326,6 +328,7 @@ export default function HubPage() {
               <CollapsibleBlock
               title={t.hub.weekProgress}
               icon={<Dna className="w-4 h-4 text-primary" />}
+              stretch
             >
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -453,21 +456,27 @@ export default function HubPage() {
         </div>
       </div>
 
-      {/* ── Notes — pinned to the bottom, never pushed away by tasks ── */}
+      {/* ── Notes — pinned to the bottom, collapsible and compact ── */}
       <div className="shrink-0 border-t border-card-border bg-background">
         <div className="max-w-7xl mx-auto p-4">
         <div className="p-4 bg-card border border-card-border flex flex-col gap-3 relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-primary via-primary/50 to-transparent" />
-          <div className="flex items-center gap-2">
+          <button
+            onClick={() => setNotesOpen(o => !o)}
+            className="flex items-center gap-2 w-full hover:opacity-80 transition-opacity"
+            data-testid="notes-toggle"
+          >
             <FileText className="w-4 h-4 text-primary" />
-            <div className="font-display text-base font-bold uppercase tracking-wider text-foreground">{t.hub.dayNotes}</div>
+            <div className="font-display text-sm font-bold uppercase tracking-wider text-foreground">{t.hub.dayNotes}</div>
             {todayNotes.length > 0 && (
-              <Badge variant="secondary" className="ml-auto font-mono text-xs rounded-full">{todayNotes.length}</Badge>
+              <Badge variant="secondary" className="font-mono text-xs rounded-full">{todayNotes.length}</Badge>
             )}
-          </div>
+            <ChevronDown className={`w-4 h-4 text-primary transition-transform duration-300 ml-auto ${notesOpen ? "rotate-180" : ""}`} />
+          </button>
 
+          <div className="overflow-hidden" style={{ maxHeight: notesOpen ? "520px" : "0px", transition: "max-height 0.3s ease" }} aria-hidden={!notesOpen}>
           {todayNotes.length > 0 && (
-            <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+            <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
               {todayNotes.map(note => {
                 const noteDate = new Date(note.createdAt);
                 const utcOffset = loadUserSettings().utcOffset;
@@ -515,14 +524,14 @@ export default function HubPage() {
             <div className="flex gap-2">
               <button
                 onClick={() => setNewNoteType("note")}
-                className={`flex-1 py-1.5 rounded-lg text-[10px] font-display uppercase tracking-wider transition-colors ${newNoteType === "note" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                className={`flex-1 py-1 rounded-lg text-[10px] font-display uppercase tracking-wider transition-colors ${newNoteType === "note" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
                 data-testid="hub-type-note"
               >
                 {t.noteType}
               </button>
               <button
                 onClick={() => setNewNoteType("idea")}
-                className={`flex-1 py-1.5 rounded-lg text-[10px] font-display uppercase tracking-wider transition-colors ${newNoteType === "idea" ? "bg-yellow-500 text-black" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                className={`flex-1 py-1 rounded-lg text-[10px] font-display uppercase tracking-wider transition-colors ${newNoteType === "idea" ? "bg-yellow-500 text-black" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
                 data-testid="hub-type-idea"
               >
                 {t.ideaType}
@@ -539,15 +548,16 @@ export default function HubPage() {
             )}
             <Textarea
               placeholder={newNoteType === "idea" ? t.ideaPlaceholder : t.hub.newNotePlaceholder}
-              className="min-h-[70px] resize-none border-card-border focus-visible:ring-primary bg-muted/30 rounded-xl text-sm"
+              className="min-h-[52px] resize-none border-card-border focus-visible:ring-primary bg-muted/30 rounded-xl text-sm"
               value={newNoteText}
               onChange={e => setNewNoteText(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleAddNote(); }}
               data-testid="input-new-note"
             />
-            <Button onClick={handleAddNote} disabled={!newNoteText.trim()} className="w-full font-display uppercase tracking-widest text-xs h-9 rounded-full" data-testid="button-add-note">
+            <Button onClick={handleAddNote} disabled={!newNoteText.trim()} className="w-full font-display uppercase tracking-widest text-xs h-8 rounded-full" data-testid="button-add-note">
               + {newNoteType === "idea" ? t.addIdea : t.addNote}
             </Button>
+          </div>
           </div>
         </div>
         </div>

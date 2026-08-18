@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { requireAuth } from "./auth";
 import { z } from "zod";
 import { bumpRevision } from "./revision";
+import { findDuplicateTask, findDuplicateGoal, findDuplicateDayNote } from "./dedupe";
 import {
   Task, Goal, DayNote, TradingNote, DailyBias,
   FocusSession, RoutineTemplate, Simulation, UserData, UserDataBackup
@@ -302,6 +303,15 @@ export function registerDataRoutes(app: Express) {
       const data = taskSchema.parse(req.body);
       const userId = req.session.userId;
       
+      // Duplicate protection: only for genuinely new tasks (not upsert of an existing one)
+      const alreadyExists = await Task.findOne({ userId, taskId: data.id }).select("_id").lean();
+      if (!alreadyExists) {
+        const dup = await findDuplicateTask(Task, userId, data.name, data.date || undefined);
+        if (dup) {
+          return res.json({ ok: true, duplicate: true, matchedId: dup.taskId });
+        }
+      }
+      
       // Extract completion fields to avoid overwriting them if a PATCH (toggle) arrived before this POST
       const { completed, completedAt, ...restData } = data as any;
       
@@ -356,6 +366,15 @@ export function registerDataRoutes(app: Express) {
     try {
       const data = goalSchema.parse(req.body);
       const userId = req.session.userId;
+      
+      const goalExists = await Goal.findOne({ userId, goalId: data.id }).select("_id").lean();
+      if (!goalExists) {
+        const dup = await findDuplicateGoal(Goal, userId, data.title);
+        if (dup) {
+          return res.json({ ok: true, duplicate: true, matchedId: dup.goalId });
+        }
+      }
+      
       await Goal.findOneAndUpdate(
         { userId, goalId: data.id }, 
         { ...data, goalId: data.id, userId }, 
@@ -461,6 +480,15 @@ export function registerDataRoutes(app: Express) {
   app.post("/api/notes", requireAuth, async (req: any, res) => {
     try {
       const data = dayNoteSchema.parse(req.body);
+      
+      const noteExists = await DayNote.findOne({ userId: req.session.userId, noteId: data.id }).select("_id").lean();
+      if (!noteExists) {
+        const dup = await findDuplicateDayNote(DayNote, req.session.userId, data.content || "", data.title);
+        if (dup) {
+          return res.json({ ok: true, duplicate: true, matchedId: dup.noteId });
+        }
+      }
+      
       await DayNote.findOneAndUpdate(
         { userId: req.session.userId, noteId: data.id }, 
         { ...data, noteId: data.id, userId: req.session.userId }, 

@@ -31,6 +31,7 @@ interface BrainstormSession {
 
 interface ProcessedNote {
   _id: string;
+  title?: string | null;
   executive_summary: string;
   raw_transcript: string;
   semantic_tags: string[];
@@ -39,6 +40,16 @@ interface ProcessedNote {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function getNoteTitle(note: ProcessedNote | undefined): string {
+  if (!note) return "Заметка";
+  if (note.title?.trim()) return note.title;
+  const s = (note.executive_summary || note.raw_transcript || "").trim();
+  if (!s) return "Заметка";
+  const m = s.match(/^(.{0,50}[.!?…])\s/);
+  if (m) return m[1];
+  return s.length > 50 ? s.slice(0, 50).trimEnd() + "…" : s;
+}
 
 function formatDate(dateStr: string) {
   const d = new Date(dateStr);
@@ -437,7 +448,7 @@ export default function BrainstormPage() {
           </div>
           <div>
             <h1 className="text-lg font-display font-semibold tracking-tight leading-none mb-1">Brainstorm</h1>
-            <p className="text-[10px] text-white/50 uppercase tracking-widest font-semibold">AI Assistant</p>
+            <p className="text-[10px] text-white/50 uppercase tracking-widest font-semibold">Personedge</p>
           </div>
         </div>
 
@@ -523,7 +534,7 @@ export default function BrainstormPage() {
             </div>
             <h2 className="text-2xl font-display font-semibold text-white/90 mb-2">Готов к идеям</h2>
             <p className="text-sm text-white/50 leading-relaxed">
-              Прикрепите голосовые заметки 📎 или просто задайте вопрос, чтобы начать процесс брейншторма.
+              Прикрепи голосовые заметки 📎 или просто задай вопрос — и я начну брейн-шторм.
             </p>
           </div>
         ) : (
@@ -555,7 +566,7 @@ export default function BrainstormPage() {
                   </div>
                   <div className="flex items-center gap-3">
                     <Loader2 className="w-5 h-5 animate-spin text-purple-400" />
-                    <p className="text-sm font-medium text-white/80">ИИ анализирует контекст...</p>
+                    <p className="text-sm font-medium text-white/80">Personedge анализирует контекст...</p>
                   </div>
                   <div className="space-y-2.5 w-full">
                     <div className="h-2 bg-white/5 rounded-full w-full animate-pulse" />
@@ -573,13 +584,13 @@ export default function BrainstormPage() {
       <div className="absolute bottom-0 inset-x-0 p-4 md:p-6 bg-gradient-to-t from-[#0A0A0A] via-[#0A0A0A] to-transparent pt-20">
         <div className="max-w-4xl mx-auto flex flex-col gap-3">
           
-          {/* Presets Row (hides when typing) */}
-          <div className={`flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar transition-all duration-300 ${prompt.length > 0 ? 'opacity-0 translate-y-2 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
+          {/* Presets Grid (hides when typing) */}
+          <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5 overflow-hidden transition-all duration-300 ${prompt.length > 0 ? 'opacity-0 translate-y-2 pointer-events-none max-h-0' : 'opacity-100 translate-y-0 max-h-40'}`}>
             {PRESETS.map(preset => (
               <button
                 key={preset.label}
                 onClick={() => setPrompt(preset.prompt)}
-                className="whitespace-nowrap text-[11px] font-medium px-4 py-2 rounded-full bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white transition-colors backdrop-blur-sm"
+                className="text-[11px] font-medium text-left px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white transition-colors backdrop-blur-sm truncate"
               >
                 {preset.label}
               </button>
@@ -591,7 +602,7 @@ export default function BrainstormPage() {
             <div className="flex flex-wrap gap-2 mb-1 px-1">
               {Array.from(selectedNotes).map(noteId => {
                 const note = notes.find(n => n._id === noteId);
-                const title = note?.executive_summary || note?.raw_transcript?.slice(0, 30) || "Заметка";
+                const title = getNoteTitle(note);
                 return (
                   <div key={noteId} className="flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-300 backdrop-blur-md animate-in zoom-in-95 duration-200">
                     <Paperclip className="w-3 h-3 opacity-70" />
@@ -660,9 +671,14 @@ export default function BrainstormPage() {
                             className="mt-0.5 border-white/20 data-[state=checked]:bg-indigo-500 flex-shrink-0 cursor-pointer"
                           />
                           <div className="flex-1 min-w-0 cursor-pointer" onClick={() => toggleNote(note._id)}>
-                            <p className="text-sm font-medium text-white/80 leading-snug whitespace-normal break-words line-clamp-3">
-                              {note.executive_summary || note.raw_transcript?.slice(0, 150) || "Без названия"}
+                            <p className="text-sm font-medium text-white/85 leading-snug whitespace-normal break-words">
+                              {getNoteTitle(note)}
                             </p>
+                            {(note.executive_summary || note.raw_transcript) && (
+                              <p className="text-xs text-white/50 leading-snug mt-0.5 line-clamp-2 whitespace-normal break-words">
+                                {note.executive_summary || note.raw_transcript?.slice(0, 200)}
+                              </p>
+                            )}
                             <p className="text-[10px] text-white/40 mt-1">
                               {new Date(note.createdAt).toLocaleDateString("ru-RU")}
                             </p>

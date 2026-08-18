@@ -997,17 +997,28 @@ export function loadFromServerData(data: AppState, forceServer = false) {
   notify();
 }
 
-export async function syncFromServer(): Promise<boolean> {
+export async function syncFromServer(force = false): Promise<boolean> {
   try {
-    // Cheap poll first: if server revision is unchanged, skip the heavy dump
-    const revRes = await fetch("/api/user/data/version", { credentials: "include" });
-    if (revRes.ok) {
-      const revData = await revRes.json();
-      const serverRevision = Number(revData?.revision ?? -1);
-      if (lastKnownRevision !== -1 && serverRevision === lastKnownRevision) {
-        return true; // nothing changed on the server
+    if (!force) {
+      // Cheap poll first: if server revision is unchanged, skip the heavy dump
+      const revRes = await fetch("/api/user/data/version", { credentials: "include" });
+      if (revRes.ok) {
+        const revData = await revRes.json();
+        const serverRevision = Number(revData?.revision ?? -1);
+        if (lastKnownRevision !== -1 && serverRevision === lastKnownRevision) {
+          return true; // nothing changed on the server
+        }
+        if (serverRevision >= 0) lastKnownRevision = serverRevision;
       }
-      if (serverRevision >= 0) lastKnownRevision = serverRevision;
+    } else {
+      // Manual sync: always refresh the revision marker so the next poll stays cheap
+      fetch("/api/user/data/version", { credentials: "include" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((revData: any) => {
+          const serverRevision = Number(revData?.revision ?? -1);
+          if (serverRevision >= 0) lastKnownRevision = serverRevision;
+        })
+        .catch(() => {});
     }
 
     const res = await fetch("/api/sync/init", { credentials: "include" });
