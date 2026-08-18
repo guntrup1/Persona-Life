@@ -299,22 +299,43 @@ export function registerAudioRoutes(app: Express) {
       }
 
       // 2. Get file path from Telegram
-      const getFileRes = await fetch(`https://api.telegram.org/bot${botToken}/getFile?file_id=${fileId}`);
-      const getFileData = await getFileRes.json() as any;
-      if (!getFileData.ok) throw new Error("Failed to get file from Telegram");
+      let getFileData: any = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const getFileRes = await fetch(`https://api.telegram.org/bot${botToken}/getFile?file_id=${fileId}`);
+        getFileData = await getFileRes.json() as any;
+        if (getFileData?.ok) break;
+        console.warn(`[process-audio] getFile attempt ${attempt + 1} failed:`, getFileData?.description);
+        await new Promise(r => setTimeout(r, 2000));
+      }
+      if (!getFileData?.ok) {
+        const desc = String(getFileData?.description || "");
+        if (/too big|larg|size/i.test(desc)) {
+          await tgSend(
+            "⚠️ *Файл слишком большой для бота*\n\n" +
+            "Telegram Bot API жёстко ограничивает скачивание **20 МБ** — бот физически не может получить файл такого размера (это лимит платформы, сплит на сервере невозможен, т.к. байты до него не доходят).\n\n" +
+            "Как это обойти:\n" +
+            "• Записывай **голосовое прямо в Telegram** — оно сжимается и почти всегда влезает в лимит\n" +
+            "• Разбей длинную запись на 2–3 голосовых по 15–25 минут\n" +
+            "• Для длинных размышлений просто отправляй несколько голосовых подряд",
+            true
+          );
+        } else {
+          await tgSend(`❌ Не удалось получить файл из Telegram: _${desc || "ошибка API"}_. Попробуй ещё раз.`);
+        }
+        return;
+      }
       const filePath = getFileData.result.file_path;
       const fileSize = getFileData.result.file_size;
 
-      // Telegram Bot API only lets bots download files up to 20 MB
+      // Telegram Bot API only lets bots download files up to 20 MiB (belt & suspenders — getFile already 400s above)
       const MAX_TELEGRAM_DOWNLOAD = 20 * 1024 * 1024;
       if (fileSize && fileSize > MAX_TELEGRAM_DOWNLOAD) {
         console.warn(`[process-audio] File too large: ${fileSize} bytes`);
         await tgSend(
           "⚠️ *Файл слишком большой (более 20 МБ)*\n\n" +
-          "Telegram Bot API не позволяет боту скачивать файлы больше 20 МБ.\n\n" +
-          "Рекомендации:\n" +
-          "• Разбей запись на части до 15–20 минут\n" +
-          "• Записывай голосовые прямо в Telegram — они сжимаются автоматически\n" +
+          "Telegram Bot API не позволяет боту скачивать файлы больше 20 МБ — сплит на сервере невозможен, файл не доходит до него.\n\n" +
+          "• Записывай голосовые прямо в Telegram (сжимаются автоматически)\n" +
+          "• Разбей запись на части по 15–25 минут\n" +
           "• Для длинных размышлений отправляй несколько голосовых подряд",
           true
         );
