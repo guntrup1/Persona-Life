@@ -237,9 +237,10 @@ export default function HubPage() {
   };
 
   return (
-    <div className="h-full overflow-auto">
+    <div className="h-full flex flex-col">
       <XPNotification xp={xpNotif.xp} visible={xpNotif.visible} onHide={() => setXpNotif(p => ({ ...p, visible: false }))} />
 
+      <div className="flex-1 min-h-0 overflow-auto">
       <div className="max-w-7xl mx-auto p-4 space-y-4">
 
         {/* ── Main 2-column grid ── */}
@@ -439,8 +440,12 @@ export default function HubPage() {
             </CollapsibleBlock>
           </div>
         </div>
+        </div>
+      </div>
 
-        {/* ── Notes (full width) ── */}
+      {/* ── Notes — pinned to the bottom, never pushed away by tasks ── */}
+      <div className="shrink-0 border-t border-card-border bg-background">
+        <div className="max-w-7xl mx-auto p-4">
         <div className="p-4 bg-card border border-card-border flex flex-col gap-3 relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-primary via-primary/50 to-transparent" />
           <div className="flex items-center gap-2">
@@ -534,6 +539,7 @@ export default function HubPage() {
               + {newNoteType === "idea" ? t.addIdea : t.addNote}
             </Button>
           </div>
+        </div>
         </div>
       </div>
     </div>
