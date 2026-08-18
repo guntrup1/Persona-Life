@@ -13,7 +13,6 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { ChevronLeft, ChevronRight, Plus, Hourglass, CheckCircle, Circle, ArrowUpCircle, ArrowDownCircle, MinusCircle, FileText, CandlestickChart, Edit2, CalendarDays, Brain } from "lucide-react";
 import { getTodayDate } from "@/lib/store";
-import useSWR from "swr";
 import { Link } from "wouter";
 
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
@@ -54,8 +53,7 @@ export default function CalendarPage() {
 
   const [editingTask, setEditingTask] = useState<TodayTask | null>(null);
 
-  const { data: brainstormsResp } = useSWR("/api/brainstorms");
-  const brainstormSessions = Array.isArray(brainstormsResp?.brainstorms) ? brainstormsResp.brainstorms : [];
+  const [brainstormSessions, setBrainstormSessions] = useState<any[]>([]);
 
   const [googleReminderMinutes, setGoogleReminderMinutes] = useState<number[]>([30]);
   const [googleConnected, setGoogleConnected] = useState<boolean>(false);
@@ -91,6 +89,13 @@ export default function CalendarPage() {
           // Automatic 2-way sync when viewing calendar page
           fetch("/api/calendar/full-sync", { method: "POST", credentials: "include" }).catch(() => {});
         }
+      })
+      .catch(() => {});
+
+    fetch("/api/brainstorms", { credentials: "include" })
+      .then(r => r.json())
+      .then(data => {
+        if (data?.brainstorms) setBrainstormSessions(data.brainstorms);
       })
       .catch(() => {});
   }, []);
@@ -427,7 +432,7 @@ export default function CalendarPage() {
                   )}
                 </Card>
 
-                <DayExtras selectedDate={selectedDate} />
+                <DayExtras selectedDate={selectedDate} brainstormSessions={brainstormSessions} />
               </>
             )}
           </div>
@@ -787,7 +792,7 @@ function DayDetails({ selectedDate, brainstormSessions = [] }: { selectedDate: s
   );
 }
 
-function DayExtras({ selectedDate }: { selectedDate: string }) {
+function DayExtras({ selectedDate, brainstormSessions = [] }: { selectedDate: string, brainstormSessions?: any[] }) {
   return (
     <div className="mt-6 space-y-4">
       <Separator />

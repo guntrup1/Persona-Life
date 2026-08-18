@@ -121,7 +121,7 @@ export function registerAudioRoutes(app: Express) {
       // Save ProcessedAudio record (always — appears in Brainstorm panel)
       const ProcessedAudioModel = mongoose.model("ProcessedAudio");
       const processed = await ProcessedAudioModel.create({
-        userId: user._id,
+        userId: (user as any)._id,
         telegramMessageId: messageId,
         raw_transcript: transcript,
         executive_summary: summary,
@@ -142,8 +142,8 @@ export function registerAudioRoutes(app: Express) {
         const today = new Date().toISOString().slice(0, 10);
         const DayNoteModel = mongoose.model("DayNote");
         await DayNoteModel.create({
-          userId: user._id,
-          noteId: `audio_${processed._id}`,
+          userId: (user as any)._id,
+          noteId: `audio_${(processed as any)._id}`,
           date: today,
           title: summary ? summary.slice(0, 80) : "Голосовая заметка",
           content: [
@@ -420,7 +420,7 @@ ${trimmedTranscript}`;
       ];
 
       // Helper: call Gemini with one retry on 429
-      async function callGemini(): Promise<string> {
+      const callGemini = async (): Promise<string> => {
         for (let attempt = 0; attempt < 2; attempt++) {
           for (const { model, api } of geminiModels) {
             try {
@@ -521,12 +521,16 @@ ${trimmedTranscript}`;
         executive_summary: String(parsed.executive_summary || transcript.slice(0, 300)),
         key_insights: Array.isArray(parsed.key_insights) ? parsed.key_insights.map(String) : [],
         action_items: Array.isArray(parsed.action_items) ? parsed.action_items : [],
+        goals_extracted: Array.isArray(parsed.goals_extracted) ? parsed.goals_extracted : [],
         semantic_tags: Array.isArray(parsed.semantic_tags) ? parsed.semantic_tags.map(String) : [],
         topics: Array.isArray(parsed.topics) ? parsed.topics.map(String) : [],
         sentiment: String(parsed.sentiment || "neutral"),
         mind_map_nodes: Array.isArray(parsed.mind_map_nodes) ? parsed.mind_map_nodes : [],
         questions_raised: Array.isArray(parsed.questions_raised) ? parsed.questions_raised.map(String) : [],
         note_type: String(parsed.note_type || "note"),
+        idea_category: parsed.idea_category ? String(parsed.idea_category) : null,
+        is_trading_note: Boolean(parsed.is_trading_note),
+        life_area: parsed.life_area ? String(parsed.life_area) : null,
       };
 
       // 5. Save to DB

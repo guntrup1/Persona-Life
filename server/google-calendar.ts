@@ -94,7 +94,7 @@ export async function syncTaskToGoogleCalendar(
   }
 ): Promise<string | null> {
   try {
-    const user = await User.findById(userId);
+    const user = await mongoose.model("User").findById(userId);
     if (!user || !user.googleRefreshToken || !user.googleCalendarConnected) {
       return null;
     }
@@ -189,7 +189,7 @@ export async function syncTaskToGoogleCalendar(
 // ── 5. Delete Task Event from Google Calendar ──
 export async function deleteGoogleCalendarEvent(userId: string, eventId: string): Promise<boolean> {
   try {
-    const user = await User.findById(userId);
+    const user = await mongoose.model("User").findById(userId);
     if (!user || !user.googleRefreshToken || !eventId) return false;
 
     const accessToken = await getAccessTokenFromRefresh(user.googleRefreshToken);
@@ -212,7 +212,7 @@ export async function deleteGoogleCalendarEvent(userId: string, eventId: string)
 export async function pullAndSyncGoogleCalendar(userId: string): Promise<{ synced: number; deleted: number }> {
   try {
     const { UserData } = await import("./mongodb");
-    const user = await User.findById(userId);
+    const user = await mongoose.model("User").findById(userId);
     if (!user || !user.googleRefreshToken || !user.googleCalendarConnected) {
       return { synced: 0, deleted: 0 };
     }

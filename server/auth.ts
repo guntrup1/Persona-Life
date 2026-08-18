@@ -241,7 +241,7 @@ export function registerAuthRoutes(app: Express) {
         { updatedAt: 1, revision: 1, _id: 0 } // projection: only tiny fields
       ).lean();
       return res.json({
-        updatedAt: userData?.updatedAt?.toISOString() ?? null,
+        updatedAt: (userData as any)?.updatedAt?.toISOString() ?? null,
         revision: (userData as any)?.revision ?? 0,
       });
     } catch (err) {

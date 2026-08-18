@@ -130,14 +130,14 @@ function RichResponseCard({
           )}
 
           {/* Key Insights (Ключевые инсайты) */}
-          {session.key_insights?.length > 0 && (
+          {(session.key_insights?.length ?? 0) > 0 && (
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-purple-400">
                 <Brain className="w-4 h-4" />
                 <h4 className="text-sm font-semibold uppercase tracking-wider">Ключевые инсайты</h4>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {session.key_insights.map((insight, idx) => (
+                {(session.key_insights ?? []).map((insight, idx) => (
                   <div key={idx} className="bg-gradient-to-br from-purple-500/10 to-transparent border border-purple-500/20 p-4 rounded-xl text-sm text-purple-100/80 leading-relaxed relative overflow-hidden group/insight">
                     <div className="absolute top-0 left-0 w-1 h-full bg-purple-500/50" />
                     {insight}
@@ -156,14 +156,14 @@ function RichResponseCard({
           )}
 
           {/* New Ideas */}
-          {session.newIdeas?.length > 0 && (
+          {(session.newIdeas?.length ?? 0) > 0 && (
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-cyan-400">
                 <Lightbulb className="w-4 h-4" />
                 <h4 className="text-sm font-semibold uppercase tracking-wider">Новые идеи</h4>
               </div>
               <div className="flex flex-col gap-2">
-                {session.newIdeas.map((idea, idx) => (
+                {(session.newIdeas ?? []).map((idea, idx) => (
                   <div key={idx} className="flex items-start justify-between gap-3 bg-white/[0.02] border border-white/[0.05] p-3 rounded-xl group/idea hover:bg-white/[0.04] transition-colors">
                     <p className="text-sm text-white/80 leading-snug flex-1">{idea}</p>
                     <div className="flex items-center gap-1 opacity-0 group-hover/idea:opacity-100 transition-opacity flex-shrink-0">
@@ -181,14 +181,14 @@ function RichResponseCard({
           )}
 
           {/* Action Plan */}
-          {session.action_items?.length > 0 && (
+          {(session.action_items?.length ?? 0) > 0 && (
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-indigo-400">
                 <ListChecks className="w-4 h-4" />
                 <h4 className="text-sm font-semibold uppercase tracking-wider">План действий</h4>
               </div>
               <div className="space-y-2">
-                {session.action_items.map((step, idx) => (
+                {(session.action_items ?? []).map((step, idx) => (
                   <div key={idx} className="flex items-start justify-between gap-3 bg-white/[0.02] border border-white/[0.05] p-3 rounded-xl hover:bg-white/[0.04] transition-colors group/task">
                     <div className="flex items-start gap-3">
                       <Checkbox id={`step-${session._id}-${idx}`} className="mt-0.5 border-white/20 data-[state=checked]:bg-indigo-500" />
