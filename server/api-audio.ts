@@ -340,7 +340,9 @@ MODE: TASKS
 - Extract EVERY action item, even small ones
 - Assign realistic priority: high / medium / low
 - Parse dates: "завтра" = tomorrow, "в пятницу" = nearest Friday, "через неделю" = +7 days
-- Parse exact times if mentioned (e.g. "в 15:00", "после обеда" = 14:00)
+- Parse exact times if mentioned: "с 14:00 до 15:30" → start_time "14:00", end_time "15:30"; "в 15:00" → start_time "15:00", end_time "16:00"; "после обеда" = 14:00
+- If only a start time is mentioned without an end time, set end_time = start_time + 1 hour
+- If no time is mentioned, set both start_time and end_time to null
 - If no date mentioned for a task, use today: ${todayDateStr}
 - life_area MUST be exactly one of: Health, Wealth, Mind, Spirit, Relationships, Career, Environment
 - The executive_summary must briefly describe what kind of tasks were extracted`,
@@ -366,9 +368,13 @@ MODE: BRAINSTORM — MAXIMUM DEPTH REQUIRED
 
         notes: `
 MODE: NOTES / IDEAS / TRADING
-- Determine if this is a general note, an idea, or a trading note.
-- If it's about trading, markets, GER40, XAU, OB, FVG, fractal, imbalance, set "is_trading_note": true.
-- If it's an idea for a gift, hobby, or study, set "note_type": "idea" and "idea_category" to one of: gift, hobby, study, other.
+- Determine if this is a general note, an idea, or a trading note/idea.
+- TRADING CONTENT (markets, GER40, XAU, EUR, GBP, OB, FVG, fractal, imbalance, entries, setup, analysis): set "is_trading_note": true and extract:
+  - "asset": one of GER40, EUR, XAU, GBP (or null if not clear)
+  - "timeframe": timeframe if mentioned (e.g. "15m", "H1", "H4", "D1") or null
+  - "tag": one of "мысль" (observation/thought), "идея" (trade setup/idea), "ошибка" (mistake review)
+  - "is_trading_idea": true ONLY for a concrete trade setup/idea (tag "идея"), otherwise false
+- NON-TRADING IDEA (gift, hobby, study, project idea): set "note_type": "idea" and "idea_category" to one of: gift, hobby, study, other.
 - Otherwise, set "note_type": "note".
 - executive_summary: 2-3 sentence summary of the main thought or observation
 - key_insights: 2-4 key takeaways
@@ -394,7 +400,7 @@ JSON SCHEMA (return ALL fields, use empty arrays [] if not applicable):
 {
   "executive_summary": "3-5 sentences capturing the core thesis, main idea, and key conclusion of the recording",
   "key_insights": ["non-obvious insight 1", "non-obvious insight 2", "...up to 8 insights"],
-  "action_items": [{"task": "specific actionable step", "date": "YYYY-MM-DD", "time": "HH:MM or null", "priority": "high|medium|low"}],
+  "action_items": [{"task": "specific actionable step", "date": "YYYY-MM-DD", "start_time": "HH:MM or null", "end_time": "HH:MM or null", "priority": "high|medium|low"}],
   "goals_extracted": [{"title": "goal title", "time_limit": "week|month|year|life", "life_area": "Health|Wealth|Mind|Spirit|Relationships|Career|Environment", "plan_steps": ["step 1", "step 2"]}],
   "semantic_tags": ["tag1", "tag2", "tag3"],
   "topics": ["main topic", "secondary topic"],
@@ -404,6 +410,10 @@ JSON SCHEMA (return ALL fields, use empty arrays [] if not applicable):
   "note_type": "note|task|goal|idea|reflection",
   "idea_category": "gift|hobby|study|other|null",
   "is_trading_note": false,
+  "asset": "GER40|EUR|XAU|GBP|null",
+  "timeframe": "15m|H1|H4|D1|null",
+  "tag": "мысль|идея|ошибка|null",
+  "is_trading_idea": false,
   "life_area": "Health|Wealth|Mind|Spirit|Relationships|Career|Environment|General"
 }
 
@@ -530,6 +540,10 @@ ${trimmedTranscript}`;
         note_type: String(parsed.note_type || "note"),
         idea_category: parsed.idea_category ? String(parsed.idea_category) : null,
         is_trading_note: Boolean(parsed.is_trading_note),
+        asset: parsed.asset ? String(parsed.asset) : null,
+        timeframe: parsed.timeframe ? String(parsed.timeframe) : null,
+        tag: parsed.tag ? String(parsed.tag) : null,
+        is_trading_idea: Boolean(parsed.is_trading_idea),
         life_area: parsed.life_area ? String(parsed.life_area) : null,
       };
 
@@ -575,9 +589,21 @@ ${trimmedTranscript}`;
             noDeadline: true,
           };
           
-          if (item.time && item.time.match(/^\d{2}:\d{2}$/)) {
-             taskData.startTime = item.time;
-             taskData.noDeadline = false;
+          const rawStart = (item.start_time || item.time || "").trim();
+          const startTime = rawStart.match(/^\d{2}:\d{2}$/) ? rawStart : null;
+
+          if (startTime) {
+            taskData.startTime = startTime;
+            taskData.noDeadline = false;
+            const rawEnd = (item.end_time || "").trim();
+            if (rawEnd.match(/^\d{2}:\d{2}$/)) {
+              taskData.endTime = rawEnd;
+            } else {
+              // Default end = start + 1 hour when no end time was mentioned
+              const [h, m] = startTime.split(":").map(Number);
+              const endH = (h + 1) % 24;
+              taskData.endTime = `${String(endH).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+            }
           }
 
           if ((user as any).googleCalendarConnected) {
@@ -614,16 +640,17 @@ ${trimmedTranscript}`;
             
           const goalCat = validLifeAreas.includes(item.life_area) ? item.life_area : category;
           const timeLimit = item.time_limit || "month"; // week, month, year, life, custom_date
-          
+          const validGoalTypes = ["week", "month", "year"];
+          const goalType = validGoalTypes.includes(timeLimit) ? timeLimit : "year"; // life/custom_date → year
+
           await GoalModel.create({
             userId: (user as any)._id,
             goalId: `goal_${Date.now()}_${Math.random().toString(36).substring(7)}`,
-            type: "life",
+            type: goalType,
             title: item.title || "Новая цель",
             description: result.executive_summary,
             category: goalCat,
             timeLimitType: timeLimit,
-            goalType: timeLimit === "life" ? "year" : timeLimit,
             status: "active",
             plan: planArray,
             completed: false,
@@ -631,16 +658,24 @@ ${trimmedTranscript}`;
           }).catch((e) => console.error("Goal creation failed", e));
         }
       } else if (mode === "notes") {
-      } else if (mode === "notes") {
         if (result.is_trading_note) {
           // Create a Trading Note
           const TradingNoteModel = mongoose.model("TradingNote");
+          const validAssets = ["GER40", "EUR", "XAU", "GBP"];
+          const validTags = ["мысль", "идея", "ошибка"];
+          const asset = result.asset && validAssets.includes(result.asset) ? result.asset : "GER40";
+          const tag = result.tag && validTags.includes(result.tag) ? result.tag : "мысль";
           await TradingNoteModel.create({
             userId: (user as any)._id,
             noteId: `trading_${Date.now()}_${Math.random().toString(36).substring(7)}`,
             date: today,
             title: result.executive_summary.slice(0, 80),
-            content: result.executive_summary + "\n\n" + (result.key_insights || []).map((i: string) => `• ${i}`).join("\n"),
+            text: result.executive_summary + "\n\n" + (result.key_insights || []).map((i: string) => `• ${i}`).join("\n"),
+            asset: asset,
+            timeframe: result.timeframe || undefined,
+            tag: tag,
+            time: new Date().toTimeString().slice(0, 5),
+            isTradingIdea: result.is_trading_idea || tag === "идея",
           }).catch((e) => console.error("TradingNote creation failed", e));
         } else {
           // Create a DayNote
