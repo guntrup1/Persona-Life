@@ -259,6 +259,21 @@ export function registerAudioRoutes(app: Express) {
       }
     }
 
+    // Helper to update the "processing..." progress message (best effort)
+    async function editProgress(text: string) {
+      if (!progressMsgId) return;
+      await fetch(`https://api.telegram.org/bot${botToken}/editMessageText`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          message_id: Number(progressMsgId),
+          text,
+          parse_mode: "Markdown",
+        }),
+      }).catch(() => {});
+    }
+
     try {
       // 1. Find user
       const UserModel = mongoose.model("User");
@@ -288,9 +303,31 @@ export function registerAudioRoutes(app: Express) {
       const getFileData = await getFileRes.json() as any;
       if (!getFileData.ok) throw new Error("Failed to get file from Telegram");
       const filePath = getFileData.result.file_path;
+      const fileSize = getFileData.result.file_size;
+
+      // Telegram Bot API only lets bots download files up to 20 MB
+      const MAX_TELEGRAM_DOWNLOAD = 20 * 1024 * 1024;
+      if (fileSize && fileSize > MAX_TELEGRAM_DOWNLOAD) {
+        console.warn(`[process-audio] File too large: ${fileSize} bytes`);
+        await tgSend(
+          "⚠️ *Файл слишком большой (более 20 МБ)*\n\n" +
+          "Telegram Bot API не позволяет боту скачивать файлы больше 20 МБ.\n\n" +
+          "Рекомендации:\n" +
+          "• Разбей запись на части до 15–20 минут\n" +
+          "• Записывай голосовые прямо в Telegram — они сжимаются автоматически\n" +
+          "• Для длинных размышлений отправляй несколько голосовых подряд",
+          true
+        );
+        return;
+      }
 
       // 3. Download audio file from Telegram
       const fileRes = await fetch(`https://api.telegram.org/file/bot${botToken}/${filePath}`);
+      if (!fileRes.ok) {
+        console.error(`[process-audio] Audio download failed: ${fileRes.status}`);
+        await tgSend(`⚠️ Не удалось скачать аудио из Telegram (ошибка ${fileRes.status}). Попробуй ещё раз.`);
+        return;
+      }
       const arrayBuffer = await fileRes.arrayBuffer();
       const blob = new Blob([arrayBuffer], { type: "audio/ogg" });
 
@@ -307,6 +344,14 @@ export function registerAudioRoutes(app: Express) {
 
       if (!groqRes.ok) {
         const errorText = await groqRes.text();
+        if (groqRes.status === 413) {
+          await tgSend(
+            "⚠️ *Аудио слишком большое для Groq* (лимит загрузки ~25 МБ).\n" +
+            "Разбей запись на части до 15–20 минут и отправь ещё раз.",
+            true
+          );
+          return;
+        }
         throw new Error(`Groq API Error: ${errorText}`);
       }
 
@@ -319,18 +364,7 @@ export function registerAudioRoutes(app: Express) {
       }
 
       // Update progress message if we have one
-      if (progressMsgId) {
-        await fetch(`https://api.telegram.org/bot${botToken}/editMessageText`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            chat_id: chatId,
-            message_id: Number(progressMsgId),
-            text: `🧠 *Анализирую...*\n\`Gemini обрабатывает текст\``,
-            parse_mode: "Markdown",
-          }),
-        }).catch(() => {});
-      }
+      await editProgress(`🧠 *Анализирую...*\n\`Gemini обрабатывает текст\``);
 
       // 5. Analyze with Gemini
       const todayDateStr = new Date().toISOString().slice(0, 10);
@@ -384,22 +418,8 @@ MODE: NOTES / IDEAS / TRADING
 - semantic_tags: relevant topic tags`,
       };
 
-      // Trim very long transcripts to avoid token limits (12000 chars ≈ 9000 tokens)
-      const trimmedTranscript = transcript.length > 12000 ? transcript.slice(0, 12000) + "..." : transcript;
-      const systemPrompt = `You are an expert cognitive analyst AI. Your job is to extract maximum analytical value from voice recordings. Analyze the transcript below and return ONLY a valid JSON object — no markdown, no explanation, no code blocks.
-
-${modeInstructions[mode] || modeInstructions.notes}
-
-CRITICAL RULES:
-1. Output ONLY raw JSON starting with { and ending with }
-2. NO markdown, NO explanation, NO code blocks, NO backticks
-3. All string values MUST be in the same language as the transcript (Russian if Russian)
-4. Today's date is ${todayDateStr}
-5. Be THOROUGH and DETAILED — this is for a productivity system, shallow analysis is useless
-6. executive_summary is MANDATORY and must be substantive (not empty, not generic)
-7. key_insights must contain real insights, not just rephrased sentences from the transcript
-
-JSON SCHEMA (return ALL fields, use empty arrays [] if not applicable):
+      // JSON schema shared by every Gemini call (single shot and per-chunk map calls)
+      const jsonSchemaText = `JSON SCHEMA (return ALL fields, use empty arrays [] if not applicable):
 {
   "executive_summary": "3-5 sentences capturing the core thesis, main idea, and key conclusion of the recording",
   "key_insights": ["non-obvious insight 1", "non-obvious insight 2", "...up to 8 insights"],
@@ -419,10 +439,27 @@ JSON SCHEMA (return ALL fields, use empty arrays [] if not applicable):
   "tag": "мысль|идея|ошибка|null",
   "is_trading_idea": false,
   "life_area": "Health|Wealth|Mind|Spirit|Relationships|Career|Environment|General"
-}
+}`;
 
+      // Build a full analysis prompt for a (possibly partial) transcript
+      const buildAnalysisPrompt = (transcriptPart: string, partLabel = ""): string => `You are an expert cognitive analyst AI. Your job is to extract maximum analytical value from voice recordings. Analyze the transcript below and return ONLY a valid JSON object — no markdown, no explanation, no code blocks.
+
+${modeInstructions[mode] || modeInstructions.notes}
+
+CRITICAL RULES:
+1. Output ONLY raw JSON starting with { and ending with }
+2. NO markdown, NO explanation, NO code blocks, NO backticks
+3. All string values MUST be in the same language as the transcript (Russian if Russian)
+4. Today's date is ${todayDateStr}
+5. Be THOROUGH and DETAILED — this is for a productivity system, shallow analysis is useless
+6. executive_summary is MANDATORY and must be substantive (not empty, not generic)
+7. key_insights must contain real insights, not just rephrased sentences from the transcript
+
+${jsonSchemaText}
+
+${partLabel}
 TRANSCRIPT:
-${trimmedTranscript}`;
+${transcriptPart}`;
 
 
       const geminiModels = [
@@ -434,7 +471,7 @@ ${trimmedTranscript}`;
       ];
 
       // Helper: call Gemini with one retry on 429
-      const callGemini = async (): Promise<string> => {
+      const callGemini = async (prompt: string): Promise<string> => {
         for (let attempt = 0; attempt < 2; attempt++) {
           for (const { model, api } of geminiModels) {
             try {
@@ -444,7 +481,7 @@ ${trimmedTranscript}`;
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
-                    contents: [{ parts: [{ text: systemPrompt }] }],
+                    contents: [{ parts: [{ text: prompt }] }],
                     generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
                   }),
                 }
@@ -507,17 +544,9 @@ ${trimmedTranscript}`;
         return "";
       }
 
-      const rawGemini = await callGemini();
-
-      if (!rawGemini) {
-        console.error("[Gemini] ALL models failed. Transcript length:", transcript.length);
-      }
-
-      // Parse Gemini output
-      let parsed: any = {};
-      if (rawGemini) {
-        // Extract JSON from the response
-        let jsonStr = rawGemini.trim();
+      // Robustly extract JSON object from a Gemini response (may contain fences/preamble)
+      const parseGeminiJson = (raw: string): any => {
+        let jsonStr = raw.trim();
         const fenceMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
         if (fenceMatch) jsonStr = fenceMatch[1].trim();
         const objStart = jsonStr.indexOf("{");
@@ -525,10 +554,93 @@ ${trimmedTranscript}`;
         if (objStart !== -1 && objEnd !== -1) {
           jsonStr = jsonStr.slice(objStart, objEnd + 1);
         }
-        try { parsed = JSON.parse(jsonStr); } catch {
-          // best effort: try to recover
-          try { parsed = JSON.parse(jsonStr.replace(/,\s*([}\]])/g, "$1")); } catch { /* ignore */ }
+        try { return JSON.parse(jsonStr); } catch {
+          // best effort: try to recover trailing commas
+          try { return JSON.parse(jsonStr.replace(/,\s*([}\]])/g, "$1")); } catch { return {}; }
         }
+      };
+
+      // Merge partial per-chunk analyses into one result (Map-Reduce reduce step)
+      const mergePartialAnalyses = (parts: any[]): any => {
+        const merged: any = {
+          executive_summary: parts.map((p) => p.executive_summary).filter(Boolean).join("\n"),
+          key_insights: [],
+          action_items: [],
+          goals_extracted: [],
+          notes_extracted: [],
+          semantic_tags: [],
+          topics: [],
+          mind_map_nodes: [],
+          questions_raised: [],
+        };
+        const arrayKeys = ["key_insights", "action_items", "goals_extracted", "notes_extracted", "semantic_tags", "topics", "mind_map_nodes", "questions_raised"] as const;
+        const stringKeys = ["sentiment", "note_type", "idea_category", "asset", "timeframe", "tag", "life_area"] as const;
+        for (const part of parts) {
+          for (const key of arrayKeys) {
+            if (Array.isArray(part[key])) merged[key].push(...part[key]);
+          }
+          for (const key of stringKeys) {
+            if (merged[key] === undefined && typeof part[key] === "string" && part[key]) merged[key] = part[key];
+          }
+          merged.is_trading_note = merged.is_trading_note || Boolean(part.is_trading_note);
+          merged.is_trading_idea = merged.is_trading_idea || Boolean(part.is_trading_idea);
+        }
+        for (const key of ["key_insights", "semantic_tags", "topics", "questions_raised"] as const) {
+          merged[key] = [...new Set(merged[key].map(String))];
+        }
+        return merged;
+      };
+
+      // Split very long transcripts so the WHOLE recording gets analyzed (not just the first 12000 chars)
+      const chunkTranscriptForAnalysis = (text: string): string[] => {
+        const CHUNK_THRESHOLD = 12000;
+        const CHUNK_SIZE = 6000;
+        if (text.length <= CHUNK_THRESHOLD) return [text];
+
+        const chunks: string[] = [];
+        let start = 0;
+        while (start < text.length) {
+          let end = start + CHUNK_SIZE;
+          if (end >= text.length) {
+            chunks.push(text.slice(start));
+            break;
+          }
+          // Try to break at a sentence boundary near the chunk end
+          const boundary = text.slice(end - 200, end + 200);
+          const match = boundary.match(/[.!?\n]/);
+          if (match && match.index !== undefined) {
+            end = end - 200 + match.index + 1;
+          }
+          chunks.push(text.slice(start, end));
+          start = end;
+        }
+        return chunks;
+      };
+
+      const chunks = chunkTranscriptForAnalysis(transcript);
+
+      // Map-Reduce: for long transcripts analyze each chunk, then merge into one result
+      let parsed: any = {};
+      if (chunks.length === 1) {
+        const rawGemini = await callGemini(buildAnalysisPrompt(transcript));
+        if (rawGemini) {
+          parsed = parseGeminiJson(rawGemini);
+        } else {
+          console.error("[Gemini] ALL models failed. Transcript length:", transcript.length);
+        }
+      } else {
+        console.log(`[Gemini] Map-Reduce: transcript ${transcript.length} chars → ${chunks.length} chunks`);
+        await editProgress(`🧠 *Анализирую длинную запись...*\n\`Часть 1 из ${chunks.length}\``);
+        const partials: any[] = [];
+        for (let i = 0; i < chunks.length; i++) {
+          const label = `This is PART ${i + 1} of ${chunks.length} of a longer recording. Analyze ONLY this part. The "executive_summary" must summarize THIS part. Return ALL fields of the JSON schema.\n\n`;
+          const raw = await callGemini(buildAnalysisPrompt(chunks[i], label));
+          if (raw) partials.push(parseGeminiJson(raw));
+          if (i < chunks.length - 1) {
+            await editProgress(`🧠 *Анализирую длинную запись...*\n\`Часть ${i + 2} из ${chunks.length}\``);
+          }
+        }
+        parsed = mergePartialAnalyses(partials);
       }
 
       const result = {
