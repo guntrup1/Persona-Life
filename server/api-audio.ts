@@ -368,16 +368,17 @@ MODE: BRAINSTORM — MAXIMUM DEPTH REQUIRED
 
         notes: `
 MODE: NOTES / IDEAS / TRADING
-- Determine if this is a general note, an idea, or a trading note/idea.
-- TRADING CONTENT (markets, GER40, XAU, EUR, GBP, OB, FVG, fractal, imbalance, entries, setup, analysis): set "is_trading_note": true and extract:
-  - "asset": one of GER40, EUR, XAU, GBP (or null if not clear)
-  - "timeframe": timeframe if mentioned (e.g. "15m", "H1", "H4", "D1") or null
-  - "tag": one of "мысль" (observation/thought), "идея" (trade setup/idea), "ошибка" (mistake review)
-  - "is_trading_idea": true ONLY for a concrete trade setup/idea (tag "идея"), otherwise false
-- NON-TRADING: split EVERY distinct thought into its own entry of "notes_extracted" (one entry per thought).
-  - "type": "note" for observations, thoughts, reminders, plans about the day. Its "content" MUST be the user's OWN WORDS taken verbatim from the transcript — keep first person ("я", "мне"), do NOT paraphrase or summarize.
-  - "type": "idea" for ideas, gift/hobby/study/project ideas. Its "content" is the idea itself, "idea_category" is one of: gift, hobby, study, other.
-  - If the recording contains BOTH a note and an idea, return TWO entries: the note and the idea separately.
+- The recording may MIX several thoughts: trading and non-trading topics can be interwoven. Split EVERY distinct thought into its own entry of "notes_extracted" — one entry per thought, in the order spoken.
+- For EACH entry set "type" to exactly one of:
+  - "trading_note": trading observation / thought / review (markets, GER40, XAU, EUR, GBP, OB, FVG, fractal, imbalance, entries, analysis, mistakes)
+  - "trading_idea": a concrete trading setup / trade plan / idea for a trade
+  - "idea": a non-trading idea (gift, hobby, study, project)
+  - "note": any other everyday note
+- For trading entries ALSO extract per entry: "asset" (GER40|EUR|XAU|GBP|null), "timeframe" (e.g. "15m", "H1", "H4", "D1"|null), "tag" ("мысль"|"идея"|"ошибка").
+- For "idea" entries set "idea_category" (gift|hobby|study|other).
+- WRITING STYLE (CRITICAL): every "content" MUST be written in FIRST PERSON as if the user wrote it themselves — use "я", "мне", "мой", "я увидел", "я решил", "я зашёл в сделку". NEVER use third-person ("Автор испытывает...", "Пользователь считает...", "он/она").
+  - For "note" and "trading_note": keep the user's OWN words verbatim from the transcript — do NOT paraphrase or summarize.
+  - For "trading_idea" and "idea": a clear concise first-person statement of the idea (setup, entry, invalidation, why) as if the user is writing it in their journal.
 - executive_summary: 2-3 sentence summary of the main thought or observation
 - key_insights: 2-4 key takeaways
 - semantic_tags: relevant topic tags`,
@@ -404,7 +405,7 @@ JSON SCHEMA (return ALL fields, use empty arrays [] if not applicable):
   "key_insights": ["non-obvious insight 1", "non-obvious insight 2", "...up to 8 insights"],
   "action_items": [{"task": "specific actionable step", "date": "YYYY-MM-DD", "start_time": "HH:MM or null", "end_time": "HH:MM or null", "priority": "high|medium|low"}],
   "goals_extracted": [{"title": "goal title", "time_limit": "week|month|year|life", "life_area": "Health|Wealth|Mind|Spirit|Relationships|Career|Environment", "plan_steps": ["step 1", "step 2"]}],
-  "notes_extracted": [{"type": "note|idea", "title": "short title or null", "content": "text", "idea_category": "gift|hobby|study|other|null"}],
+  "notes_extracted": [{"type": "trading_note|trading_idea|note|idea", "title": "short title or null", "content": "first-person text", "idea_category": "gift|hobby|study|other|null", "asset": "GER40|EUR|XAU|GBP|null", "timeframe": "15m|H1|H4|D1|null", "tag": "мысль|идея|ошибка|null"}],
   "semantic_tags": ["tag1", "tag2", "tag3"],
   "topics": ["main topic", "secondary topic"],
   "sentiment": "positive|neutral|negative|mixed",
@@ -662,11 +663,53 @@ ${trimmedTranscript}`;
           }).catch((e) => console.error("Goal creation failed", e));
         }
       } else if (mode === "notes") {
-        if (result.is_trading_note) {
-          // Create a Trading Note
-          const TradingNoteModel = mongoose.model("TradingNote");
-          const validAssets = ["GER40", "EUR", "XAU", "GBP"];
-          const validTags = ["мысль", "идея", "ошибка"];
+        const DayNoteModel = mongoose.model("DayNote");
+        const TradingNoteModel = mongoose.model("TradingNote");
+        const validAssets = ["GER40", "EUR", "XAU", "GBP"];
+        const validTags = ["мысль", "идея", "ошибка"];
+        const notesList = Array.isArray(result.notes_extracted) && result.notes_extracted.length > 0
+          ? result.notes_extracted
+          : null;
+
+        if (notesList) {
+          // Primary path: per-item classification — trading and non-trading thoughts can be interwoven
+          let idx = 0;
+          for (const item of notesList) {
+            idx++;
+            const type = String(item.type || "");
+            const isTrading = type === "trading_note" || type === "trading_idea";
+            const isIdea = type === "idea";
+            const content = String(item.content || result.executive_summary).trim();
+
+            if (isTrading) {
+              const asset = item.asset && validAssets.includes(item.asset) ? item.asset : "GER40";
+              const tag = item.tag && validTags.includes(item.tag) ? item.tag : "мысль";
+              await TradingNoteModel.create({
+                userId: (user as any)._id,
+                noteId: `trading_${Date.now()}_${Math.random().toString(36).substring(7)}_${idx}`,
+                date: today,
+                title: String(item.title || (type === "trading_idea" ? "Торговая идея" : "Торговая заметка")).slice(0, 80),
+                text: content,
+                asset: asset,
+                timeframe: item.timeframe || undefined,
+                tag: tag,
+                time: new Date().toTimeString().slice(0, 5),
+                isTradingIdea: type === "trading_idea" || tag === "идея",
+              }).catch((e) => console.error("TradingNote creation failed", e));
+            } else {
+              await DayNoteModel.create({
+                userId: (user as any)._id,
+                noteId: `audio_${processed._id}_${idx}`,
+                date: today,
+                title: String(item.title || (isIdea ? "Идея" : "Заметка")).slice(0, 80),
+                content: content,
+                noteType: isIdea ? "idea" : "note",
+                ideaCategory: isIdea ? (item.idea_category || category) : undefined,
+              }).catch((e) => console.error("DayNote creation failed", e));
+            }
+          }
+        } else if (result.is_trading_note) {
+          // Fallback: single trading note (legacy top-level classification)
           const asset = result.asset && validAssets.includes(result.asset) ? result.asset : "GER40";
           const tag = result.tag && validTags.includes(result.tag) ? result.tag : "мысль";
           await TradingNoteModel.create({
@@ -674,7 +717,7 @@ ${trimmedTranscript}`;
             noteId: `trading_${Date.now()}_${Math.random().toString(36).substring(7)}`,
             date: today,
             title: result.executive_summary.slice(0, 80),
-            text: result.executive_summary + "\n\n" + (result.key_insights || []).map((i: string) => `• ${i}`).join("\n"),
+            text: result.executive_summary,
             asset: asset,
             timeframe: result.timeframe || undefined,
             tag: tag,
@@ -682,45 +725,22 @@ ${trimmedTranscript}`;
             isTradingIdea: result.is_trading_idea || tag === "идея",
           }).catch((e) => console.error("TradingNote creation failed", e));
         } else {
-          // Create DayNotes — split notes and ideas into separate entries
-          const DayNoteModel = mongoose.model("DayNote");
-          const notesList = Array.isArray(result.notes_extracted) && result.notes_extracted.length > 0
-            ? result.notes_extracted
-            : null;
-
-          if (notesList) {
-            let idx = 0;
-            for (const item of notesList) {
-              idx++;
-              const isIdea = item.type === "idea";
-              await DayNoteModel.create({
-                userId: (user as any)._id,
-                noteId: `audio_${processed._id}_${idx}`,
-                date: today,
-                title: String(item.title || (isIdea ? "Идея" : "Заметка")).slice(0, 80),
-                content: String(item.content || result.executive_summary).trim(),
-                noteType: isIdea ? "idea" : "note",
-                ideaCategory: isIdea ? (item.idea_category || category) : undefined,
-              }).catch((e) => console.error("DayNote creation failed", e));
-            }
-          } else {
-            // Fallback: single note from the analysis summary
-            await DayNoteModel.create({
-              userId: (user as any)._id,
-              noteId: `audio_${processed._id}`,
-              date: today,
-              title: result.executive_summary.slice(0, 80),
-              content: [
-                result.executive_summary,
-                "",
-                result.key_insights.length ? `💡 Ключевые мысли:\n${result.key_insights.map((i: string) => `• ${i}`).join("\n")}` : "",
-                result.action_items.length ? `✅ Задачи:\n${result.action_items.map((a: any) => `• ${a.task}`).join("\n")}` : "",
-                result.semantic_tags.length ? `🏷 Теги: ${result.semantic_tags.join(", ")}` : "",
-              ].filter(Boolean).join("\n"),
-              noteType: result.note_type === "idea" ? "idea" : "note",
-              ideaCategory: result.idea_category || category,
-            }).catch((e) => console.error("DayNote creation failed", e));
-          }
+          // Fallback: single day note from the analysis summary
+          await DayNoteModel.create({
+            userId: (user as any)._id,
+            noteId: `audio_${processed._id}`,
+            date: today,
+            title: result.executive_summary.slice(0, 80),
+            content: [
+              result.executive_summary,
+              "",
+              result.key_insights.length ? `💡 Ключевые мысли:\n${result.key_insights.map((i: string) => `• ${i}`).join("\n")}` : "",
+              result.action_items.length ? `✅ Задачи:\n${result.action_items.map((a: any) => `• ${a.task}`).join("\n")}` : "",
+              result.semantic_tags.length ? `🏷 Теги: ${result.semantic_tags.join(", ")}` : "",
+            ].filter(Boolean).join("\n"),
+            noteType: result.note_type === "idea" ? "idea" : "note",
+            ideaCategory: result.idea_category || category,
+          }).catch((e) => console.error("DayNote creation failed", e));
         }
       }
 
@@ -742,9 +762,10 @@ ${trimmedTranscript}`;
       }
       if (result.semantic_tags.length) lines.push(`\n🏷 _${result.semantic_tags.join(" · ")}_`);
       if (mode === "notes" && Array.isArray(result.notes_extracted) && result.notes_extracted.length > 0) {
-        const noteCount = result.notes_extracted.filter((n: any) => n.type !== "idea").length;
-        const ideaCount = result.notes_extracted.length - noteCount;
-        lines.push(`\n📌 _Сохранено: заметок ${noteCount} · идей ${ideaCount}_`);
+        const tradingCount = result.notes_extracted.filter((n: any) => n.type === "trading_note" || n.type === "trading_idea").length;
+        const noteCount = result.notes_extracted.filter((n: any) => n.type === "note").length;
+        const ideaCount = result.notes_extracted.filter((n: any) => n.type === "idea").length;
+        lines.push(`\n📌 _Сохранено: торговых ${tradingCount} · заметок ${noteCount} · идей ${ideaCount}_`);
       }
       lines.push(`\n━━━━━━━━━━━━━━━━━━━━━━`);
       lines.push(`_Отправь ещё голосовое или выбери режим ➕_`);

@@ -1411,6 +1411,7 @@ export function useStore() {
 
     deleteTradingNote: useCallback((id: string) => {
       mutate(s => ({ ...s, tradingNotes: s.tradingNotes.filter(n => n.id !== id), _deletedIds: [...(s._deletedIds || []), id].slice(-200) }));
+      apiCall('DELETE', `/api/trading-notes/${id}`);
     }, []),
 
     addDailyBias: useCallback((bias: Omit<DailyBias, "id" | "createdAt">) => {

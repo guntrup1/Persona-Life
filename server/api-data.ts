@@ -392,6 +392,15 @@ export function registerDataRoutes(app: Express) {
       res.status(400).json({ ok: false });
     }
   });
+
+  app.delete("/api/trading-notes/:id", requireAuth, async (req: any, res) => {
+    try {
+      await TradingNote.findOneAndDelete({ userId: req.session.userId, noteId: req.params.id });
+      res.json({ ok: true });
+    } catch {
+      res.status(400).json({ ok: false });
+    }
+  });
   
   // --- XP & STREAK (Save without full sync) ---
   app.post("/api/user/stats", requireAuth, async (req: any, res) => {

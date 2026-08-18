@@ -777,6 +777,30 @@ function TradingIdeasSection() {
                   {idea.text}
                 </p>
               </div>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                      data-testid={`trading-idea-delete-${idea.id}`}
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>{t.notes.deleteNoteQ}</AlertDialogTitle>
+                      <AlertDialogDescription>{t.notes.deleteNoteDesc}</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>{t.notes.cancel}</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => actions.deleteTradingNote(idea.id)}>{t.notes.delete}</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
             </div>
           </Card>
         ))}
