@@ -100,8 +100,8 @@ function RichResponseCard({
 
       {/* AI Response Block */}
       <div className="flex justify-start w-full group relative">
-        <div className="absolute -left-10 top-0 w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/20 hidden sm:flex">
-          <Sparkles className="w-3.5 h-3.5 text-white" />
+        <div className="absolute -left-10 top-0 w-7 h-7 rounded-full overflow-hidden border border-white/10 shadow-lg shadow-purple-500/20 hidden sm:flex">
+          <img src="/favicon.png" alt="Personedge" className="w-full h-full object-cover" />
         </div>
         
         <Card className="w-full bg-[#121212]/80 backdrop-blur-xl border-white/5 rounded-2xl sm:rounded-tl-sm p-4 sm:p-6 shadow-xl space-y-6">
@@ -528,13 +528,13 @@ export default function BrainstormPage() {
           </div>
         ) : sessions.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full max-w-md mx-auto text-center animate-in fade-in zoom-in duration-700">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500/10 to-purple-500/10 flex items-center justify-center mb-6 relative">
+            <div className="w-20 h-20 rounded-full overflow-hidden flex items-center justify-center mb-6 relative ring-1 ring-purple-500/30">
+              <img src="/favicon.png" alt="Personedge" className="w-full h-full object-cover" />
               <div className="absolute inset-0 rounded-full border border-purple-500/20 animate-[ping_3s_ease-in-out_infinite]" />
-              <Brain className="w-8 h-8 text-purple-400/80 drop-shadow-[0_0_15px_rgba(168,85,247,0.4)]" />
             </div>
             <h2 className="text-2xl font-display font-semibold text-white/90 mb-2">Готов к идеям</h2>
             <p className="text-sm text-white/50 leading-relaxed">
-              Прикрепи голосовые заметки 📎 или просто задай вопрос — и я начну брейн-шторм.
+              Прикрепи голосовые заметки 📎 или просто задай вопрос — я разберу твои мысли и помогу стать лучше.
             </p>
           </div>
         ) : (
@@ -561,8 +561,8 @@ export default function BrainstormPage() {
             {isGenerating && (
               <div className="flex justify-start w-full mt-6 mb-2 animate-in fade-in slide-in-from-bottom-4">
                 <div className="bg-[#1C1C1E] border border-white/5 rounded-2xl rounded-tl-sm px-6 py-5 shadow-md flex flex-col gap-4 w-full max-w-sm ml-0 sm:ml-7 relative">
-                  <div className="absolute -left-10 top-0 w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500/50 to-purple-600/50 flex items-center justify-center shadow-lg shadow-purple-500/10 hidden sm:flex">
-                     <Sparkles className="w-3 h-3 text-white/70 animate-pulse" />
+                  <div className="absolute -left-10 top-0 w-7 h-7 rounded-full overflow-hidden border border-white/10 shadow-lg shadow-purple-500/10 hidden sm:flex">
+                     <img src="/favicon.png" alt="Personedge" className="w-full h-full object-cover animate-pulse" />
                   </div>
                   <div className="flex items-center gap-3">
                     <Loader2 className="w-5 h-5 animate-spin text-purple-400" />

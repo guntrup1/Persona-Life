@@ -26,7 +26,7 @@ export function registerAudioRoutes(app: Express) {
       const user = await UserModel.findOne({
         $or: [{ telegramId: String(telegramId) }, { telegramId: Number(telegramId) }]
       })
-        .select("groqApiKey geminiApiKey botSetupStep botRecordMode")
+        .select("groqApiKey geminiApiKey botSetupStep botRecordMode email googleCalendarConnected")
         .lean();
 
       if (!user) return res.status(404).json({ error: "User not found" });
@@ -36,6 +36,8 @@ export function registerAudioRoutes(app: Express) {
         geminiApiKey: decryptSecret((user as any).geminiApiKey) || null,
         botSetupStep: (user as any).botSetupStep || null,
         botRecordMode: (user as any).botRecordMode || "notes",
+        email: (user as any).email || null,
+        googleCalendarConnected: Boolean((user as any).googleCalendarConnected),
       });
     } catch (e: any) {
       return res.status(500).json({ error: e.message });
@@ -389,7 +391,7 @@ export function registerAudioRoutes(app: Express) {
       }
 
       // Update progress message if we have one
-      await editProgress(`🧠 *Анализирую...*\n\`Gemini обрабатывает текст\``);
+      await editProgress(`🧠 *Personedge думает...*\n\`Разбираю твою запись\``);
 
       // 5. Analyze with Gemini
       const todayDateStr = new Date().toISOString().slice(0, 10);
@@ -524,7 +526,7 @@ ${transcriptPart}`;
                       body: JSON.stringify({
                         chat_id: chatId,
                         message_id: Number(progressMsgId),
-                        text: `⏳ *Gemini перегружен...*\n\`Лимит 15 запросов/мин. Ожидаю 65 сек и повторяю...\``,
+                        text: `⏳ *Personedge ненадолго задумался...*\n\`Лимит запросов нейросети. Продолжу через ~65 сек\``,
                         parse_mode: "Markdown",
                       }),
                     }).catch(() => {});
@@ -535,7 +537,7 @@ ${transcriptPart}`;
                 } else {
                   // Second attempt also 429 - give up
                   await tgSend(
-                    "⚠️ *Gemini API перегружен*\n" +
+                    "⚠️ *Нейросеть перегружена*\n" +
                     "Превышен лимит \`15 запросов/мин\`.\n" +
                     "Твой транскрипт сохранён. Повтори через несколько минут.",
                     true
@@ -657,14 +659,14 @@ ${transcriptPart}`;
         }
       } else {
         console.log(`[Gemini] Map-Reduce: transcript ${transcript.length} chars → ${chunks.length} chunks`);
-        await editProgress(`🧠 *Анализирую длинную запись...*\n\`Часть 1 из ${chunks.length}\``);
+        await editProgress(`🧠 *Personedge думает над длинной записью...*\n\`Часть 1 из ${chunks.length}\``);
         const partials: any[] = [];
         for (let i = 0; i < chunks.length; i++) {
           const label = `This is PART ${i + 1} of ${chunks.length} of a longer recording. Analyze ONLY this part. The "executive_summary" must summarize THIS part. Return ALL fields of the JSON schema.\n\n`;
           const raw = await callGemini(buildAnalysisPrompt(chunks[i], label));
           if (raw) partials.push(parseGeminiJson(raw));
           if (i < chunks.length - 1) {
-            await editProgress(`🧠 *Анализирую длинную запись...*\n\`Часть ${i + 2} из ${chunks.length}\``);
+            await editProgress(`🧠 *Personedge думает над длинной записью...*\n\`Часть ${i + 2} из ${chunks.length}\``);
           }
         }
         parsed = mergePartialAnalyses(partials);
@@ -929,6 +931,9 @@ ${transcriptPart}`;
         lines.push(`\n📌 _Сохранено: торговых ${tradingCount} · заметок ${noteCount} · идей ${ideaCount}_`);
       }
       lines.push(`\n━━━━━━━━━━━━━━━━━━━━━━`);
+      if ((user as any).googleCalendarConnected) {
+        lines.push(`\n📅 _Подсказка: чтобы задача попала в Google Календарь — скажи «добавь в календарь» прямо в голосовом._`);
+      }
       lines.push(`_Отправь ещё голосовое или выбери режим ➕_`);
 
       // Delete progress message before sending final result

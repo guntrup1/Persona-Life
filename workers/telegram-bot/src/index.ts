@@ -52,6 +52,7 @@ interface UserConfig {
   botSetupStep: string | null; // null | 'awaiting_link' | 'awaiting_groq' | 'awaiting_gemini' | 'done'
   botRecordMode?: string; // 'tasks' | 'goals' | 'notes' | 'brainstorm'
   email?: string | null;
+  googleCalendarConnected?: boolean;
 }
 
 // ── Send Telegram message helper ──
@@ -375,7 +376,7 @@ export default {
         }
 
         if (result.hasKeys) {
-          await sendTelegramMessage(chatId, `✅ *Аккаунт привязан!*\nТвои ключи настроены!`, env.TELEGRAM_BOT_TOKEN, "Markdown", getMainMenuKeyboard());
+          await sendTelegramMessage(chatId, `✅ *Аккаунт привязан!*\nЯ — Personedge, твой ИИ-помощник. Твои ключи настроены — отправляй голосовое!`, env.TELEGRAM_BOT_TOKEN, "Markdown", getMainMenuKeyboard());
         } else {
           await sendTelegramMessage(chatId, `✅ *Аккаунт привязан!*\n🔑 *Шаг 1 из 2: Groq API Key*\nОтправь мне ключ Groq (gsk_...)`, env.TELEGRAM_BOT_TOKEN);
         }
@@ -384,9 +385,9 @@ export default {
 
       const userConfig = await fetchUserConfig(telegramId, env.RENDER_APP_URL, env.WORKER_SECRET_TOKEN);
       if (userConfig && userConfig.botSetupStep === "done") {
-        await sendTelegramMessage(chatId, `👋 *С возвращением, ${firstName}!*\nЯ готов к работе.`, env.TELEGRAM_BOT_TOKEN, "Markdown", getMainMenuKeyboard());
+        await sendTelegramMessage(chatId, `👋 *С возвращением, ${firstName}!*\nЯ — Personedge, твой ИИ-помощник. Я всегда был рядом — теперь помогу тебе стать лучше.`, env.TELEGRAM_BOT_TOKEN, "Markdown", getMainMenuKeyboard());
       } else {
-        await sendTelegramMessage(chatId, `🔗 Сначала привяжи аккаунт Persona Life по ссылке из настроек.`, env.TELEGRAM_BOT_TOKEN);
+        await sendTelegramMessage(chatId, `🔗 Привет! Я — Personedge, твой ИИ-помощник.\nСначала привяжи аккаунт Persona Life по ссылке из настроек.`, env.TELEGRAM_BOT_TOKEN);
       }
       return new Response("OK");
     }
@@ -404,18 +405,25 @@ export default {
       const text = message.text.trim();
 
       if (text === "❓ Помощь" || text === "/help") {
-        await sendTelegramMessage(chatId, `ℹ️ *Справка*\n\nБот работает по принципу BYOK. Лимиты зависят только от твоих ключей (Groq/Gemini).\nВыбирай нужный режим (через "➕ Добавить") и отправляй голосовое сообщение.`, env.TELEGRAM_BOT_TOKEN, "Markdown", getMainMenuKeyboard());
+        await sendTelegramMessage(chatId, `ℹ️ *Разделы Personedge:*\n\n` +
+          `➕ *Добавить* — выбери режим (задачи, цели, заметки или брейн-шторм) и отправь голосовое — я всё разберу и разложу по местам\n` +
+          `👤 *Мой аккаунт* — статус подключения, email и твои API-ключи\n` +
+          `📜 *История* — список твоих голосовых записей\n` +
+          `📅 *Google Календарь* — скажи «добавь в календарь» прямо в голосовом, и задача появится в календаре (если он подключён)\n\n` +
+          `_Я — Personedge, твой личный ИИ-помощник. Я всегда был рядом — теперь помогу тебе стать лучше._`, env.TELEGRAM_BOT_TOKEN, "Markdown", getMainMenuKeyboard());
         return new Response("OK");
       }
 
       if (text === "👤 Мой аккаунт") {
         const keysStatus = `Groq: ${userConfig.groqApiKey ? '✅' : '❌'}\nGemini: ${userConfig.geminiApiKey ? '✅' : '❌'}`;
-        await sendTelegramMessage(chatId, `👤 *Твой аккаунт*\nEmail: ${userConfig.email || "Привязан"}\n\n*Ключи:*\n${keysStatus}\n\nДля перенастройки ключей отправь /reset\nОтвязать аккаунт можно в настройках веб-приложения.`, env.TELEGRAM_BOT_TOKEN, "Markdown", getMainMenuKeyboard());
+        const calStatus = userConfig.googleCalendarConnected ? "✅ подключён" : "❌ не подключён";
+        const linked = userConfig.email ? `✅ Подключен\n• Email: \`${userConfig.email}\`` : "❌ Не подключен";
+        await sendTelegramMessage(chatId, `👤 *Мой аккаунт*\n\n• Статус: ${linked}\n\n*API-ключи:*\n${keysStatus}\n\n*Google Календарь:* ${calStatus}\n\nДля перенастройки ключей отправь /reset\nОтвязать аккаунт можно в настройках веб-приложения.`, env.TELEGRAM_BOT_TOKEN, "Markdown", getMainMenuKeyboard());
         return new Response("OK");
       }
 
       if (text === "➕ Добавить") {
-        await sendTelegramMessage(chatId, `👇 В каком формате обработать следующее сообщение? Выбери режим:`, env.TELEGRAM_BOT_TOKEN, "Markdown", getInlineModesKeyboard());
+        await sendTelegramMessage(chatId, `👇 *В каком формате обработать запись?*\nВыбери режим — и отправь голосовое сообщение:`, env.TELEGRAM_BOT_TOKEN, "Markdown", getInlineModesKeyboard());
         return new Response("OK");
       }
 
@@ -476,7 +484,7 @@ export default {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         chat_id: chatId,
-        text: `⏳ *Обрабатываю (${modeLabels[currentMode]})...*\n\`~${estimatedSec} сек\``,
+        text: `🧠 *Personedge думает...*\n\`${modeLabels[currentMode]} · ~${estimatedSec} сек\``,
         parse_mode: "Markdown",
       }),
     });

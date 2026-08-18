@@ -257,13 +257,13 @@ export default function HubPage() {
         <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-4 items-start md:items-stretch flex-1 min-h-0">
 
           {/* ═══ LEFT COLUMN ═══ */}
-          <div className="flex flex-col gap-3 min-h-0">
+          <div className="flex flex-col gap-3 min-h-0 md:overflow-y-auto">
 
             {/* Character panel — pinned, never scrolled away by week blocks */}
-            <div className="p-4 bg-card border border-card-border flex flex-col items-center gap-3 relative overflow-hidden shrink-0">
+            <div className="p-3.5 bg-card border border-card-border flex flex-col items-center gap-2.5 relative overflow-hidden shrink-0">
               <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-primary via-primary/50 to-transparent" />
               <div className="absolute top-0 right-0 w-4 h-4 bg-primary" style={{ clipPath: "polygon(0 0, 100% 0, 100% 100%)" }} />
-              <div className="w-32 h-36 overflow-visible flex items-center justify-center">
+              <div className="w-28 h-32 overflow-visible flex items-center justify-center">
                 <CharacterEmoji state={charState.state} emoji={charState.emoji} />
               </div>
 
@@ -458,8 +458,8 @@ export default function HubPage() {
 
       {/* ── Notes — pinned to the bottom, collapsible and compact ── */}
       <div className="shrink-0 border-t border-card-border bg-background">
-        <div className="max-w-7xl mx-auto p-4">
-        <div className="p-4 bg-card border border-card-border flex flex-col gap-3 relative overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 pb-3 pt-2">
+        <div className="p-3 bg-card border border-card-border flex flex-col gap-2 relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-primary via-primary/50 to-transparent" />
           <button
             onClick={() => setNotesOpen(o => !o)}
@@ -474,9 +474,9 @@ export default function HubPage() {
             <ChevronDown className={`w-4 h-4 text-primary transition-transform duration-300 ml-auto ${notesOpen ? "rotate-180" : ""}`} />
           </button>
 
-          <div className="overflow-hidden" style={{ maxHeight: notesOpen ? "520px" : "0px", transition: "max-height 0.3s ease" }} aria-hidden={!notesOpen}>
+          <div className="overflow-hidden" style={{ maxHeight: notesOpen ? "440px" : "0px", transition: "max-height 0.3s ease" }} aria-hidden={!notesOpen}>
           {todayNotes.length > 0 && (
-            <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+            <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
               {todayNotes.map(note => {
                 const noteDate = new Date(note.createdAt);
                 const utcOffset = loadUserSettings().utcOffset;
@@ -484,7 +484,7 @@ export default function HubPage() {
                 const timeLabel = adjustedNote.toLocaleTimeString(lang === 'ru' ? 'ru-RU' : 'en-US', { hour: "2-digit", minute: "2-digit" });
                 const isEditing = editingNoteId === note.id;
                 return (
-                  <div key={note.id} className="rounded-xl border border-card-border bg-muted/20 p-3 space-y-2">
+                  <div key={note.id} className="rounded-lg border border-card-border bg-muted/20 p-2 space-y-1.5">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="font-mono text-xs text-muted-foreground">{timeLabel}</span>
@@ -520,18 +520,18 @@ export default function HubPage() {
             </div>
           )}
 
-          <div className="flex flex-col gap-2">
-            <div className="flex gap-2">
+          <div className="flex flex-col gap-1.5">
+            <div className="flex gap-1.5">
               <button
                 onClick={() => setNewNoteType("note")}
-                className={`flex-1 py-1 rounded-lg text-[10px] font-display uppercase tracking-wider transition-colors ${newNoteType === "note" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                className={`flex-1 py-0.5 rounded-full text-[9px] font-display uppercase tracking-wider transition-colors ${newNoteType === "note" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
                 data-testid="hub-type-note"
               >
                 {t.noteType}
               </button>
               <button
                 onClick={() => setNewNoteType("idea")}
-                className={`flex-1 py-1 rounded-lg text-[10px] font-display uppercase tracking-wider transition-colors ${newNoteType === "idea" ? "bg-yellow-500 text-black" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                className={`flex-1 py-0.5 rounded-full text-[9px] font-display uppercase tracking-wider transition-colors ${newNoteType === "idea" ? "bg-yellow-500 text-black" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
                 data-testid="hub-type-idea"
               >
                 {t.ideaType}
@@ -540,23 +540,26 @@ export default function HubPage() {
             {newNoteType === "idea" && (
               <Input
                 placeholder={t.ideaTitle}
-                className="border-card-border focus-visible:ring-primary bg-muted/30 rounded-xl text-sm"
+                className="border-card-border focus-visible:ring-primary bg-muted/30 rounded-xl text-sm h-8"
                 value={newNoteTitle}
                 onChange={e => setNewNoteTitle(e.target.value)}
                 data-testid="input-new-note-title"
               />
             )}
-            <Textarea
-              placeholder={newNoteType === "idea" ? t.ideaPlaceholder : t.hub.newNotePlaceholder}
-              className="min-h-[52px] resize-none border-card-border focus-visible:ring-primary bg-muted/30 rounded-xl text-sm"
-              value={newNoteText}
-              onChange={e => setNewNoteText(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleAddNote(); }}
-              data-testid="input-new-note"
-            />
-            <Button onClick={handleAddNote} disabled={!newNoteText.trim()} className="w-full font-display uppercase tracking-widest text-xs h-8 rounded-full" data-testid="button-add-note">
-              + {newNoteType === "idea" ? t.addIdea : t.addNote}
-            </Button>
+            <div className="flex items-end gap-1.5">
+              <Textarea
+                placeholder={newNoteType === "idea" ? t.ideaPlaceholder : t.hub.newNotePlaceholder}
+                className="min-h-[40px] max-h-[110px] resize-none border-card-border focus-visible:ring-primary bg-muted/30 rounded-xl text-sm flex-1"
+                rows={1}
+                value={newNoteText}
+                onChange={e => setNewNoteText(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleAddNote(); }}
+                data-testid="input-new-note"
+              />
+              <Button onClick={handleAddNote} disabled={!newNoteText.trim()} className="w-10 h-10 rounded-full font-display text-lg shrink-0" data-testid="button-add-note">
+                +
+              </Button>
+            </div>
           </div>
           </div>
         </div>

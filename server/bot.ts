@@ -80,7 +80,7 @@ const userState = new Map<number, {
 function getMainMenuKeyboard() {
   return Markup.keyboard([
     ["➕ Добавить запись", "📜 История ГС"],
-    ["🔑 Gemini API Ключ", "ℹ️ Статус аккаунта"],
+    ["👤 Мой аккаунт"],
     ["❓ Помощь"],
   ]).resize();
 }
@@ -169,7 +169,7 @@ function formatFriendlyErrorMessage(err: any): string {
     return (
       `🔑 *Не настроен или недействителен Gemini API Ключ.*\n\n` +
       `Для работы бота необходим личный API ключ Gemini.\n` +
-      `Нажми кнопку ниже *«🔑 Gemini API Ключ»* для быстрой инструкции и ввода ключа.`
+      `Нажми кнопку ниже *«🔑 Инструкция»* для быстрой инструкции и ввода ключа.`
     );
   }
 
@@ -307,7 +307,7 @@ function buildPrompt(
     : "";
 
   const baseContext = `
-Ты — высококвалифицированный ИИ-ассистент приложения Trade Persona.
+Ты — высококвалифицированный ИИ-ассистент Personedge приложения Persona Life.
 Задача: точно анализировать голосовые сообщения и превращать их в структурированные данные.
 Текущая дата: ${today} (${dayOfWeek}). Часовой пояс: UTC+${utcOffset}. Завтра: ${tomorrow}.
 ${goalsContext}
@@ -945,7 +945,7 @@ export function createBot(): Telegraf | null {
   bot.telegram.setMyCommands([
     { command: "add", description: "➕ Добавить запись" },
     { command: "history", description: "📜 История голосовых сообщений" },
-    { command: "status", description: "ℹ️ Статус аккаунта" },
+    { command: "status", description: "👤 Мой аккаунт" },
     { command: "help", description: "❓ Помощь" },
   ]).catch(err => console.error("[bot] Error setting commands:", err));
 
@@ -955,7 +955,7 @@ export function createBot(): Telegraf | null {
 
     if (!user) {
       await ctx.reply(
-        "🔗 *Сначала привяжи свой аккаунт Trade Persona.*\n\n" +
+        "🔗 *Сначала привяжи свой аккаунт Persona Life.*\n\n" +
         "Зайди в настройки на сайте → «Подключить Telegram».",
         { parse_mode: "Markdown", ...getMainMenuKeyboard() }
       );
@@ -1121,7 +1121,7 @@ export function createBot(): Telegraf | null {
       `3️⃣ Нажми синюю кнопку *«Create API key»* (Создать API ключ).\n\n` +
       `4️⃣ Скопируй сгенерированный ключ (он начинается на \`AIzaSy...\`).\n\n` +
       `5️⃣ Вернись в этот чат Telegram и просто отправь скопированный ключ обычным текстовым сообщением!\n\n` +
-      `🔒 *Безопасность:* Твой API ключ привязывается исключительно к твоему личному аккаунту Trade Persona и используется только для обработки твоих голосовых сообщений. Никто другой не имеет к нему доступа.`;
+      `🔒 *Безопасность:* Твой API ключ привязывается исключительно к твоему личному аккаунту Persona Life и используется только для обработки твоих голосовых сообщений. Никто другой не имеет к нему доступа.`;
 
     const inlineKb = Markup.inlineKeyboard([
       [Markup.button.url("🌐 Открыть Google AI Studio", "https://aistudio.google.com/app/apikey")],
@@ -1135,7 +1135,7 @@ export function createBot(): Telegraf | null {
   const showApiKeyMenu = async (ctx: any) => {
     const user = await mongoose.model("User").findOne({ telegramId: String(ctx.from.id) });
     if (!user) {
-      return ctx.reply("🔗 Сначала привяжи аккаунт Trade Persona.", getMainMenuKeyboard());
+      return ctx.reply("🔗 Сначала привяжи аккаунт Persona Life.", getMainMenuKeyboard());
     }
 
     const key = decryptSecret(user.geminiApiKey);
@@ -1172,23 +1172,31 @@ export function createBot(): Telegraf | null {
   const showStatus = async (ctx: any) => {
     const user = await mongoose.model("User").findOne({ telegramId: String(ctx.from.id) });
     if (user) {
-      const keyStatus = user.geminiApiKey
-        ? `\`${user.geminiApiKey.substring(0, 8)}...${user.geminiApiKey.substring(user.geminiApiKey.length - 4)}\` (активен ✅)`
-        : "❌ Не настроен (нажми «🔑 Gemini API Ключ»)";
+      const rawKey = decryptSecret(user.geminiApiKey);
+      const keyStatus = rawKey
+        ? `\`${rawKey.substring(0, 8)}...${rawKey.substring(rawKey.length - 4)}\` (активен ✅)`
+        : "❌ Не настроен";
+      const calStatus = user.googleCalendarConnected
+        ? "✅ Подключен"
+        : "❌ Не подключен (настрой в веб-приложении)";
 
       return ctx.reply(
-        `👤 *Статус аккаунта Trade Persona*\n\n` +
+        `👤 *Мой аккаунт Personedge*\n\n` +
+        `• *Статус:* ✅ Подключен\n` +
         `• *Email:* \`${user.email}\`\n` +
-        `• *Gemini API Key:* ${keyStatus}\n` +
-        `• *Статус бота:* Подключен ✅`,
+        `• *API-ключ (Gemini):* ${keyStatus}\n` +
+        `• *Google Календарь:* ${calStatus}\n\n` +
+        `_Ключ можно изменить через кнопку «🔑 API Ключ» в меню._`,
         {
           parse_mode: "Markdown",
-          ...getMainMenuKeyboard(),
+          ...Markup.inlineKeyboard([
+            [Markup.button.callback("🔑 API Ключ", "key_menu")],
+          ]),
         }
       );
     }
     return ctx.reply(
-      "❌ *Аккаунт не привязан.*\n\nЗайди в настройки Trade Persona на сайте и нажми «Подключить Telegram».",
+      "❌ *Аккаунт не подключен.*\n\nЗайди в настройки Persona Life на сайте и нажми «Подключить Telegram».",
       { parse_mode: "Markdown", ...getMainMenuKeyboard() }
     );
   };
@@ -1196,16 +1204,12 @@ export function createBot(): Telegraf | null {
   // ── Helper: Show Help ──
   const showHelp = async (ctx: any) => {
     return ctx.reply(
-      "📖 *Инструкция и лимиты работы с ботом:*\n\n" +
-      "1️⃣ Нажми кнопку *➕ Добавить запись*\n" +
-      "2️⃣ Выбери тип (*Задачи*, *Заметки* или *Цели*)\n" +
-      "3️⃣ Запиши и отправь голосовое сообщение\n" +
-      "4️⃣ ИИ автоматически распознает контекст, создаст задачи и привяжет их при необходимости!\n\n" +
-      "📊 *Лимиты бесплатной нейросети Gemini API:*\n" +
-      "• *15 запросов в минуту (RPM)* — пауза между ГС всего ~4 секунды.\n" +
-      "• *1 500 запросов в день (RPD)* — до 1500 голосовых сообщений в сутки.\n" +
-      "• *Личный API Ключ:* Твой ключ полностью независим от других пользователей.\n\n" +
-      "_Если ИИ выдаёт сообщение о паузе (например, подожди 35 секунд), это встроенное ограничение бесплатного тарифа Google. Просто подожди указанное время и отправь сообщение повторно._",
+      "ℹ️ *Разделы Personedge:*\n\n" +
+      "➕ *Добавить запись* — выбери тип (задачи на день, цели, заметки/идеи) и отправь голосовое — я разберу и разложу по местам\n" +
+      "📜 *История ГС* — список твоих голосовых записей, можно переслушать любую\n" +
+      "👤 *Мой аккаунт* — статус подключения, email и твой API-ключ\n" +
+      "📅 *Google Календарь* — скажи «добавь в календарь» прямо в голосовом, и задача появится в календаре (если он подключён)\n\n" +
+      "_Я — Personedge, твой личный ИИ-помощник. Я всегда был рядом — теперь помогу тебе стать лучше._",
       { parse_mode: "Markdown", ...getMainMenuKeyboard() }
     );
   };
@@ -1225,6 +1229,11 @@ export function createBot(): Telegraf | null {
   });
 
   // ── Action: API Key callbacks ──
+  bot.action("key_menu", async (ctx) => {
+    await ctx.answerCbQuery();
+    await showApiKeyMenu(ctx);
+  });
+
   bot.action("key_help", async (ctx) => {
     await ctx.answerCbQuery();
     await showApiKeyInstruction(ctx);
@@ -1266,7 +1275,7 @@ export function createBot(): Telegraf | null {
 
         if (!user) {
           return ctx.reply(
-            "❌ Ссылка недействительна или истекла. Сгенерируй новую в настройках Trade Persona.",
+            "❌ Ссылка недействительна или истекла. Сгенерируй новую в настройках Persona Life.",
             getMainMenuKeyboard()
           );
         }
@@ -1274,7 +1283,7 @@ export function createBot(): Telegraf | null {
         const existingLink = await mongoose.model("User").findOne({ telegramId: String(ctx.from.id) });
         if (existingLink && existingLink._id.toString() !== user._id.toString()) {
           return ctx.reply(
-            "⚠️ Этот Telegram аккаунт уже привязан к другому аккаунту Trade Persona.",
+            "⚠️ Этот Telegram аккаунт уже привязан к другому аккаунту Persona Life.",
             getMainMenuKeyboard()
           );
         }
@@ -1310,8 +1319,9 @@ export function createBot(): Telegraf | null {
     }
 
     return ctx.reply(
-      `👋 *Привет! Я бот Trade Persona.*\n\n` +
-      `Я помогу тебе быстро добавлять задачи, заметки и цели голосом.\n\n` +
+      `👋 *Привет! Я — Personedge, твой ИИ-помощник.*\n\n` +
+      `Я всегда был рядом — теперь помогу тебе стать лучше.\n\n` +
+      `Записывай мысли голосом — я превращу их в задачи, цели и заметки.\n\n` +
       `Используй кнопки внизу экрана!`,
       { parse_mode: "Markdown", ...getMainMenuKeyboard() }
     );
@@ -1459,7 +1469,7 @@ export function createBot(): Telegraf | null {
       ]);
 
       await ctx.reply(
-        confirmation + "\n\n_Данные синхронизированы с Trade Persona._",
+        confirmation + "\n\n_Данные синхронизированы с Persona Life._",
         { parse_mode: "Markdown", ...playbackKb }
       );
 
@@ -1491,8 +1501,7 @@ export function createBot(): Telegraf | null {
     const txt = ctx.message.text.trim();
     if (txt === "➕ Добавить запись") return showAddMenu(ctx);
     if (txt === "📜 История ГС") return showHistory(ctx);
-    if (txt === "🔑 Gemini API Ключ") return showApiKeyMenu(ctx);
-    if (txt === "ℹ️ Статус аккаунта") return showStatus(ctx);
+    if (txt === "👤 Мой аккаунт") return showStatus(ctx);
     if (txt === "❓ Помощь") return showHelp(ctx);
     if (txt.startsWith("/")) return;
 
@@ -1507,7 +1516,7 @@ export function createBot(): Telegraf | null {
     if (state?.awaitingKeyInput || looksLikeKey) {
       const user = await mongoose.model("User").findOne({ telegramId: String(ctx.from.id) });
       if (!user) {
-        return ctx.reply("🔗 Сначала привяжи аккаунт Trade Persona.", getMainMenuKeyboard());
+return ctx.reply("🔗 Сначала привяжи аккаунт Persona Life.", getMainMenuKeyboard());
       }
 
       const testingMsg = await ctx.reply("🔄 *Проверяю API ключ в Google AI Studio...*", { parse_mode: "Markdown" });

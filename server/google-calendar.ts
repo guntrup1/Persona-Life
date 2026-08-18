@@ -148,7 +148,7 @@ export async function syncTaskToGoogleCalendar(
 
     const eventBody = {
       summary: task.name,
-      description: `${task.description || ""}\n\n📌 Сфера: ${task.category || "General"}\n🌐 Синхронизировано из Trade Persona`,
+      description: `${task.description || ""}\n\n📌 Сфера: ${task.category || "General"}\n🌐 Синхронизировано из Persona Life`,
       start,
       end,
       reminders: {
