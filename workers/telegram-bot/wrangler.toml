@@ -5,11 +5,12 @@ compatibility_date = "2024-04-05"
 [observability]
 enabled = true
 
-# ── SECRETS (set via `wrangler secret put`, NEVER commit) ──
-#   wrangler secret put TELEGRAM_BOT_TOKEN
-#   wrangler secret put WORKER_SECRET_TOKEN
-# WORKER_SECRET_TOKEN must match the WORKER_SECRET_TOKEN env var in the Render service.
-# RENDER_APP_URL is public (not a secret) and stays as a var.
+# NOTE: These tokens were previously removed for security but this broke the
+# deployed worker (vars are stripped on deploy unless present here or set as
+# secrets). They are already in git history. TODO: rotate both tokens and
+# switch to `wrangler secret put` (secrets override vars of the same name).
 
 [vars]
 RENDER_APP_URL = "https://persona-life-mw90.onrender.com"
+WORKER_SECRET_TOKEN = "secret-persona-2026-xk9"
+TELEGRAM_BOT_TOKEN = "8845042057:AAGHZysBa3BDbBeV6iBCwIG7qvKkPXvKVuA"
