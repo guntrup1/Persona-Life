@@ -333,6 +333,7 @@ export function registerAudioRoutes(app: Express) {
       }
 
       // 5. Analyze with Gemini
+      const todayDateStr = new Date().toISOString().slice(0, 10);
       const modeInstructions: Record<string, string> = {
         tasks: `
 MODE: TASKS
@@ -367,7 +368,6 @@ MODE: NOTES
 - semantic_tags: relevant topic tags`,
       };
 
-      const todayDateStr = new Date().toISOString().slice(0, 10);
       // Trim very long transcripts to avoid token limits (12000 chars ≈ 9000 tokens)
       const trimmedTranscript = transcript.length > 12000 ? transcript.slice(0, 12000) + "..." : transcript;
       const systemPrompt = `You are an expert cognitive analyst AI. Your job is to extract maximum analytical value from voice recordings. Analyze the transcript below and return ONLY a valid JSON object — no markdown, no explanation, no code blocks.
