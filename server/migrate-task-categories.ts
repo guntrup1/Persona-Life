@@ -29,12 +29,18 @@ const Goal = mongoose.model("Goal", itemSchema);
 
 const dryRun = process.argv.includes("--dry-run");
 
-function remap(category?: string): string | null {
-  if (!category) return null;
-  const trimmed = String(category).trim();
-  if (!trimmed) return null;
-  if (CANONICAL.has(trimmed)) return null;
-  return mapToLifeArea(trimmed);
+function remap(doc: any): string | null {
+  const rawCat = String(doc.category || "").trim();
+  if (CANONICAL.has(rawCat)) return null; // already valid — keep
+
+  const title = String(doc.title || doc.name || "").trim();
+  // Prefer the title: it's a much stronger signal than junk categories like "сахарная диета".
+  // Treat "Mind" as the generic fallback so we fall through to the category mapping.
+  const titleCat = title ? mapToLifeArea(title) : null;
+  if (titleCat && titleCat !== "Mind") return titleCat;
+
+  const catCat = rawCat ? mapToLifeArea(rawCat) : null;
+  return catCat || "Mind";
 }
 
 async function run() {
@@ -47,11 +53,12 @@ async function run() {
   const tasks = await Task.find({}).lean();
   console.log(`Tasks: ${tasks.length} total`);
   for (const t of tasks) {
-    const newCat = remap((t as any).category);
+    const newCat = remap(t);
     if (!newCat) continue;
-    const label = (t as any).name || (t as any).title || (t as any)._id;
+    const label = t.name || t.title || t._id;
     if (dryRun) {
-      console.log(`  [dry-run] Task "${label}" → category "${(t as any).category}" → "${newCat}"`);
+      console.log(`  [dry-run] Task "${label}" → category "${t.category}" → "${newCat}"`);
+      fixedTasks++;
     } else {
       await Task.updateOne({ _id: t._id }, { $set: { category: newCat } });
       console.log(`  ✅ Task "${label}" → "${newCat}"`);
@@ -62,11 +69,12 @@ async function run() {
   const goals = await Goal.find({}).lean();
   console.log(`\nGoals: ${goals.length} total`);
   for (const g of goals) {
-    const newCat = remap((g as any).category);
+    const newCat = remap(g);
     if (!newCat) continue;
-    const label = (g as any).title || (g as any)._id;
+    const label = g.title || g._id;
     if (dryRun) {
-      console.log(`  [dry-run] Goal "${label}" → category "${(g as any).category}" → "${newCat}"`);
+      console.log(`  [dry-run] Goal "${label}" → category "${g.category}" → "${newCat}"`);
+      fixedGoals++;
     } else {
       await Goal.updateOne({ _id: g._id }, { $set: { category: newCat } });
       console.log(`  ✅ Goal "${label}" → "${newCat}"`);
