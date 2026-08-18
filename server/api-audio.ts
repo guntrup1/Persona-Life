@@ -374,8 +374,10 @@ MODE: NOTES / IDEAS / TRADING
   - "timeframe": timeframe if mentioned (e.g. "15m", "H1", "H4", "D1") or null
   - "tag": one of "мысль" (observation/thought), "идея" (trade setup/idea), "ошибка" (mistake review)
   - "is_trading_idea": true ONLY for a concrete trade setup/idea (tag "идея"), otherwise false
-- NON-TRADING IDEA (gift, hobby, study, project idea): set "note_type": "idea" and "idea_category" to one of: gift, hobby, study, other.
-- Otherwise, set "note_type": "note".
+- NON-TRADING: split EVERY distinct thought into its own entry of "notes_extracted" (one entry per thought).
+  - "type": "note" for observations, thoughts, reminders, plans about the day. Its "content" MUST be the user's OWN WORDS taken verbatim from the transcript — keep first person ("я", "мне"), do NOT paraphrase or summarize.
+  - "type": "idea" for ideas, gift/hobby/study/project ideas. Its "content" is the idea itself, "idea_category" is one of: gift, hobby, study, other.
+  - If the recording contains BOTH a note and an idea, return TWO entries: the note and the idea separately.
 - executive_summary: 2-3 sentence summary of the main thought or observation
 - key_insights: 2-4 key takeaways
 - semantic_tags: relevant topic tags`,
@@ -402,6 +404,7 @@ JSON SCHEMA (return ALL fields, use empty arrays [] if not applicable):
   "key_insights": ["non-obvious insight 1", "non-obvious insight 2", "...up to 8 insights"],
   "action_items": [{"task": "specific actionable step", "date": "YYYY-MM-DD", "start_time": "HH:MM or null", "end_time": "HH:MM or null", "priority": "high|medium|low"}],
   "goals_extracted": [{"title": "goal title", "time_limit": "week|month|year|life", "life_area": "Health|Wealth|Mind|Spirit|Relationships|Career|Environment", "plan_steps": ["step 1", "step 2"]}],
+  "notes_extracted": [{"type": "note|idea", "title": "short title or null", "content": "text", "idea_category": "gift|hobby|study|other|null"}],
   "semantic_tags": ["tag1", "tag2", "tag3"],
   "topics": ["main topic", "secondary topic"],
   "sentiment": "positive|neutral|negative|mixed",
@@ -532,6 +535,7 @@ ${trimmedTranscript}`;
         key_insights: Array.isArray(parsed.key_insights) ? parsed.key_insights.map(String) : [],
         action_items: Array.isArray(parsed.action_items) ? parsed.action_items : [],
         goals_extracted: Array.isArray(parsed.goals_extracted) ? parsed.goals_extracted : [],
+        notes_extracted: Array.isArray(parsed.notes_extracted) ? parsed.notes_extracted : [],
         semantic_tags: Array.isArray(parsed.semantic_tags) ? parsed.semantic_tags.map(String) : [],
         topics: Array.isArray(parsed.topics) ? parsed.topics.map(String) : [],
         sentiment: String(parsed.sentiment || "neutral"),
@@ -678,23 +682,45 @@ ${trimmedTranscript}`;
             isTradingIdea: result.is_trading_idea || tag === "идея",
           }).catch((e) => console.error("TradingNote creation failed", e));
         } else {
-          // Create a DayNote
+          // Create DayNotes — split notes and ideas into separate entries
           const DayNoteModel = mongoose.model("DayNote");
-          await DayNoteModel.create({
-            userId: (user as any)._id,
-            noteId: `audio_${processed._id}`,
-            date: today,
-            title: result.executive_summary.slice(0, 80),
-            content: [
-              result.executive_summary,
-              "",
-              result.key_insights.length ? `💡 Ключевые мысли:\n${result.key_insights.map((i: string) => `• ${i}`).join("\n")}` : "",
-              result.action_items.length ? `✅ Задачи:\n${result.action_items.map((a: any) => `• ${a.task}`).join("\n")}` : "",
-              result.semantic_tags.length ? `🏷 Теги: ${result.semantic_tags.join(", ")}` : "",
-            ].filter(Boolean).join("\n"),
-            noteType: result.note_type === "idea" ? "idea" : "note",
-            ideaCategory: result.idea_category || category,
-          }).catch((e) => console.error("DayNote creation failed", e));
+          const notesList = Array.isArray(result.notes_extracted) && result.notes_extracted.length > 0
+            ? result.notes_extracted
+            : null;
+
+          if (notesList) {
+            let idx = 0;
+            for (const item of notesList) {
+              idx++;
+              const isIdea = item.type === "idea";
+              await DayNoteModel.create({
+                userId: (user as any)._id,
+                noteId: `audio_${processed._id}_${idx}`,
+                date: today,
+                title: String(item.title || (isIdea ? "Идея" : "Заметка")).slice(0, 80),
+                content: String(item.content || result.executive_summary).trim(),
+                noteType: isIdea ? "idea" : "note",
+                ideaCategory: isIdea ? (item.idea_category || category) : undefined,
+              }).catch((e) => console.error("DayNote creation failed", e));
+            }
+          } else {
+            // Fallback: single note from the analysis summary
+            await DayNoteModel.create({
+              userId: (user as any)._id,
+              noteId: `audio_${processed._id}`,
+              date: today,
+              title: result.executive_summary.slice(0, 80),
+              content: [
+                result.executive_summary,
+                "",
+                result.key_insights.length ? `💡 Ключевые мысли:\n${result.key_insights.map((i: string) => `• ${i}`).join("\n")}` : "",
+                result.action_items.length ? `✅ Задачи:\n${result.action_items.map((a: any) => `• ${a.task}`).join("\n")}` : "",
+                result.semantic_tags.length ? `🏷 Теги: ${result.semantic_tags.join(", ")}` : "",
+              ].filter(Boolean).join("\n"),
+              noteType: result.note_type === "idea" ? "idea" : "note",
+              ideaCategory: result.idea_category || category,
+            }).catch((e) => console.error("DayNote creation failed", e));
+          }
         }
       }
 
@@ -715,6 +741,11 @@ ${trimmedTranscript}`;
         lines.push(`\n✅ *Задачи:*\n${items.join("\n")}`);
       }
       if (result.semantic_tags.length) lines.push(`\n🏷 _${result.semantic_tags.join(" · ")}_`);
+      if (mode === "notes" && Array.isArray(result.notes_extracted) && result.notes_extracted.length > 0) {
+        const noteCount = result.notes_extracted.filter((n: any) => n.type !== "idea").length;
+        const ideaCount = result.notes_extracted.length - noteCount;
+        lines.push(`\n📌 _Сохранено: заметок ${noteCount} · идей ${ideaCount}_`);
+      }
       lines.push(`\n━━━━━━━━━━━━━━━━━━━━━━`);
       lines.push(`_Отправь ещё голосовое или выбери режим ➕_`);
 
