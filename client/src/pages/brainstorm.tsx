@@ -236,11 +236,18 @@ export default function BrainstormPage() {
   // Map of session._id -> DOM element for anchor navigation
   const sessionRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  const PRESETS = [
-    "Найди противоречия",
-    "Составь план",
-    "Объедини идеи",
-    "Выдели главное"
+  // Thematic templates — each sends a focused instruction on top of the full analysis
+  const PRESETS: Array<{ label: string; prompt: string }> = [
+    { label: "Выдели главное", prompt: "Выдели самое главное из записей: ключевые мысли, выводы и 3-5 конкретных действий." },
+    { label: "Составь план", prompt: "Составь подробный пошаговый план действий на основе записей: конкретные шаги с приоритетами." },
+    { label: "Найди противоречия", prompt: "Найди противоречия и внутренние конфликты в моих мыслях, покажи слепые зоны, о которых я не говорю прямо." },
+    { label: "Объедини идеи", prompt: "Объедини разрозненные идеи из записей в целостную концепцию и предложи новые прорывные идеи." },
+    { label: "Трейдинг", prompt: "Разбери записи с точки зрения трейдинга: торговые идеи, сетапы, анализ рынка, ошибки в сделках и план по управлению рисками." },
+    { label: "Личный рост", prompt: "Проанализируй записи с точки зрения личного роста: привычки, психология, страхи, цели и конкретные зоны развития." },
+    { label: "Обучение и навыки", prompt: "Проанализируй записи с точки зрения обучения: какие навыки стоит развивать, план обучения и полезные ресурсы." },
+    { label: "Проект и бизнес", prompt: "Проанализируй записи с точки зрения проекта или бизнеса: идея, продукт, аудитория, риски и первые шаги запуска." },
+    { label: "План на неделю", prompt: "Составь план на неделю из записей: распредели задачи по дням с приоритетами и конкретными шагами." },
+    { label: "Вопросы для размышления", prompt: "Сформулируй глубокие вопросы для самоанализа на основе записей, чтобы я лучше понял себя." },
   ];
 
   // ── Load notes ──
@@ -343,7 +350,8 @@ export default function BrainstormPage() {
       if (!res.ok) throw new Error(data.error || "Ошибка генерации");
 
       toast({ title: "✅ Брейн-шторм завершен!" });
-      setSelectedNotes(new Set()); // Auto-clear context after use
+      // Keep the selected note(s) as working context — user clears them manually
+      // (tap ✕ on a chip) once the work with that note is done.
 
       // Reload to show the new card
       await loadSessions();
@@ -569,11 +577,11 @@ export default function BrainstormPage() {
           <div className={`flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar transition-all duration-300 ${prompt.length > 0 ? 'opacity-0 translate-y-2 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
             {PRESETS.map(preset => (
               <button
-                key={preset}
-                onClick={() => setPrompt(preset)}
+                key={preset.label}
+                onClick={() => setPrompt(preset.prompt)}
                 className="whitespace-nowrap text-[11px] font-medium px-4 py-2 rounded-full bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white transition-colors backdrop-blur-sm"
               >
-                {preset}
+                {preset.label}
               </button>
             ))}
           </div>
@@ -686,7 +694,7 @@ export default function BrainstormPage() {
 
             {/* Text Input */}
             <Input
-              placeholder="О чем подумаем сегодня?..."
+              placeholder="Что сделать с заметками? Например: «Составь план на неделю» или свой запрос..."
               value={prompt}
               onChange={e => setPrompt(e.target.value)}
               onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleGenerate()}
