@@ -1,5 +1,6 @@
 import { Express } from "express";
 import mongoose from "mongoose";
+import { LIFE_AREAS_TEXT, mapToLifeArea } from "./life-areas";
 
 export function registerAudioRoutes(app: Express) {
 
@@ -399,7 +400,7 @@ MODE: TASKS
 - If only a start time is mentioned without an end time, set end_time = start_time + 1 hour
 - If no time is mentioned, set both start_time and end_time to null
 - If no date mentioned for a task, use today: ${todayDateStr}
-- life_area MUST be exactly one of: Health, Wealth, Mind, Spirit, Relationships, Career, Environment
+- life_area MUST be exactly one of: ${LIFE_AREAS_TEXT}
 - The executive_summary must briefly describe what kind of tasks were extracted`,
 
         goals: `
@@ -408,7 +409,7 @@ MODE: GOALS
 - For each goal, generate a detailed step-by-step plan (array of strings) in the "plan_steps" field.
 - Identify underlying motivation / "why" behind each goal
 - time_limit MUST be exactly one of: week, month, year, life, custom_date
-- life_area MUST be exactly one of: Health, Wealth, Mind, Spirit, Relationships, Career, Environment
+- life_area MUST be exactly one of: ${LIFE_AREAS_TEXT}
 - key_insights should reveal what obstacles or dependencies were mentioned
 - executive_summary: what the person ultimately wants to achieve and why`,
 
@@ -445,7 +446,7 @@ MODE: NOTES / IDEAS / TRADING
   "executive_summary": "3-5 sentences capturing the core thesis, main idea, and key conclusion of the recording",
   "key_insights": ["non-obvious insight 1", "non-obvious insight 2", "...up to 8 insights"],
   "action_items": [{"task": "specific actionable step", "date": "YYYY-MM-DD", "start_time": "HH:MM or null", "end_time": "HH:MM or null", "priority": "high|medium|low"}],
-  "goals_extracted": [{"title": "goal title", "time_limit": "week|month|year|life", "life_area": "Health|Wealth|Mind|Spirit|Relationships|Career|Environment", "plan_steps": ["step 1", "step 2"]}],
+  "goals_extracted": [{"title": "goal title", "time_limit": "week|month|year|life", "life_area": "Body|Mind|Hard Skills|Soft Skills|Creativity|Mission|Finance", "plan_steps": ["step 1", "step 2"]}],
   "notes_extracted": [{"type": "trading_note|trading_idea|note|idea", "title": "short title or null", "content": "first-person text", "idea_category": "gift|hobby|study|other|null", "asset": "GER40|EUR|XAU|GBP|null", "timeframe": "15m|H1|H4|D1|null", "tag": "мысль|идея|ошибка|null"}],
   "semantic_tags": ["tag1", "tag2", "tag3"],
   "topics": ["main topic", "secondary topic"],
@@ -459,7 +460,7 @@ MODE: NOTES / IDEAS / TRADING
   "timeframe": "15m|H1|H4|D1|null",
   "tag": "мысль|идея|ошибка|null",
   "is_trading_idea": false,
-  "life_area": "Health|Wealth|Mind|Spirit|Relationships|Career|Environment|General"
+  "life_area": "Body|Mind|Hard Skills|Soft Skills|Creativity|Mission|Finance"
 }`;
 
       // Build a full analysis prompt for a (possibly partial) transcript
@@ -706,9 +707,8 @@ ${transcriptPart}`;
 
       // 6. Create corresponding entities based on mode
       const today = new Date().toISOString().slice(0, 10);
-      const parsedLifeArea = result.life_area || result.semantic_tags?.[0] || "General";
-      const validLifeAreas = ["Health", "Wealth", "Mind", "Spirit", "Relationships", "Career", "Environment"];
-      const category = validLifeAreas.includes(parsedLifeArea) ? parsedLifeArea : "Mind";
+      // Map whatever sphere Gemini returned to one of the project's real categories
+      const category = mapToLifeArea(result.life_area || result.semantic_tags?.[0]);
 
       if (mode === "tasks") {
         // Create a Task for each action item
@@ -776,7 +776,7 @@ ${transcriptPart}`;
             ? item.plan_steps.map((step: string) => ({ id: `step_${Date.now()}_${Math.random().toString(36).substring(7)}`, text: step, done: false }))
             : [];
             
-          const goalCat = validLifeAreas.includes(item.life_area) ? item.life_area : category;
+          const goalCat = item.life_area ? mapToLifeArea(item.life_area) : category;
           const timeLimit = item.time_limit || "month"; // week, month, year, life, custom_date
           const validGoalTypes = ["week", "month", "year"];
           const goalType = validGoalTypes.includes(timeLimit) ? timeLimit : "year"; // life/custom_date → year

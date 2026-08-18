@@ -3,6 +3,7 @@ import { message } from "telegraf/filters";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import mongoose from "mongoose";
 import { syncTaskToGoogleCalendar } from "./google-calendar";
+import { mapToLifeArea } from "./life-areas";
 import crypto from "crypto";
 
 // ── Types ──
@@ -632,7 +633,7 @@ async function saveTasksToUser(userId: string, tasks: BotTaskResult[]): Promise<
       taskId: crypto.randomUUID(),
       name: task.name,
       description: task.description || "",
-      category: task.category || "Mind",
+      category: mapToLifeArea(task.category),
       difficulty: task.difficulty || "medium",
       xp: xpForDifficulty(task.difficulty || "medium"),
       completed: false,
@@ -794,7 +795,7 @@ async function saveGoalsToUser(userId: string, goals: BotGoalResult[], utcOffset
       goalId,
       type: goalType,
       title: goal.title,
-      category: goal.category || "Mind",
+      category: mapToLifeArea(goal.category),
       completed: false,
       xp: xpForGoal(goalType),
       linkedTaskIds: [],
@@ -818,7 +819,7 @@ async function saveGoalsToUser(userId: string, goals: BotGoalResult[], utcOffset
         taskId: crypto.randomUUID(),
         name: item.text,
         description: `Под-задача цели «${goal.title}»`,
-        category: goal.category || "Mind",
+        category: mapToLifeArea(goal.category),
         difficulty: "medium",
         xp: 25,
         completed: item.done,
