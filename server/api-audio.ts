@@ -342,13 +342,16 @@ MODE: TASKS
 - Parse dates: "завтра" = tomorrow, "в пятницу" = nearest Friday, "через неделю" = +7 days
 - Parse exact times if mentioned (e.g. "в 15:00", "после обеда" = 14:00)
 - If no date mentioned for a task, use today: ${todayDateStr}
+- life_area MUST be exactly one of: Health, Wealth, Mind, Spirit, Relationships, Career, Environment
 - The executive_summary must briefly describe what kind of tasks were extracted`,
 
         goals: `
 MODE: GOALS
-- Extract long-term objectives and break them into concrete milestones
+- Extract long-term objectives
+- For each goal, generate a detailed step-by-step plan (array of strings) in the "plan_steps" field.
 - Identify underlying motivation / "why" behind each goal
-- Each action_item is a milestone with a realistic target date
+- time_limit MUST be exactly one of: week, month, year, life, custom_date
+- life_area MUST be exactly one of: Health, Wealth, Mind, Spirit, Relationships, Career, Environment
 - key_insights should reveal what obstacles or dependencies were mentioned
 - executive_summary: what the person ultimately wants to achieve and why`,
 
@@ -362,7 +365,11 @@ MODE: BRAINSTORM — MAXIMUM DEPTH REQUIRED
 - semantic_tags: 5-8 relevant tags`,
 
         notes: `
-MODE: NOTES
+MODE: NOTES / IDEAS / TRADING
+- Determine if this is a general note, an idea, or a trading note.
+- If it's about trading, markets, GER40, XAU, OB, FVG, fractal, imbalance, set "is_trading_note": true.
+- If it's an idea for a gift, hobby, or study, set "note_type": "idea" and "idea_category" to one of: gift, hobby, study, other.
+- Otherwise, set "note_type": "note".
 - executive_summary: 2-3 sentence summary of the main thought or observation
 - key_insights: 2-4 key takeaways
 - semantic_tags: relevant topic tags`,
@@ -388,12 +395,16 @@ JSON SCHEMA (return ALL fields, use empty arrays [] if not applicable):
   "executive_summary": "3-5 sentences capturing the core thesis, main idea, and key conclusion of the recording",
   "key_insights": ["non-obvious insight 1", "non-obvious insight 2", "...up to 8 insights"],
   "action_items": [{"task": "specific actionable step", "date": "YYYY-MM-DD", "time": "HH:MM or null", "priority": "high|medium|low"}],
+  "goals_extracted": [{"title": "goal title", "time_limit": "week|month|year|life", "life_area": "Health|Wealth|Mind|Spirit|Relationships|Career|Environment", "plan_steps": ["step 1", "step 2"]}],
   "semantic_tags": ["tag1", "tag2", "tag3"],
   "topics": ["main topic", "secondary topic"],
   "sentiment": "positive|neutral|negative|mixed",
   "mind_map_nodes": [{"entity": "concept A", "relation": "leads to", "target": "concept B"}],
   "questions_raised": ["open question 1", "open question 2"],
-  "note_type": "note|task|goal|idea|reflection"
+  "note_type": "note|task|goal|idea|reflection",
+  "idea_category": "gift|hobby|study|other|null",
+  "is_trading_note": false,
+  "life_area": "Health|Wealth|Mind|Spirit|Relationships|Career|Environment|General"
 }
 
 TRANSCRIPT:
@@ -539,7 +550,9 @@ ${trimmedTranscript}`;
 
       // 6. Create corresponding entities based on mode
       const today = new Date().toISOString().slice(0, 10);
-      const category = result.semantic_tags[0] || "General";
+      const parsedLifeArea = result.life_area || result.semantic_tags?.[0] || "General";
+      const validLifeAreas = ["Health", "Wealth", "Mind", "Spirit", "Relationships", "Career", "Environment"];
+      const category = validLifeAreas.includes(parsedLifeArea) ? parsedLifeArea : "Mind";
 
       if (mode === "tasks") {
         // Create a Task for each action item
@@ -563,41 +576,87 @@ ${trimmedTranscript}`;
              taskData.noDeadline = false;
           }
 
-          await TaskModel.create(taskData).catch((e) => console.error("Task creation failed", e));
+          if ((user as any).googleCalendarConnected) {
+            taskData.addToGoogleCalendar = true;
+          }
+
+          const createdTask = await TaskModel.create(taskData).catch((e) => {
+            console.error("Task creation failed", e);
+            return null;
+          });
+
+          if (createdTask && (user as any).googleCalendarConnected) {
+            try {
+              const { syncTaskToGoogleCalendar } = await import("./google-calendar");
+              const eventId = await syncTaskToGoogleCalendar((user as any)._id.toString(), createdTask);
+              if (eventId) {
+                await TaskModel.updateOne(
+                  { _id: createdTask._id },
+                  { $set: { googleCalendarEventId: eventId } }
+                );
+              }
+            } catch (err) {
+              console.error("Failed to sync audio task to calendar", err);
+            }
+          }
         }
-      } else if (mode === "goals") {
-        // Create a Goal for each action item
+      } else if (mode === "goals" && Array.isArray(result.goals_extracted)) {
+        // Create a Goal for each extracted goal
         const GoalModel = mongoose.model("Goal");
-        for (const item of result.action_items) {
+        for (const item of result.goals_extracted) {
+          const planArray = Array.isArray(item.plan_steps) 
+            ? item.plan_steps.map((step: string) => ({ id: `step_${Date.now()}_${Math.random().toString(36).substring(7)}`, text: step, done: false }))
+            : [];
+            
+          const goalCat = validLifeAreas.includes(item.life_area) ? item.life_area : category;
+          const timeLimit = item.time_limit || "month"; // week, month, year, life, custom_date
+          
           await GoalModel.create({
             userId: (user as any)._id,
             goalId: `goal_${Date.now()}_${Math.random().toString(36).substring(7)}`,
             type: "life",
-            title: item.task || "Новая цель",
+            title: item.title || "Новая цель",
             description: result.executive_summary,
-            category: category,
+            category: goalCat,
+            timeLimitType: timeLimit,
+            goalType: timeLimit === "life" ? "year" : timeLimit,
+            status: "active",
+            plan: planArray,
+            completed: false,
+            xp: 0
           }).catch((e) => console.error("Goal creation failed", e));
         }
       } else if (mode === "notes") {
-        // Create a Note
-        const DayNoteModel = mongoose.model("DayNote");
-        await DayNoteModel.create({
-          userId: (user as any)._id,
-          noteId: `audio_${processed._id}`,
-          date: today,
-          title: result.executive_summary.slice(0, 80),
-          content: [
-            result.executive_summary,
-            "",
-            result.key_insights.length ? `💡 Ключевые мысли:\n${result.key_insights.map((i: string) => `• ${i}`).join("\n")}` : "",
-            result.action_items.length ? `✅ Задачи:\n${result.action_items.map((a: any) => `• ${a.task}`).join("\n")}` : "",
-            result.semantic_tags.length ? `🏷 Теги: ${result.semantic_tags.join(", ")}` : "",
-            "",
-            `📝 Расшифровка:\n${transcript}`,
-          ].filter(Boolean).join("\n"),
-          noteType: result.note_type === "idea" ? "idea" : "note",
-          ideaCategory: category,
-        }).catch(() => {});
+      } else if (mode === "notes") {
+        if (result.is_trading_note) {
+          // Create a Trading Note
+          const TradingNoteModel = mongoose.model("TradingNote");
+          await TradingNoteModel.create({
+            userId: (user as any)._id,
+            noteId: `trading_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+            date: today,
+            title: result.executive_summary.slice(0, 80),
+            content: result.executive_summary + "\n\n" + (result.key_insights || []).map((i: string) => `• ${i}`).join("\n"),
+          }).catch((e) => console.error("TradingNote creation failed", e));
+        } else {
+          // Create a DayNote
+          const DayNoteModel = mongoose.model("DayNote");
+          await DayNoteModel.create({
+            userId: (user as any)._id,
+            noteId: `audio_${processed._id}`,
+            date: today,
+            title: result.executive_summary.slice(0, 80),
+            content: [
+              result.executive_summary,
+              "",
+              result.key_insights.length ? `💡 Ключевые мысли:\n${result.key_insights.map((i: string) => `• ${i}`).join("\n")}` : "",
+              result.action_items.length ? `✅ Задачи:\n${result.action_items.map((a: any) => `• ${a.task}`).join("\n")}` : "",
+              result.semantic_tags.length ? `🏷 Теги: ${result.semantic_tags.join(", ")}` : "",
+            ].filter(Boolean).join("\n"),
+            noteType: result.note_type === "idea" ? "idea" : "note",
+            ideaCategory: result.idea_category || category,
+          }).catch((e) => console.error("DayNote creation failed", e));
+        }
       }
 
       // 7. Send result to Telegram

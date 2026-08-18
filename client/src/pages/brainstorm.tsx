@@ -276,7 +276,14 @@ export default function BrainstormPage() {
 
   useEffect(() => {
     loadNotes();
-    loadSessions();
+    loadSessions().then(() => {
+      // Check if we came from calendar link
+      const params = new URLSearchParams(window.location.search);
+      const sessionId = params.get("session");
+      if (sessionId) {
+        setTimeout(() => scrollToSession(sessionId), 500); // Wait for render
+      }
+    });
   }, []);
 
   // ── Auto-scroll to bottom on new session (non-blocking) ──
@@ -464,11 +471,20 @@ export default function BrainstormPage() {
                         <div
                           key={session._id}
                           onClick={() => scrollToSession(session._id)}
-                          className="bg-[#1C1C1E] p-3 rounded-xl border border-white/5 cursor-pointer hover:bg-[#252528] hover:border-indigo-500/30 transition-all duration-200 group"
+                          className="bg-[#1C1C1E] p-3 rounded-xl border border-white/5 cursor-pointer hover:bg-[#252528] hover:border-indigo-500/30 transition-all duration-200 group relative"
                         >
-                          <p className="text-sm font-medium text-white/90 truncate group-hover:text-white transition-colors">{session.theme}</p>
-                          <p className="text-xs text-white/40 mt-1 truncate">{session.prompt || "Авто-анализ"}</p>
-                          <p className="text-[10px] text-indigo-400/50 mt-1.5 font-medium">↗ Перейти к сессии</p>
+                          <div className="pr-8">
+                            <p className="text-sm font-medium text-white/90 truncate group-hover:text-white transition-colors">{session.theme}</p>
+                            <p className="text-xs text-white/40 mt-1 truncate">{session.prompt || "Авто-анализ"}</p>
+                            <p className="text-[10px] text-indigo-400/50 mt-1.5 font-medium">↗ Перейти к сессии</p>
+                          </div>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDelete(session._id); }}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg text-red-400/0 group-hover:text-red-400/70 hover:!text-red-400 hover:bg-red-500/10 transition-all"
+                            title="Удалить сессию"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -591,7 +607,7 @@ export default function BrainstormPage() {
                   <Paperclip className="w-5 h-5" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent align="start" side="top" className="w-[calc(100vw-32px)] sm:w-80 p-0 bg-[#1C1C1E] border-white/10 rounded-2xl shadow-xl shadow-black/50 overflow-hidden mb-2 z-50">
+              <PopoverContent align="start" side="top" className="w-[calc(100vw-32px)] sm:w-[450px] p-0 bg-[#1C1C1E] border-white/10 rounded-2xl shadow-xl shadow-black/50 overflow-hidden mb-2 z-50">
                 <div className="p-3 border-b border-white/5 bg-[#121212] flex items-center justify-between">
                 <div>
                   <h4 className="font-semibold text-sm text-white/90">Прикрепить контекст</h4>
@@ -636,8 +652,8 @@ export default function BrainstormPage() {
                             className="mt-0.5 border-white/20 data-[state=checked]:bg-indigo-500 flex-shrink-0 cursor-pointer"
                           />
                           <div className="flex-1 min-w-0 cursor-pointer" onClick={() => toggleNote(note._id)}>
-                            <p className="text-sm font-medium text-white/80 leading-snug truncate">
-                              {note.executive_summary || note.raw_transcript?.slice(0, 40) || "Без названия"}
+                            <p className="text-sm font-medium text-white/80 leading-snug whitespace-normal break-words line-clamp-3">
+                              {note.executive_summary || note.raw_transcript?.slice(0, 150) || "Без названия"}
                             </p>
                             <p className="text-[10px] text-white/40 mt-1">
                               {new Date(note.createdAt).toLocaleDateString("ru-RU")}

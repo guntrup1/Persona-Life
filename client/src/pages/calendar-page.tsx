@@ -11,8 +11,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { ChevronLeft, ChevronRight, Plus, Hourglass, CheckCircle, Circle, ArrowUpCircle, ArrowDownCircle, MinusCircle, FileText, CandlestickChart, Edit2, CalendarDays } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Hourglass, CheckCircle, Circle, ArrowUpCircle, ArrowDownCircle, MinusCircle, FileText, CandlestickChart, Edit2, CalendarDays, Brain } from "lucide-react";
 import { getTodayDate } from "@/lib/store";
+import useSWR from "swr";
+import { Link } from "wouter";
 
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 const MONTHS_RU = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
@@ -51,6 +53,9 @@ export default function CalendarPage() {
   const [addToGoogleCalendar, setAddToGoogleCalendar] = useState(false);
 
   const [editingTask, setEditingTask] = useState<TodayTask | null>(null);
+
+  const { data: brainstormsResp } = useSWR("/api/brainstorms");
+  const brainstormSessions = Array.isArray(brainstormsResp?.brainstorms) ? brainstormsResp.brainstorms : [];
 
   const [googleReminderMinutes, setGoogleReminderMinutes] = useState<number[]>([30]);
   const [googleConnected, setGoogleConnected] = useState<boolean>(false);
@@ -202,6 +207,7 @@ export default function CalendarPage() {
       const hasNote = state.dayNotes.some(n => n.date === dateStr);
       const hasTradingNotes = state.tradingNotes.some(n => n.date === dateStr);
       const hasBiases = state.dailyBiases.some(b => b.date === dateStr);
+      const hasBrainstorm = brainstormSessions.some((s: any) => new Date(s.createdAt).toISOString().slice(0, 10) === dateStr);
 
       cells.push(
         <button
@@ -227,6 +233,7 @@ export default function CalendarPage() {
               </>
             )}
             {(hasNote || hasTradingNotes || hasBiases) && <div className="w-1 h-1 rounded-full bg-blue-400" />}
+            {hasBrainstorm && <div className="w-1 h-1 rounded-full bg-purple-500" />}
           </div>
         </button>
       );
@@ -575,7 +582,7 @@ export default function CalendarPage() {
               )}
             </Card>
 
-            <DayDetails selectedDate={selectedDate} />
+            <DayDetails selectedDate={selectedDate} brainstormSessions={brainstormSessions} />
 
             <Card className="p-3 border-card-border">
               <div className="font-display text-xs text-muted-foreground uppercase tracking-widest mb-2">{t.calendar.legend}</div>
@@ -641,15 +648,42 @@ export default function CalendarPage() {
   );
 }
 
-function DayDetails({ selectedDate }: { selectedDate: string }) {
+function DayDetails({ selectedDate, brainstormSessions = [] }: { selectedDate: string, brainstormSessions?: any[] }) {
   const { t, lang } = useI18n();
   const { state } = useStore();
   const tradingNotes = state.tradingNotes.filter(n => n.date === selectedDate);
   const dailyBiases = state.dailyBiases.filter(b => b.date === selectedDate);
   const dayNotes = state.dayNotes.filter(n => n.date === selectedDate).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const brainstorms = brainstormSessions.filter(s => new Date(s.createdAt).toISOString().slice(0, 10) === selectedDate).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
   return (
     <div className="space-y-3">
+      {brainstorms.length > 0 && (
+        <Card className="p-4 border-card-border bg-purple-500/5">
+          <div className="flex items-center gap-2 mb-3">
+            <Brain className="w-4 h-4 text-purple-400" />
+            <h3 className="font-display font-bold text-sm uppercase tracking-wider text-purple-400">Брейншторм сессии</h3>
+          </div>
+          <div className="space-y-2">
+            {brainstorms.map((session: any) => (
+              <div key={session._id} className="border-b border-white/5 pb-2 last:border-0 last:pb-0 relative group">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] text-muted-foreground font-mono">
+                    {new Date(session.createdAt).toLocaleTimeString(lang === 'ru' ? 'ru-RU' : 'en-US', { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+                <p className="text-sm text-foreground font-medium">{session.theme || "Без темы"}</p>
+                <Link href={`/brainstorm?session=${session._id}`}>
+                  <button className="text-[10px] text-indigo-400/70 hover:text-indigo-400 mt-1 uppercase tracking-wider font-semibold">
+                    Перейти к анализу →
+                  </button>
+                </Link>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
       <Card className="p-4 border-card-border">
         <div className="flex items-center gap-2 mb-3">
           <FileText className="w-4 h-4 text-primary" />
@@ -757,7 +791,7 @@ function DayExtras({ selectedDate }: { selectedDate: string }) {
   return (
     <div className="mt-6 space-y-4">
       <Separator />
-      <DayDetails selectedDate={selectedDate} />
+      <DayDetails selectedDate={selectedDate} brainstormSessions={brainstormSessions} />
     </div>
   );
 }
