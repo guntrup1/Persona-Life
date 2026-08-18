@@ -41,6 +41,7 @@ const userDataSchema = new mongoose.Schema({
   data: { type: mongoose.Schema.Types.Mixed, default: {} },
   updatedAt: { type: Date, default: Date.now },
   revision: { type: Number, default: 0 },
+  migrated: { type: Boolean, default: false }, // legacy blob → strict collections, once
 });
 
 const userDataBackupSchema = new mongoose.Schema({

@@ -999,6 +999,17 @@ export function loadFromServerData(data: AppState, forceServer = false) {
 
 export async function syncFromServer(): Promise<boolean> {
   try {
+    // Cheap poll first: if server revision is unchanged, skip the heavy dump
+    const revRes = await fetch("/api/user/data/version", { credentials: "include" });
+    if (revRes.ok) {
+      const revData = await revRes.json();
+      const serverRevision = Number(revData?.revision ?? -1);
+      if (lastKnownRevision !== -1 && serverRevision === lastKnownRevision) {
+        return true; // nothing changed on the server
+      }
+      if (serverRevision >= 0) lastKnownRevision = serverRevision;
+    }
+
     const res = await fetch("/api/sync/init", { credentials: "include" });
     if (!res.ok) return false;
     const json = await res.json();

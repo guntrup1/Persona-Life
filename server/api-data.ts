@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { requireAuth } from "./auth";
 import { z } from "zod";
+import { bumpRevision } from "./revision";
 import {
   Task, Goal, DayNote, TradingNote, DailyBias,
   FocusSession, RoutineTemplate, Simulation, UserData, UserDataBackup
@@ -73,10 +74,80 @@ const routineTemplateSchema = z.object({
   days: z.array(z.number()).default([]),
 });
 
+// ── PATCH schemas — validate partial updates so garbage can't overwrite fields ──
+// Note: strict mode off so client's extra fields (updatedAt, wasRescheduled, ...)
+// are stripped instead of rejected.
+const taskPatchSchema = z.object({
+  name: z.string().min(1).optional(),
+  description: z.string().optional(),
+  category: z.string().optional(),
+  difficulty: z.string().optional(),
+  xp: z.number().optional(),
+  completed: z.boolean().optional(),
+  date: z.string().optional(),
+  type: z.string().optional(),
+  routineId: z.string().nullable().optional(),
+  goalId: z.string().nullable().optional(),
+  weekGoalId: z.string().nullable().optional(),
+  startTime: z.string().nullable().optional(),
+  endTime: z.string().nullable().optional(),
+  noDeadline: z.boolean().optional(),
+  completedAt: z.string().nullable().optional(),
+  updatedAt: z.string().optional(),
+  wasRescheduled: z.boolean().optional(),
+  googleCalendarEventId: z.string().nullable().optional(),
+  addToGoogleCalendar: z.boolean().optional(),
+}).strip();
+
+const goalPatchSchema = z.object({
+  type: z.string().optional(),
+  title: z.string().min(1).optional(),
+  category: z.string().optional(),
+  parentId: z.string().nullable().optional(),
+  completed: z.boolean().optional(),
+  xp: z.number().optional(),
+  linkedTaskIds: z.array(z.string()).optional(),
+  taskWeights: z.any().optional(),
+  year: z.number().nullable().optional(),
+  month: z.number().nullable().optional(),
+  week: z.number().nullable().optional(),
+  description: z.string().nullable().optional(),
+  plan: z.array(z.object({ id: z.string(), text: z.string(), done: z.boolean() })).optional(),
+  timeLimitType: z.string().optional(),
+  startDate: z.string().nullable().optional(),
+  endDate: z.string().nullable().optional(),
+  status: z.string().optional(),
+  failedAt: z.string().nullable().optional(),
+  restoredFromId: z.string().nullable().optional(),
+}).strip();
+
+const routinePatchSchema = z.object({
+  name: z.string().min(1).optional(),
+  description: z.string().nullable().optional(),
+  category: z.string().optional(),
+  xp: z.number().optional(),
+  enabled: z.boolean().optional(),
+  goalId: z.string().nullable().optional(),
+  days: z.array(z.number()).optional(),
+}).strip();
+
+const dayNotePatchSchema = z.object({
+  date: z.string().optional(),
+  title: z.string().nullable().optional(),
+  content: z.string().optional(),
+  noteType: z.string().optional(),
+  ideaCategory: z.string().nullable().optional(),
+  link: z.string().nullable().optional(),
+  ideaDone: z.boolean().optional(),
+  updatedAt: z.string().optional(),
+}).strip();
+
 export function registerDataRoutes(app: Express) {
   
   // --- EMERGENCY RESTORE ---
-  app.get("/api/rescue-data", async (req, res) => {
+  // Requires auth — previously unauthenticated, anyone could resurrect
+  // deleted notes from backups (integrity attack) or trigger a DB-wide scan.
+  app.get("/api/rescue-data", requireAuth, async (req, res) => {
     try {
       const backups = await UserDataBackup.find({}).sort({ createdAt: -1 }).lean();
       
@@ -112,9 +183,9 @@ export function registerDataRoutes(app: Express) {
   app.get("/api/sync/init", requireAuth, async (req: any, res) => {
     const userId = req.session.userId;
     try {
-      // 1. Check if migration is needed
+      // 1. Check if migration is needed (runs ONCE per user — flag in UserData)
       const oldUserData = await UserData.findOne({ userId });
-      if (oldUserData && oldUserData.data && Object.keys(oldUserData.data).length > 0) {
+      if (oldUserData && !oldUserData.migrated && oldUserData.data && Object.keys(oldUserData.data).length > 0) {
         console.log(`[MIGRATION] Starting migration for user ${userId}`);
         const d = oldUserData.data as any;
         
@@ -173,10 +244,15 @@ export function registerDataRoutes(app: Express) {
         const savedStreak = d.streak || {};
         await UserData.findOneAndUpdate({ userId }, { 
           $set: { 
-            data: { botVoiceHistory: botHistory, xp: savedXP, streak: savedStreak }
+            data: { botVoiceHistory: botHistory, xp: savedXP, streak: savedStreak },
+            migrated: true,
           }
         });
         console.log(`[MIGRATION] Completed for user ${userId}`);
+      } else if (oldUserData && !oldUserData.migrated) {
+        // Blob exists but has nothing to migrate — mark migrated so the
+        // branch above never re-runs on every poll.
+        await UserData.findOneAndUpdate({ userId }, { $set: { migrated: true } });
       }
 
       // 2. Fetch active data
@@ -237,6 +313,7 @@ export function registerDataRoutes(app: Express) {
         }, 
         { upsert: true, returnDocument: "after" }
       );
+      await bumpRevision(userId);
       res.json({ ok: true });
     } catch (err: any) {
       res.status(400).json({ ok: false, message: err.message });
@@ -246,12 +323,17 @@ export function registerDataRoutes(app: Express) {
   app.patch("/api/tasks/:id", requireAuth, async (req: any, res) => {
     try {
       const userId = req.session.userId;
-      const updates = req.body;
+      const parsed = taskPatchSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ ok: false, message: parsed.error.errors[0].message });
+      }
+      const updates = parsed.data;
       await Task.findOneAndUpdate(
         { userId, taskId: req.params.id }, 
         { $set: updates }, 
         { upsert: true }
       );
+      await bumpRevision(userId);
       res.json({ ok: true });
     } catch (err: any) {
       res.status(400).json({ ok: false });
@@ -261,6 +343,7 @@ export function registerDataRoutes(app: Express) {
   app.delete("/api/tasks/:id", requireAuth, async (req: any, res) => {
     try {
       await Task.findOneAndDelete({ userId: req.session.userId, taskId: req.params.id });
+      await bumpRevision(req.session.userId);
       res.json({ ok: true });
     } catch {
       res.status(400).json({ ok: false });
@@ -278,6 +361,7 @@ export function registerDataRoutes(app: Express) {
         { ...data, goalId: data.id, userId }, 
         { upsert: true }
       );
+      await bumpRevision(userId);
       res.json({ ok: true });
     } catch (err: any) {
       res.status(400).json({ ok: false, message: err.message });
@@ -286,7 +370,12 @@ export function registerDataRoutes(app: Express) {
 
   app.patch("/api/goals/:id", requireAuth, async (req: any, res) => {
     try {
-      await Goal.findOneAndUpdate({ userId: req.session.userId, goalId: req.params.id }, req.body);
+      const parsed = goalPatchSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ ok: false, message: parsed.error.errors[0].message });
+      }
+      await Goal.findOneAndUpdate({ userId: req.session.userId, goalId: req.params.id }, parsed.data);
+      await bumpRevision(req.session.userId);
       res.json({ ok: true });
     } catch {
       res.status(400).json({ ok: false });
@@ -296,6 +385,7 @@ export function registerDataRoutes(app: Express) {
   app.delete("/api/goals/:id", requireAuth, async (req: any, res) => {
     try {
       await Goal.findOneAndDelete({ userId: req.session.userId, goalId: req.params.id });
+      await bumpRevision(req.session.userId);
       res.json({ ok: true });
     } catch {
       res.status(400).json({ ok: false });
@@ -312,6 +402,7 @@ export function registerDataRoutes(app: Express) {
         { ...data, templateId: data.id, userId: req.session.userId }, 
         { upsert: true }
       );
+      await bumpRevision(req.session.userId);
       res.json({ ok: true });
     } catch (err: any) {
       res.status(400).json({ ok: false, message: err.message });
@@ -320,7 +411,12 @@ export function registerDataRoutes(app: Express) {
 
   app.patch("/api/routines/:id", requireAuth, async (req: any, res) => {
     try {
-      await RoutineTemplate.findOneAndUpdate({ userId: req.session.userId, templateId: req.params.id }, req.body);
+      const parsed = routinePatchSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ ok: false, message: parsed.error.errors[0].message });
+      }
+      await RoutineTemplate.findOneAndUpdate({ userId: req.session.userId, templateId: req.params.id }, parsed.data);
+      await bumpRevision(req.session.userId);
       res.json({ ok: true });
     } catch {
       res.status(400).json({ ok: false });
@@ -330,6 +426,7 @@ export function registerDataRoutes(app: Express) {
   app.delete("/api/routines/:id", requireAuth, async (req: any, res) => {
     try {
       await RoutineTemplate.findOneAndDelete({ userId: req.session.userId, templateId: req.params.id });
+      await bumpRevision(req.session.userId);
       res.json({ ok: true });
     } catch {
       res.status(400).json({ ok: false });
@@ -369,6 +466,7 @@ export function registerDataRoutes(app: Express) {
         { ...data, noteId: data.id, userId: req.session.userId }, 
         { upsert: true }
       );
+      await bumpRevision(req.session.userId);
       res.json({ ok: true });
     } catch (err: any) {
       res.status(400).json({ ok: false, message: err.message });
@@ -377,7 +475,12 @@ export function registerDataRoutes(app: Express) {
 
   app.patch("/api/notes/:id", requireAuth, async (req: any, res) => {
     try {
-      await DayNote.findOneAndUpdate({ userId: req.session.userId, noteId: req.params.id }, req.body);
+      const parsed = dayNotePatchSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ ok: false, message: parsed.error.errors[0].message });
+      }
+      await DayNote.findOneAndUpdate({ userId: req.session.userId, noteId: req.params.id }, parsed.data);
+      await bumpRevision(req.session.userId);
       res.json({ ok: true });
     } catch {
       res.status(400).json({ ok: false });
@@ -387,6 +490,7 @@ export function registerDataRoutes(app: Express) {
   app.delete("/api/notes/:id", requireAuth, async (req: any, res) => {
     try {
       await DayNote.findOneAndDelete({ userId: req.session.userId, noteId: req.params.id });
+      await bumpRevision(req.session.userId);
       res.json({ ok: true });
     } catch {
       res.status(400).json({ ok: false });
@@ -396,6 +500,7 @@ export function registerDataRoutes(app: Express) {
   app.delete("/api/trading-notes/:id", requireAuth, async (req: any, res) => {
     try {
       await TradingNote.findOneAndDelete({ userId: req.session.userId, noteId: req.params.id });
+      await bumpRevision(req.session.userId);
       res.json({ ok: true });
     } catch {
       res.status(400).json({ ok: false });
@@ -410,7 +515,7 @@ export function registerDataRoutes(app: Express) {
       if (xp) update.xp = xp;
       if (streak) update.streak = streak;
       
-      await UserData.findOneAndUpdate({ userId: req.session.userId }, update, { upsert: true });
+      await UserData.findOneAndUpdate({ userId: req.session.userId }, { ...update, $inc: { revision: 1 } }, { upsert: true });
       res.json({ ok: true });
     } catch {
       res.status(400).json({ ok: false });

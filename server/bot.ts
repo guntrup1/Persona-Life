@@ -4,6 +4,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import mongoose from "mongoose";
 import { syncTaskToGoogleCalendar } from "./google-calendar";
 import { mapToLifeArea } from "./life-areas";
+import { encryptSecret, decryptSecret } from "./crypto";
 import crypto from "crypto";
 
 // ── Types ──
@@ -1137,7 +1138,7 @@ export function createBot(): Telegraf | null {
       return ctx.reply("🔗 Сначала привяжи аккаунт Trade Persona.", getMainMenuKeyboard());
     }
 
-    const key = user.geminiApiKey;
+    const key = decryptSecret(user.geminiApiKey);
     const maskedKey = key ? `${key.substring(0, 8)}...${key.substring(key.length - 4)}` : null;
 
     let text = "";
@@ -1404,7 +1405,7 @@ export function createBot(): Telegraf | null {
       const activeGoals = activeGoalDocs.map((g: any) => ({ id: g.goalId, title: g.title, type: g.type, category: g.category }));
 
       // Fetch user's API key
-      const userApiKey = user.geminiApiKey || settings?.geminiApiKey;
+      const userApiKey = decryptSecret(user.geminiApiKey) || decryptSecret(settings?.geminiApiKey);
 
       const aiResult = await processVoiceWithAI(audioBuffer, state.type, utcOffset, activeGoals, userApiKey);
 
@@ -1517,8 +1518,9 @@ export function createBot(): Telegraf | null {
       } catch {}
 
       if (check.valid) {
-        await mongoose.model("User").findByIdAndUpdate(user._id, { geminiApiKey: txt });
-        await mongoose.model("UserSettings").findOneAndUpdate({ userId: user._id }, { geminiApiKey: txt }, { upsert: true });
+        const encryptedKey = encryptSecret(txt);
+        await mongoose.model("User").findByIdAndUpdate(user._id, { geminiApiKey: encryptedKey });
+        await mongoose.model("UserSettings").findOneAndUpdate({ userId: user._id }, { geminiApiKey: encryptedKey }, { upsert: true });
 
         userState.delete(ctx.from.id);
 

@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { registerAuthRoutes } from "./auth";
 import { registerTelegramRoutes } from "./telegram-auth";
 import { registerDataRoutes } from "./api-data";
+import { encryptSecret } from "./crypto";
 
 interface NewsItem {
   title: string;
@@ -314,13 +315,14 @@ export async function registerRoutes(
       const userId = state as string;
 
       if (userId && tokens.refresh_token) {
+        const encrypted = encryptSecret(tokens.refresh_token);
         await User.findByIdAndUpdate(userId, {
-          googleRefreshToken: tokens.refresh_token,
+          googleRefreshToken: encrypted,
           googleCalendarConnected: true,
         });
         await UserSettings.findOneAndUpdate(
           { userId },
-          { googleRefreshToken: tokens.refresh_token, googleCalendarConnected: true },
+          { googleRefreshToken: encrypted, googleCalendarConnected: true },
           { upsert: true }
         );
       }

@@ -1,6 +1,7 @@
 import { Express } from "express";
 import mongoose from "mongoose";
 import { requireAuth } from "./auth";
+import { decryptSecret } from "./crypto";
 
 export function registerBrainstormRoutes(app: Express) {
 
@@ -29,7 +30,7 @@ export function registerBrainstormRoutes(app: Express) {
 
       // 1. Fetch user to get their Gemini API key (user's own key only — no server fallback)
       const user = await mongoose.model("User").findById(req.session.userId).select("geminiApiKey");
-      const geminiApiKey = (user as any)?.geminiApiKey;
+      const geminiApiKey = decryptSecret((user as any)?.geminiApiKey);
       
       if (!geminiApiKey) {
         return res.status(400).json({ error: "Ваш Gemini API ключ не найден. Привяжите его в настройках Telegram-бота (/reset)." });

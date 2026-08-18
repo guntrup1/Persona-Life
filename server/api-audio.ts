@@ -1,6 +1,8 @@
 import { Express } from "express";
 import mongoose from "mongoose";
 import { LIFE_AREAS_TEXT, mapToLifeArea } from "./life-areas";
+import { encryptSecret, decryptSecret } from "./crypto";
+import { bumpRevision } from "./revision";
 
 export function registerAudioRoutes(app: Express) {
 
@@ -29,8 +31,8 @@ export function registerAudioRoutes(app: Express) {
       if (!user) return res.status(404).json({ error: "User not found" });
 
       return res.json({
-        groqApiKey: (user as any).groqApiKey || null,
-        geminiApiKey: (user as any).geminiApiKey || null,
+        groqApiKey: decryptSecret((user as any).groqApiKey) || null,
+        geminiApiKey: decryptSecret((user as any).geminiApiKey) || null,
         botSetupStep: (user as any).botSetupStep || null,
         botRecordMode: (user as any).botRecordMode || "notes",
       });
@@ -47,8 +49,8 @@ export function registerAudioRoutes(app: Express) {
 
       const updateData: any = {};
       if (botSetupStep !== undefined) updateData.botSetupStep = botSetupStep;
-      if (groqApiKey !== undefined) updateData.groqApiKey = groqApiKey;
-      if (geminiApiKey !== undefined) updateData.geminiApiKey = geminiApiKey;
+      if (groqApiKey !== undefined) updateData.groqApiKey = groqApiKey ? encryptSecret(groqApiKey) : null;
+      if (geminiApiKey !== undefined) updateData.geminiApiKey = geminiApiKey ? encryptSecret(geminiApiKey) : null;
       if (botRecordMode !== undefined) updateData.botRecordMode = botRecordMode;
 
       const UserModel = mongoose.model("User");
@@ -286,8 +288,8 @@ export function registerAudioRoutes(app: Express) {
         return;
       }
 
-      const groqApiKey = (user as any).groqApiKey;
-      const geminiApiKey = (user as any).geminiApiKey;
+      const groqApiKey = decryptSecret((user as any).groqApiKey);
+      const geminiApiKey = decryptSecret((user as any).geminiApiKey);
 
       if (!groqApiKey) {
         await tgSend("❌ Groq API ключ не найден. Настрой ключи через /reset");
@@ -876,6 +878,9 @@ ${transcriptPart}`;
           }).catch((e) => console.error("DayNote creation failed", e));
         }
       }
+
+      // Notify clients: entities were created by the bot
+      await bumpRevision((user as any)._id.toString());
 
       // 7. Send result to Telegram
       const modeEmoji: Record<string, string> = { brainstorm: "🧠", tasks: "📝", goals: "🎯", notes: "💡" };

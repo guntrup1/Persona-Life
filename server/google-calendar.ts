@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { decryptSecret } from "./crypto";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
@@ -99,7 +100,7 @@ export async function syncTaskToGoogleCalendar(
       return null;
     }
 
-    const accessToken = await getAccessTokenFromRefresh(user.googleRefreshToken);
+    const accessToken = await getAccessTokenFromRefresh(decryptSecret(user.googleRefreshToken) || "");
     const calendarId = user.googleCalendarId || "primary";
 
     // Fetch user utcOffset to construct exact localized ISO string
@@ -192,7 +193,7 @@ export async function deleteGoogleCalendarEvent(userId: string, eventId: string)
     const user = await mongoose.model("User").findById(userId);
     if (!user || !user.googleRefreshToken || !eventId) return false;
 
-    const accessToken = await getAccessTokenFromRefresh(user.googleRefreshToken);
+    const accessToken = await getAccessTokenFromRefresh(decryptSecret(user.googleRefreshToken) || "");
     const calendarId = user.googleCalendarId || "primary";
 
     const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${eventId}`;
@@ -217,7 +218,7 @@ export async function pullAndSyncGoogleCalendar(userId: string): Promise<{ synce
       return { synced: 0, deleted: 0 };
     }
 
-    const accessToken = await getAccessTokenFromRefresh(user.googleRefreshToken);
+    const accessToken = await getAccessTokenFromRefresh(decryptSecret(user.googleRefreshToken) || "");
     const calendarId = user.googleCalendarId || "primary";
 
     // Fetch events from Google Calendar for the last 30 days and future 90 days

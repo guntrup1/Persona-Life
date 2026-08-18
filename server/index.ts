@@ -9,6 +9,7 @@ import { registerAudioRoutes } from "./api-audio";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import mongoSanitize from "express-mongo-sanitize";
+import mongoose from "mongoose";
 import { startBot } from "./bot";
 
 const app = express();
@@ -144,6 +145,23 @@ app.use((req, res, next) => {
       console.error("[auto-sync] Google Calendar cron error:", e);
     }
   }, 5 * 60 * 1000); // every 5 minutes
+
+  // ── TTL cleanup: ProcessedAudio older than 90 days (raw transcripts are the
+  //     biggest documents; audio transcripts in notes are preserved in DayNote) ──
+  const AUDIO_RETENTION_DAYS = 90;
+  const cleanupOldAudio = async () => {
+    try {
+      const cutoff = new Date(Date.now() - AUDIO_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+      const res = await mongoose.model("ProcessedAudio").deleteMany({ createdAt: { $lt: cutoff } });
+      if (res.deletedCount > 0) {
+        console.log(`[ttl] Deleted ${res.deletedCount} ProcessedAudio older than ${AUDIO_RETENTION_DAYS} days`);
+      }
+    } catch (e) {
+      console.error("[ttl] ProcessedAudio cleanup error:", e);
+    }
+  };
+  cleanupOldAudio(); // once at startup
+  setInterval(cleanupOldAudio, 6 * 60 * 60 * 1000); // then every 6 hours
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
