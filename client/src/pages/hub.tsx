@@ -121,18 +121,19 @@ function ClockWidget() {
 // ─── Collapsible block ────────────────────────────────────────────────────────
 
 const CollapsibleBlock = memo(function CollapsibleBlock({
-  title, icon, children, defaultOpen = true, badge,
+  title, icon, children, defaultOpen = true, badge, stretch = false,
 }: {
   title: string;
   icon: React.ReactNode;
   children: React.ReactNode;
   defaultOpen?: boolean;
   badge?: React.ReactNode;
+  stretch?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className="border border-card-border bg-card relative overflow-hidden">
+    <div className={`border border-card-border bg-card relative overflow-hidden ${stretch ? "flex flex-col min-h-0" : ""}`}>
       {/* P5 угловой акцент */}
       <div className="absolute top-0 right-0 w-3 h-3 bg-primary/60"
         style={{ clipPath: "polygon(0 0, 100% 0, 100% 100%)" }} />
@@ -140,7 +141,7 @@ const CollapsibleBlock = memo(function CollapsibleBlock({
 
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-primary/5 transition-colors"
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-primary/5 transition-colors shrink-0"
         data-testid={`collapse-toggle-${title}`}
       >
         <div className="flex items-center gap-2">
@@ -150,16 +151,24 @@ const CollapsibleBlock = memo(function CollapsibleBlock({
         </div>
         <ChevronDown className={`w-4 h-4 text-primary transition-transform duration-300 ${open ? "rotate-180" : ""}`} />
       </button>
-      <div
-        className="overflow-hidden"
-        style={{ maxHeight: open ? "2000px" : "0px", transition: "max-height 0.3s ease" }}
-        aria-hidden={!open}
-        data-testid={`collapse-content-${title}`}
-      >
-        <div className="px-4 pb-4 pt-1">
-          {children}
+      {stretch ? (
+        open && (
+          <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4 pt-1" data-testid={`collapse-content-${title}`}>
+            {children}
+          </div>
+        )
+      ) : (
+        <div
+          className="overflow-hidden"
+          style={{ maxHeight: open ? "2000px" : "0px", transition: "max-height 0.3s ease" }}
+          aria-hidden={!open}
+          data-testid={`collapse-content-${title}`}
+        >
+          <div className="px-4 pb-4 pt-1">
+            {children}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 });
@@ -237,17 +246,17 @@ export default function HubPage() {
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col overflow-hidden">
       <XPNotification xp={xpNotif.xp} visible={xpNotif.visible} onHide={() => setXpNotif(p => ({ ...p, visible: false }))} />
 
-      <div className="flex-1 min-h-0 overflow-auto">
-      <div className="max-w-7xl mx-auto p-4 space-y-4">
+      <div className="flex-1 min-h-0 overflow-y-auto md:overflow-hidden">
+      <div className="max-w-7xl mx-auto p-4 h-full flex flex-col gap-4">
 
         {/* ── Main 2-column grid ── */}
-        <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-4 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-4 items-start md:items-stretch flex-1 min-h-0">
 
           {/* ═══ LEFT COLUMN ═══ */}
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 min-h-0 md:overflow-y-auto">
 
             {/* Character panel */}
             <div className="p-4 bg-card border border-card-border flex flex-col items-center gap-3 relative overflow-hidden">
@@ -350,10 +359,10 @@ export default function HubPage() {
           </div>
 
           {/* ═══ RIGHT COLUMN: Day progress + news + tasks ═══ */}
-          <div className="flex flex-col gap-3 min-w-0">
+          <div className="flex flex-col gap-3 min-w-0 min-h-0">
 
             {/* Прогресс дня */}
-            <div className="p-4 bg-card border border-card-border relative overflow-hidden">
+            <div className="p-4 bg-card border border-card-border relative overflow-hidden shrink-0">
               <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-primary via-primary/50 to-transparent" />
               <div className="absolute top-0 right-0 w-3 h-3 bg-primary/60" style={{ clipPath: "polygon(0 0, 100% 0, 100% 100%)" }} />
               <div className="flex items-center justify-between mb-3">
@@ -384,6 +393,7 @@ export default function HubPage() {
               title={t.hub.todayTasks}
               icon={<Zap className="w-4 h-4 text-primary" />}
               badge={totalToday > 0 && <Badge variant="secondary" className="font-mono text-[10px] h-4 px-1.5 rounded-full">{completedToday}/{totalToday}</Badge>}
+              stretch
             >
               <div className="space-y-2 mb-3">
                 <div className="flex items-center gap-2 flex-wrap">
