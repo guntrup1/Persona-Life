@@ -313,7 +313,12 @@ ${profileToText(personaProfile)}
           .findOne({ userId: req.session.userId, kind: { $ne: "chat" } })
           .sort({ createdAt: -1 })
           .lean();
-        const parentSessionId = lastPlan ? (lastPlan as any)._id : null;
+        const lastPlanNotes = (((lastPlan as any)?.sourceNoteIds || []) as any[]).map((n: any) => String(n?._id || n));
+        const attachedIds = ((noteIds || []) as any[]).map((n: any) => String(n));
+        const attachedMatchPlan = attachedIds.length > 0 && attachedIds.length === lastPlanNotes.length && attachedIds.every(id => lastPlanNotes.includes(id));
+        // A discussion belongs to the last plan only when it's about the same notes (or no notes attached).
+        // Discussing a DIFFERENT note starts its own thread — otherwise replies would land in another session.
+        const parentSessionId = lastPlan && (!noteIds?.length || attachedMatchPlan) ? (lastPlan as any)._id : null;
         const planContext = lastPlan
           ? `«${(lastPlan as any).theme || "Без темы"}»\nСуть: ${((lastPlan as any).executive_summary || "").slice(0, 400)}\nКлючевые шаги:\n${(((lastPlan as any).action_items || []) as any[]).slice(0, 8).map((a: any) => `- ${a.task}`).join("\n")}\nИнсайты: ${(((lastPlan as any).key_insights || []) as any[]).slice(0, 4).join("; ")}`
           : "(У нас пока нет готового плана — мы только знакомимся. Можешь помочь ему разобраться в мыслях или предложить сделать план из его заметок.)";
