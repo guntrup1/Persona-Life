@@ -764,7 +764,7 @@ ${contextData}
     }
   });
 
-  // ── DELETE a brainstorm session ──
+  // ── DELETE a brainstorm session (a session = plan + its discussion thread) ──
   app.delete("/api/brainstorms/:id", requireAuth, async (req: any, res: any) => {
     try {
       const session = await mongoose.model("BrainstormSession").findOneAndDelete({
@@ -773,6 +773,11 @@ ${contextData}
       });
 
       if (!session) return res.status(404).json({ error: "Сессия не найдена" });
+      // The whole discussion thread belongs to the session — remove it with the plan
+      await mongoose.model("BrainstormSession").deleteMany({
+        userId: req.session.userId,
+        parentSessionId: req.params.id,
+      });
       return res.json({ ok: true });
     } catch (err: any) {
       console.error("[brainstorm] delete error:", err);

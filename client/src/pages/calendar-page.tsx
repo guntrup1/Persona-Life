@@ -726,7 +726,11 @@ function DayDetails({ selectedDate, brainstormSessions = [] }: { selectedDate: s
   const tradingNotes = state.tradingNotes.filter(n => n.date === selectedDate);
   const dailyBiases = state.dailyBiases.filter(b => b.date === selectedDate);
   const dayNotes = state.dayNotes.filter(n => n.date === selectedDate).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  const brainstorms = brainstormSessions.filter(s => new Date(s.createdAt).toISOString().slice(0, 10) === selectedDate).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const brainstorms = brainstormSessions
+    // A session = its plan + discussion thread; history lists only the root entry
+    .filter(s => !s.parentSessionId)
+    .filter(s => new Date(s.createdAt).toISOString().slice(0, 10) === selectedDate)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
   return (
     <div className="space-y-3">
@@ -737,12 +741,19 @@ function DayDetails({ selectedDate, brainstormSessions = [] }: { selectedDate: s
             <h3 className="font-display font-bold text-sm uppercase tracking-wider text-purple-400">Брейншторм сессии</h3>
           </div>
           <div className="space-y-2">
-            {brainstorms.map((session: any) => (
+            {brainstorms.map((session: any) => {
+              const replies = brainstormSessions.filter((s: any) => s.parentSessionId === session._id).length;
+              return (
               <div key={session._id} className="border-b border-white/5 pb-2 last:border-0 last:pb-0 relative group">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-[10px] text-muted-foreground font-mono">
                     {formatUserClock(session.createdAt, lang)}
                   </span>
+                  {replies > 0 && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-purple-500/10 border border-purple-500/20 text-purple-400/80 font-semibold">
+                      💬 {replies}
+                    </span>
+                  )}
                 </div>
                 <p className="text-sm text-foreground font-medium">{session.theme || "Без темы"}</p>
                 <Link href={`/brainstorm?session=${session._id}`}>
@@ -751,7 +762,8 @@ function DayDetails({ selectedDate, brainstormSessions = [] }: { selectedDate: s
                   </button>
                 </Link>
               </div>
-            ))}
+              );
+            })}
           </div>
         </Card>
       )}

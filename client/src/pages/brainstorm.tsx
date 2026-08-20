@@ -544,7 +544,7 @@ export default function BrainstormPage() {
     try {
       const res = await fetch(`/api/brainstorms/${id}`, { method: "DELETE", credentials: "include" });
       if (!res.ok) throw new Error("Ошибка удаления");
-      setSessions(prev => prev.filter(s => s._id !== id));
+      setSessions(prev => prev.filter(s => s._id !== id && s.parentSessionId !== id));
       toast({ title: "Сессия удалена" });
     } catch (err: any) {
       toast({ title: err.message, variant: "destructive" });
@@ -701,31 +701,42 @@ export default function BrainstormPage() {
                 <p className="text-white/40 text-center text-sm mt-10">Истории пока нет</p>
               ) : (
                 <div className="space-y-6">
-                  {Array.from(new Set(sessions.map(s => getDateKey(s.createdAt)))).reverse().map(dateKey => (
+                  {Array.from(new Set(sessions.filter(s => !s.parentSessionId).map(s => getDateKey(s.createdAt)))).reverse().map(dateKey => (
                     <div key={dateKey} className="space-y-3">
                       <div className="sticky top-0 bg-[#121212] py-1 text-xs font-semibold uppercase tracking-wider text-white/40 z-10">
                         {formatDate(dateKey)}
                       </div>
-                      {sessions.filter(s => getDateKey(s.createdAt) === dateKey).reverse().map(session => (
-                        <div
-                          key={session._id}
-                          onClick={() => scrollToSession(session._id)}
-                          className="bg-[#1C1C1E] p-3 rounded-xl border border-white/5 cursor-pointer hover:bg-[#252528] hover:border-red-500/30 transition-all duration-200 group relative"
-                        >
-                          <div className="pr-8">
-                            <p className="text-sm font-medium text-white/90 truncate group-hover:text-white transition-colors">{session.theme}</p>
-                            <p className="text-xs text-white/40 mt-1 truncate">{session.prompt || "Авто-анализ"}</p>
-                            <p className="text-[10px] text-red-400/60 mt-1.5 font-medium">↗ Перейти к сессии</p>
-                          </div>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleDelete(session._id); }}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg text-red-400/0 group-hover:text-red-400/70 hover:!text-red-400 hover:bg-red-500/10 transition-all"
-                            title="Удалить сессию"
+                      {sessions.filter(s => !s.parentSessionId && getDateKey(s.createdAt) === dateKey).reverse().map(session => {
+                        // A session = its plan + the whole discussion thread collapsed into one history entry
+                        const replies = sessions.filter(s => s.parentSessionId === session._id).length;
+                        return (
+                          <div
+                            key={session._id}
+                            onClick={() => scrollToSession(session._id)}
+                            className="bg-[#1C1C1E] p-3 rounded-xl border border-white/5 cursor-pointer hover:bg-[#252528] hover:border-red-500/30 transition-all duration-200 group relative"
                           >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
+                            <div className="pr-8">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-medium text-white/90 truncate group-hover:text-white transition-colors flex-1">{session.theme}</p>
+                                {replies > 0 && (
+                                  <span className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 font-semibold whitespace-nowrap">
+                                    💬 {replies}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-white/40 mt-1 truncate">{session.prompt || "Авто-анализ"}</p>
+                              <p className="text-[10px] text-red-400/60 mt-1.5 font-medium">↗ Перейти к сессии</p>
+                            </div>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDelete(session._id); }}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg text-red-400/0 group-hover:text-red-400/70 hover:!text-red-400 hover:bg-red-500/10 transition-all"
+                              title="Удалить сессию с обсуждением"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        );
+                      })}
                     </div>
                   ))}
                 </div>
