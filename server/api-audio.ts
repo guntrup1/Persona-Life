@@ -429,6 +429,7 @@ MODE: GOALS
 - For each goal, generate a detailed step-by-step plan (array of strings) in the "plan_steps" field.
 - Identify underlying motivation / "why" behind each goal
 - time_limit MUST be exactly one of: week, month, year, life, custom_date
+- VERY IMPORTANT FOR TIME_LIMIT: Be highly context-aware! Listen carefully to the user's words. If they mention "в этом году", "планы на год" -> use "year". If they mention "в этом месяце", "цели на февраль" -> use "month". If they mention "планы на неделю" -> use "week". DO NOT default everything to "week". If no timeframe is explicitly stated but the context implies a larger scale (e.g., "заработать миллион", "выучить язык"), use "year" or "life".
 - life_area MUST be exactly one of: ${LIFE_AREAS_TEXT}
 - key_insights should reveal what obstacles or dependencies were mentioned
 - executive_summary: what the person ultimately wants to achieve and why`,
