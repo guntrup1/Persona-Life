@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ImageOff, Link2, ZoomIn, ZoomOut } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 
@@ -97,7 +98,7 @@ export function ZoomableImage({ src, alt = "" }: ZoomableImageProps) {
           <ZoomOut className="w-4 h-4" />
         </button>
       </div>
-      {loaded && zoom === 1 && lens && (
+      {loaded && zoom === 1 && lens && createPortal(
         <div
           className="pointer-events-none fixed rounded-full border-2 border-white/20 shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
           style={{
@@ -110,7 +111,8 @@ export function ZoomableImage({ src, alt = "" }: ZoomableImageProps) {
             backgroundPosition: `${-(lens.x * LENS_ZOOM - LENS_SIZE / 2)}px ${-(lens.y * LENS_ZOOM - LENS_SIZE / 2)}px`,
             backgroundRepeat: "no-repeat",
           }}
-        />
+        />,
+        document.body
       )}
     </div>
   );
