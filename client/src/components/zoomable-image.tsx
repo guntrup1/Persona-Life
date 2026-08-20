@@ -57,17 +57,13 @@ export function ZoomableImage({ src, alt = "" }: ZoomableImageProps) {
     );
   }
 
-  if (!loaded) {
-    return <div className="w-full aspect-video rounded-md bg-white/5 animate-pulse" />;
-  }
-
   return (
     <div
       ref={containerRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => setLens(null)}
       onDoubleClick={() => setZoom(z => (z > 1 ? 1 : 2))}
-      className="relative w-full max-h-[80vh] overflow-auto bg-black/40 select-none"
+      className="relative w-full max-h-[80vh] min-h-[40vh] overflow-auto bg-black/40 select-none"
     >
       <img
         ref={imgRef}
@@ -77,10 +73,13 @@ export function ZoomableImage({ src, alt = "" }: ZoomableImageProps) {
         onError={() => setError(true)}
         style={{
           width: `${zoom * 100}%`,
-          transition: "width 0.2s ease",
+          transition: "width 0.2s ease, opacity 0.3s ease",
         }}
-        className={`block ${zoom === 1 ? "cursor-zoom-in" : "cursor-zoom-out"}`}
+        className={`block ${loaded ? "opacity-100" : "opacity-0"} ${zoom === 1 ? "cursor-zoom-in" : "cursor-zoom-out"}`}
       />
+      {!loaded && (
+        <div className="absolute inset-0 bg-white/5 animate-pulse pointer-events-none" />
+      )}
       <div className="sticky top-3 right-3 ml-auto flex items-center gap-1 rounded-full bg-black/50 backdrop-blur-sm border border-white/10 p-1 w-fit mr-3">
         <button
           onClick={() => setZoom(z => Math.min(4, +(z + 0.5).toFixed(1)))}
@@ -98,7 +97,7 @@ export function ZoomableImage({ src, alt = "" }: ZoomableImageProps) {
           <ZoomOut className="w-4 h-4" />
         </button>
       </div>
-      {zoom === 1 && lens && (
+      {loaded && zoom === 1 && lens && (
         <div
           className="pointer-events-none absolute rounded-full border-2 border-white/20 shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
           style={{
