@@ -9,7 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Sparkles, Brain, Loader2, ArrowRight, Save, Copy, Trash2, RefreshCw,
+  Sparkles, Brain, Loader2, ArrowRight, Save, Copy, Trash2, RefreshCw, Send,
   Calendar, Paperclip, X, History, Lightbulb, ListChecks, ArrowUp, ChevronDown
 } from "lucide-react";
 import { useStore, getTodayDate, formatUserClock } from "@/lib/store";
@@ -296,6 +296,11 @@ export default function BrainstormPage() {
   const [loadingNotes, setLoadingNotes] = useState(true);
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [presetsOpen, setPresetsOpen] = useState(true);
+
+  // Telegram binding — the mentor requires a linked account (Gemini key is set via the bot)
+  const [accountLinked, setAccountLinked] = useState<boolean | null>(null);
+  const [linking, setLinking] = useState(false);
+  const pollRef = useRef<number | null>(null);
   
   const feedRef = useRef<HTMLDivElement>(null);
   // Map of session._id -> DOM element for anchor navigation
@@ -347,16 +352,58 @@ export default function BrainstormPage() {
   }, []);
 
   useEffect(() => {
-    loadNotes();
-    loadSessions().then(() => {
-      // Check if we came from calendar link
-      const params = new URLSearchParams(window.location.search);
-      const sessionId = params.get("session");
-      if (sessionId) {
-        setTimeout(() => scrollToSession(sessionId), 500); // Wait for render
-      }
-    });
+    // If the account isn't linked to Telegram, the mentor is locked behind the intro screen
+    fetch("/api/telegram/status", { credentials: "include" })
+      .then(r => r.json())
+      .then(d => setAccountLinked(!!d?.linked))
+      .catch(() => setAccountLinked(true)); // unknown → don't block the page
+    return () => {
+      if (pollRef.current) window.clearInterval(pollRef.current);
+    };
   }, []);
+
+  // Load the data only once the mentor is unlocked
+  useEffect(() => {
+    if (accountLinked !== true) return;
+    loadNotes();
+    loadSessions();
+  }, [accountLinked, loadNotes, loadSessions]);
+
+  // ── Connect Telegram: open the bot, then poll until the account is linked ──
+  const handleConnectTelegram = async () => {
+    if (linking) return;
+    setLinking(true);
+    try {
+      const res = await fetch("/api/telegram/link", { method: "POST", credentials: "include" });
+      const data = await res.json();
+      if (data.link) {
+        window.open(data.link, "_blank");
+        toast({ title: "Откройте Telegram и нажмите Start" });
+        pollRef.current = window.setInterval(async () => {
+          try {
+            const r = await fetch("/api/telegram/status", { credentials: "include" });
+            const d = await r.json();
+            if (d?.linked) {
+              if (pollRef.current) { window.clearInterval(pollRef.current); pollRef.current = null; }
+              setAccountLinked(true);
+              toast({ title: "✅ Аккаунт привязан! Personedge рядом." });
+            }
+          } catch { /* keep polling */ }
+        }, 5000);
+        setTimeout(() => {
+          if (pollRef.current) { window.clearInterval(pollRef.current); pollRef.current = null; }
+        }, 180000);
+      } else if (data.linked) {
+        setAccountLinked(true);
+      } else {
+        toast({ title: "Ошибка генерации ссылки", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Нет соединения", variant: "destructive" });
+    } finally {
+      setLinking(false);
+    }
+  };
 
   // ── Auto-scroll to bottom on new session (non-blocking) ──
   useEffect(() => {
@@ -383,6 +430,16 @@ export default function BrainstormPage() {
       }
     }, 300);
   }, []);
+
+  // ── Scroll to the session from a calendar link once the feed is loaded ──
+  useEffect(() => {
+    if (accountLinked !== true || loadingSessions) return;
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get("session");
+    if (sessionId) {
+      setTimeout(() => scrollToSession(sessionId), 500);
+    }
+  }, [accountLinked, loadingSessions, scrollToSession]);
 
 
   const toggleNote = (id: string) => {
@@ -529,6 +586,66 @@ export default function BrainstormPage() {
     }
   };
 
+  // ── Account not linked → the mentor waits for acquaintance ──
+  if (accountLinked === false) {
+    return (
+      <div className="relative flex flex-col h-full bg-[#0A0A0A] text-white overflow-hidden">
+        <div
+          className="flex-1 flex items-center justify-center px-4 py-10"
+          style={{ paddingTop: "calc(env(safe-area-inset-top))", paddingBottom: "calc(1rem + env(safe-area-inset-bottom))" }}
+        >
+          <div className="max-w-md w-full text-center animate-in fade-in zoom-in-95 duration-500">
+            <div className="relative w-24 h-24 mx-auto mb-6">
+              <div className="w-24 h-24 rounded-full overflow-hidden ring-1 ring-red-500/40 shadow-[0_0_45px_rgba(220,38,38,0.25)]">
+                <img src="/favicon.png" alt="Personedge" className="w-full h-full object-cover" />
+              </div>
+              <div className="absolute inset-0 rounded-full border border-red-500/30 animate-[ping_3s_ease-in-out_infinite]" />
+            </div>
+
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-[10px] font-semibold uppercase tracking-widest text-red-400 mb-4">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+              Наставник ждёт знакомства
+            </div>
+
+            <h2 className="text-3xl font-display font-semibold text-white tracking-tight mb-3">
+              Познакомься с <span className="text-red-500">Personedge</span>
+            </h2>
+            <p className="text-sm text-white/55 leading-relaxed mb-7">
+              Personedge — твой личный наставник и компаньон. Он разбирает твои заметки, строит планы и обсуждает их с тобой как живой человек. Чтобы он появился здесь — подключи аккаунт через Telegram-бота.
+            </p>
+
+            <div className="grid gap-2 text-left mb-8">
+              {[
+                ["Разбирает голосовые заметки", "составляет брейнштормы с планом действий"],
+                ["Помнит контекст", "твои боли, ошибки, задачи и желания"],
+                ["Обсуждает планы", "как наставник, а не отчёт"],
+              ].map(([title, desc]) => (
+                <div key={title} className="flex items-center gap-3 bg-white/[0.03] border border-white/[0.06] rounded-xl px-4 py-3">
+                  <div className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />
+                  <p className="text-xs text-white/70">
+                    <span className="font-semibold text-white/90">{title}</span> — {desc}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <Button
+              onClick={handleConnectTelegram}
+              disabled={linking}
+              className="w-full h-12 gap-2 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-700 text-white font-semibold shadow-lg shadow-red-600/25"
+            >
+              {linking ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+              {linking ? "Готовим ссылку..." : "Подключить в Telegram"}
+            </Button>
+            <p className="text-[11px] text-white/35 mt-4 leading-relaxed">
+              Откроется чат с ботом — нажми <span className="text-white/60">Start</span>. Как только аккаунт привяжется, страница откроется автоматически.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative flex flex-col h-full bg-[#0A0A0A] text-white overflow-hidden">
       
@@ -614,7 +731,7 @@ export default function BrainstormPage() {
         className="flex-1 overflow-y-auto pt-24 pb-48 px-4 sm:px-6 md:px-10"
         style={{ WebkitOverflowScrolling: "touch", willChange: "scroll-position" }}
       >
-        {loadingSessions ? (
+        {loadingSessions || accountLinked !== true ? (
           <div className="flex justify-center items-center h-full">
             <Loader2 className="w-6 h-6 animate-spin text-white/20" />
           </div>
