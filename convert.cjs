@@ -12,10 +12,15 @@ export function registerTelegramWebhookRoutes(app: Express) {
     const update = req.body;
     if (!update) return;
     const env = {
-      TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || "8845042057:AAGHZysBa3BDbBeV6iBCwIG7qvKkPXvKVuA",
-      WORKER_SECRET_TOKEN: process.env.WORKER_SECRET_TOKEN || "secret-persona-2026-xk9",
-      RENDER_APP_URL: "https://persona-life-mw90.onrender.com"
-    };`;
+      TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
+      WORKER_SECRET_TOKEN: process.env.WORKER_SECRET_TOKEN,
+      WEBHOOK_SECRET_TOKEN: process.env.WEBHOOK_SECRET_TOKEN,
+      RENDER_APP_URL: process.env.RENDER_APP_URL || "https://persona-life-mw90.onrender.com"
+    };
+    if (!env.TELEGRAM_BOT_TOKEN || !env.WORKER_SECRET_TOKEN || !env.WEBHOOK_SECRET_TOKEN) {
+      console.error("Missing required env vars: TELEGRAM_BOT_TOKEN, WORKER_SECRET_TOKEN, WEBHOOK_SECRET_TOKEN");
+      process.exit(1);
+    }`;
 
 code = code.replace(startRegex, replacementStart);
 code = code.replace(/return new Response\(\"OK\"\);?/g, 'return;');

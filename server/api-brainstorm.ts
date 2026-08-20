@@ -502,7 +502,7 @@ ${refreshContextData}
           ).catch(() => {});
           return res.json({ session });
         } catch (err: any) {
-          return res.status(502).json({ error: err.message || "Не удалось обновить план. Попробуйте ещё раз." });
+          return res.status(502).json({ error: "Не удалось обновить план. Попробуйте ещё раз." });
         }
       }
 
@@ -766,7 +766,7 @@ ${contextData}
 
     } catch (err: any) {
       console.error("[brainstorm] generate error:", err);
-      return res.status(500).json({ error: err.message || "Внутренняя ошибка сервера" });
+      return res.status(500).json({ error: "Внутренняя ошибка сервера" });
     }
   });
 
@@ -787,7 +787,7 @@ ${contextData}
       return res.json({ ok: true });
     } catch (err: any) {
       console.error("[brainstorm] delete error:", err);
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: "Внутренняя ошибка сервера" });
     }
   });
 }

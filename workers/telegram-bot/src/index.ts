@@ -8,9 +8,9 @@ import { runPocketPipeline } from "./pipeline";
 
 interface Env {
   TELEGRAM_BOT_TOKEN: string;
-  GEMINI_API_KEY: string;
   RENDER_APP_URL: string;
   WORKER_SECRET_TOKEN: string;
+  WEBHOOK_SECRET_TOKEN: string;
 }
 
 // ── Types for Telegram Update ──
@@ -295,10 +295,44 @@ function formatResultMessage(
   return lines.join("\n");
 }
 
+// ── Constant-time string comparison (Cloudflare Workers has no Node timingSafeEqual) ──
+function safeEqual(a: string, b: string): boolean {
+  if (typeof a !== "string" || typeof b !== "string") return false;
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
+// Read the Telegram secret token header in both Cloudflare Workers (Headers)
+// and the convert.cjs-generated Express version (plain object headers).
+function getWebhookSecretHeader(request: Request | any): string {
+  const headers = request?.headers;
+  if (!headers) return "";
+  if (typeof headers.get === "function") {
+    return headers.get("X-Telegram-Bot-Api-Secret-Token") || "";
+  }
+  const v = headers["x-telegram-bot-api-secret-token"];
+  return typeof v === "string" ? v : "";
+}
+
 // ── Main Worker Handler ──
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     if (request.method !== "POST") return new Response("OK");
+
+    // ── Verify Telegram webhook secret token (set via setWebhook secret_token) ──
+    if (!env.WEBHOOK_SECRET_TOKEN) {
+      console.error("[Worker] WEBHOOK_SECRET_TOKEN not configured");
+      return new Response("Service Unavailable", { status: 503 });
+    }
+    const incomingSecret = getWebhookSecretHeader(request);
+    if (!safeEqual(incomingSecret, env.WEBHOOK_SECRET_TOKEN)) {
+      console.warn("[Worker] Rejected webhook with invalid secret token");
+      return new Response("Unauthorized", { status: 401 });
+    }
 
     let update: TelegramUpdate;
     try {

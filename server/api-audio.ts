@@ -4,13 +4,24 @@ import { LIFE_AREAS_TEXT, mapToLifeArea } from "./life-areas";
 import { encryptSecret, decryptSecret } from "./crypto";
 import { bumpRevision } from "./revision";
 import { findDuplicateTask, findDuplicateGoal, findDuplicateDayNote, findDuplicateTradingNote } from "./dedupe";
+import crypto from "crypto";
 
 export function registerAudioRoutes(app: Express) {
 
   // ── Worker Security Middleware ──
   function requireWorkerSecret(req: any, res: any, next: any) {
-    const secret = req.headers["x-worker-secret"] || req.body?.secretToken;
-    if (secret !== process.env.WORKER_SECRET_TOKEN) {
+    const expected = process.env.WORKER_SECRET_TOKEN;
+    // Fail closed: if the server has no worker secret configured, refuse ALL
+    // internal requests rather than silently accepting unauthenticated ones.
+    if (!expected) {
+      console.error("[security] WORKER_SECRET_TOKEN is not set — refusing internal request");
+      return res.status(503).json({ error: "Service Unavailable" });
+    }
+    const secret = String(req.headers["x-worker-secret"] || req.body?.secretToken || "");
+    const a = Buffer.from(String(expected));
+    const b = Buffer.from(secret);
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+      console.warn(`[security] Rejected internal request with bad worker secret from ${req.ip}`);
       return res.status(403).json({ error: "Unauthorized" });
     }
     next();
@@ -40,7 +51,8 @@ export function registerAudioRoutes(app: Express) {
         googleCalendarConnected: Boolean((user as any).googleCalendarConnected),
       });
     } catch (e: any) {
-      return res.status(500).json({ error: e.message });
+      console.error("[internal/user-config] GET error:", e);
+      return res.status(500).json({ error: "Internal Server Error" });
     }
   });
 
@@ -67,7 +79,8 @@ export function registerAudioRoutes(app: Express) {
 
       return res.json({ ok: true });
     } catch (e: any) {
-      return res.status(500).json({ error: e.message });
+      console.error("[internal/user-config] POST error:", e);
+      return res.status(500).json({ error: "Internal Server Error" });
     }
   });
 
@@ -104,7 +117,8 @@ export function registerAudioRoutes(app: Express) {
 
       return res.json({ ok: true, email: user.email, hasKeys: !!(user as any).groqApiKey && !!(user as any).geminiApiKey });
     } catch (e: any) {
-      return res.status(500).json({ error: e.message });
+      console.error("[internal/link-telegram] error:", e);
+      return res.status(500).json({ error: "Internal Server Error" });
     }
   });
 
@@ -158,8 +172,6 @@ export function registerAudioRoutes(app: Express) {
             keyInsights?.length ? `💡 Ключевые мысли:\n${keyInsights.map((i: string) => `• ${i}`).join("\n")}` : "",
             actionItems?.length ? `✅ Задачи:\n${actionItems.map((a: any) => `• ${a.task}`).join("\n")}` : "",
             tags?.length ? `🏷 Теги: ${tags.join(", ")}` : "",
-            "",
-            `📝 Расшифровка:\n${transcript}`,
           ].filter(Boolean).join("\n"),
           noteType: noteType === "idea" ? "idea" : "note",
           ideaCategory: tags?.[0] || "",
@@ -169,7 +181,7 @@ export function registerAudioRoutes(app: Express) {
       return res.json({ ok: true, id: processed._id });
     } catch (e: any) {
       console.error("[api-audio] Error saving processed audio:", e);
-      return res.status(500).json({ error: e.message });
+      return res.status(500).json({ error: "Internal Server Error" });
     }
   });
 
@@ -188,7 +200,8 @@ export function registerAudioRoutes(app: Express) {
         .lean();
       return res.json({ audios });
     } catch (e: any) {
-      return res.status(500).json({ error: e.message });
+      console.error("[api-audio] GET processed-audios error:", e);
+      return res.status(500).json({ error: "Internal Server Error" });
     }
   });
 
@@ -200,7 +213,8 @@ export function registerAudioRoutes(app: Express) {
       await ProcessedAudioModel.deleteMany({ userId: req.session.userId });
       return res.json({ ok: true });
     } catch (e: any) {
-      return res.status(500).json({ error: e.message });
+      console.error("[api-audio] DELETE all error:", e);
+      return res.status(500).json({ error: "Internal Server Error" });
     }
   });
 
@@ -213,7 +227,8 @@ export function registerAudioRoutes(app: Express) {
       if (!deleted) return res.status(404).json({ error: "Not found" });
       return res.json({ ok: true });
     } catch (e: any) {
-      return res.status(500).json({ error: e.message });
+      console.error("[api-audio] DELETE single error:", e);
+      return res.status(500).json({ error: "Internal Server Error" });
     }
   });
 

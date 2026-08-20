@@ -60,7 +60,7 @@ const dayNoteSchema = z.object({
   content: z.string(),
   noteType: z.string().optional(),
   ideaCategory: z.string().optional(),
-  link: z.string().optional(),
+  link: z.string().refine((v) => /^https?:\/\//i.test(v), { message: "Ссылка должна начинаться с http(s)://" }).optional(),
   ideaDone: z.boolean().optional(),
 });
 
@@ -138,49 +138,16 @@ const dayNotePatchSchema = z.object({
   content: z.string().optional(),
   noteType: z.string().optional(),
   ideaCategory: z.string().nullable().optional(),
-  link: z.string().nullable().optional(),
+  link: z.string().refine((v) => /^https?:\/\//i.test(v), { message: "Ссылка должна начинаться с http(s)://" }).nullable().optional(),
   ideaDone: z.boolean().optional(),
   updatedAt: z.string().optional(),
 }).strip();
 
 export function registerDataRoutes(app: Express) {
   
-  // --- EMERGENCY RESTORE ---
-  // Requires auth — previously unauthenticated, anyone could resurrect
-  // deleted notes from backups (integrity attack) or trigger a DB-wide scan.
-  app.get("/api/rescue-data", requireAuth, async (req, res) => {
-    try {
-      const backups = await UserDataBackup.find({}).sort({ createdAt: -1 }).lean();
-      
-      let restoredCount = 0;
-      for (const b of backups) {
-        const uid = b.userId;
-        const bd = b.data || {};
-        const dayNotes = bd.dayNotes || [];
-        const tradingNotes = bd.tradingNotes || [];
-        
-        for (const n of dayNotes) {
-          const exists = await DayNote.findOne({ noteId: n.id });
-          if (!exists) {
-            await DayNote.create({ ...n, noteId: n.id, userId: uid });
-            restoredCount++;
-          }
-        }
-        for (const n of tradingNotes) {
-          const exists = await TradingNote.findOne({ noteId: n.id });
-          if (!exists) {
-            await TradingNote.create({ ...n, noteId: n.id, userId: uid });
-            restoredCount++;
-          }
-        }
-      }
-      return res.json({ ok: true, restored: restoredCount, msg: "Emergency restore complete" });
-    } catch (e: any) {
-      return res.status(500).json({ ok: false, error: e.message });
-    }
-  });
+  // NOTE: the old /api/rescue-data endpoint (DB-wide restore from every user's
+  // backups) was removed — it exposed cross-user data to any authenticated user.
 
-  
   app.get("/api/sync/init", requireAuth, async (req: any, res) => {
     const userId = req.session.userId;
     try {
@@ -326,7 +293,9 @@ export function registerDataRoutes(app: Express) {
       await bumpRevision(userId);
       res.json({ ok: true });
     } catch (err: any) {
-      res.status(400).json({ ok: false, message: err.message });
+      console.error("[api-data] error:", err);
+      const msg = err instanceof z.ZodError ? (err.issues[0]?.message || "Ошибка валидации") : "Ошибка запроса";
+      res.status(400).json({ ok: false, message: msg });
     }
   });
 
@@ -383,7 +352,9 @@ export function registerDataRoutes(app: Express) {
       await bumpRevision(userId);
       res.json({ ok: true });
     } catch (err: any) {
-      res.status(400).json({ ok: false, message: err.message });
+      console.error("[api-data] error:", err);
+      const msg = err instanceof z.ZodError ? (err.issues[0]?.message || "Ошибка валидации") : "Ошибка запроса";
+      res.status(400).json({ ok: false, message: msg });
     }
   });
 
@@ -424,7 +395,9 @@ export function registerDataRoutes(app: Express) {
       await bumpRevision(req.session.userId);
       res.json({ ok: true });
     } catch (err: any) {
-      res.status(400).json({ ok: false, message: err.message });
+      console.error("[api-data] error:", err);
+      const msg = err instanceof z.ZodError ? (err.issues[0]?.message || "Ошибка валидации") : "Ошибка запроса";
+      res.status(400).json({ ok: false, message: msg });
     }
   });
 
@@ -497,7 +470,9 @@ export function registerDataRoutes(app: Express) {
       await bumpRevision(req.session.userId);
       res.json({ ok: true });
     } catch (err: any) {
-      res.status(400).json({ ok: false, message: err.message });
+      console.error("[api-data] error:", err);
+      const msg = err instanceof z.ZodError ? (err.issues[0]?.message || "Ошибка валидации") : "Ошибка запроса";
+      res.status(400).json({ ok: false, message: msg });
     }
   });
 
@@ -536,13 +511,22 @@ export function registerDataRoutes(app: Express) {
   });
   
   // --- XP & STREAK (Save without full sync) ---
+  const statsSchema = z.object({
+    xp: z.number().int().min(0).max(1_000_000_000).optional(),
+    streak: z.number().int().min(0).max(100_000).optional(),
+  }).strict().strip();
+
   app.post("/api/user/stats", requireAuth, async (req: any, res) => {
+    const parsed = statsSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ ok: false });
+    }
     try {
-      const { xp, streak } = req.body;
+      const { xp, streak } = parsed.data;
       const update: any = {};
-      if (xp) update.xp = xp;
-      if (streak) update.streak = streak;
-      
+      if (xp !== undefined) update.xp = xp;
+      if (streak !== undefined) update.streak = streak;
+
       await UserData.findOneAndUpdate({ userId: req.session.userId }, { ...update, $inc: { revision: 1 } }, { upsert: true });
       res.json({ ok: true });
     } catch {

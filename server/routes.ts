@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { registerAuthRoutes } from "./auth";
+import crypto from "crypto";
+import { registerAuthRoutes, requireAuth } from "./auth";
 import { registerTelegramRoutes } from "./telegram-auth";
 import { registerDataRoutes } from "./api-data";
 import { encryptSecret } from "./crypto";
@@ -268,7 +269,9 @@ export async function registerRoutes(
   // ── Google Calendar OAuth Routes ──
   app.get("/api/auth/google/url", (req: any, res) => {
     if (!req.session?.userId) return res.status(401).json({ message: "Не авторизован" });
-    const state = req.session.userId;
+    // CSRF defense: state carries a random nonce bound to the session, not the bare userId
+    const state = crypto.randomBytes(32).toString("hex");
+    req.session.googleOAuthState = state;
     const url = getGoogleAuthUrl(state);
     res.json({ url });
   });
@@ -280,10 +283,21 @@ export async function registerRoutes(
     }
 
     try {
-      const tokens = await exchangeCodeForTokens(code);
-      const userId = state as string;
+      // Verify the state nonce matches the one we issued for this session
+      const expectedState = (req as any).session?.googleOAuthState;
+      if (!expectedState || state !== expectedState) {
+        console.warn("[google-callback] State mismatch — rejecting OAuth callback");
+        return res.status(400).send("Invalid OAuth state");
+      }
+      delete (req as any).session.googleOAuthState;
 
-      if (userId && tokens.refresh_token) {
+      const tokens = await exchangeCodeForTokens(code);
+      const userId = (req as any).session?.userId;
+      if (!userId) {
+        return res.status(401).send("Not authorized");
+      }
+
+      if (tokens.refresh_token) {
         const encrypted = encryptSecret(tokens.refresh_token);
         await User.findByIdAndUpdate(userId, {
           googleRefreshToken: encrypted,
@@ -296,6 +310,15 @@ export async function registerRoutes(
         );
       }
 
+      const appOrigin = process.env.APP_URL || "https://persona-life-mw90.onrender.com";
+      // Allow this page's small inline script via a CSP hash (the rest of the app
+      // keeps a strict CSP with script-src 'self').
+      const inlineScript = `if (window.opener) { window.opener.postMessage({ type: 'GOOGLE_CALENDAR_CONNECTED' }, '${appOrigin}'); } setTimeout(() => window.close(), 2500);`;
+      const scriptHash = crypto.createHash("sha256").update(inlineScript).digest("base64");
+      res.setHeader(
+        "Content-Security-Policy",
+        `default-src 'self'; script-src 'self' 'sha256-${scriptHash}'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`
+      );
       res.send(`
         <!DOCTYPE html>
         <html>
@@ -305,12 +328,7 @@ export async function registerRoutes(
               <h2 style="color:#22c55e;">✅ Google Календарь успешно подключен!</h2>
               <p>Все создаваемые задачи будут автоматически синхронизироваться.</p>
               <p style="color:#94a3b8;font-size:14px;">Окно автоматически закроется через несколько секунд...</p>
-              <script>
-                if (window.opener) {
-                  window.opener.postMessage({ type: 'GOOGLE_CALENDAR_CONNECTED' }, '*');
-                }
-                setTimeout(() => window.close(), 2500);
-              </script>
+              <script>${inlineScript}</script>
             </div>
           </body>
         </html>
@@ -400,7 +418,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/news/refresh", async (_req, res) => {
+  app.post("/api/news/refresh", requireAuth, async (_req, res) => {
     newsCache = null;
     fetchPromise = null;
     try {
@@ -408,7 +426,7 @@ export async function registerRoutes(
       res.json({ count: cache.allHighImpact.length, todayStr: cache.todayStr, nextStr: cache.nextStr });
     } catch (err) {
       console.error("[api/news/refresh]", err);
-      res.json({ count: 0, error: String(err) });
+      res.json({ count: 0, error: "Ошибка обновления новостей" });
     }
   });
 
@@ -418,9 +436,18 @@ export async function registerRoutes(
     if (!message || typeof message !== "string" || message.trim().length < 3) {
       return res.status(400).json({ message: "Сообщение слишком короткое" });
     }
+    if (message.length > 10000) {
+      return res.status(400).json({ message: "Сообщение слишком длинное" });
+    }
     try {
       const OWNER_EMAIL = process.env.FEEDBACK_EMAIL || process.env.BREVO_SENDER_EMAIL || "bigmon42086@gmail.com";
       const senderEmail = process.env.BREVO_SENDER_EMAIL || "bigmon42086@gmail.com";
+
+      // Escape any user-provided text before it is interpolated into HTML email
+      const esc = (v: string) => String(v).replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+      }[c] as string));
+      const safeEmail = email && typeof email === "string" ? esc(email.slice(0, 200)) : "анонима";
 
       const response = await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
@@ -431,12 +458,12 @@ export async function registerRoutes(
         body: JSON.stringify({
           sender: { name: "Persona Life Feedback", email: senderEmail },
           to: [{ email: OWNER_EMAIL }],
-          subject: `[Фидбек] от ${email || "анонима"}`,
+          subject: `[Фидбек] от ${safeEmail}`,
           htmlContent: `
             <div style="font-family:sans-serif;max-width:560px;margin:0 auto;background:#0a0a0a;color:#fff;padding:32px;">
               <h2 style="color:#E11D48;letter-spacing:0.15em;font-size:18px;margin:0 0 8px;">PERSONA LIFE — ФИДБЕК</h2>
-              <p style="color:#666;font-size:12px;margin:0 0 24px;">От: <strong style="color:#aaa">${email || "анонима"}</strong></p>
-              <div style="background:#1a1a1a;border-left:3px solid #E11D48;padding:16px 20px;font-size:15px;line-height:1.6;color:#eee;white-space:pre-wrap;">${message.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+              <p style="color:#666;font-size:12px;margin:0 0 24px;">От: <strong style="color:#aaa">${safeEmail}</strong></p>
+              <div style="background:#1a1a1a;border-left:3px solid #E11D48;padding:16px 20px;font-size:15px;line-height:1.6;color:#eee;white-space:pre-wrap;">${esc(message)}</div>
               <p style="color:#444;font-size:11px;margin-top:24px;">Отправлено: ${new Date().toLocaleString("ru-RU")}</p>
             </div>
           `,

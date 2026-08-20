@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ImageOff, Link2, ZoomIn, ZoomOut } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
+import { isSafeImageUrl } from "@/lib/url-safety";
 
 const LENS_SIZE = 200;
 const LENS_ZOOM = 2.5;
@@ -41,20 +42,23 @@ export function ZoomableImage({ src, alt = "" }: ZoomableImageProps) {
   };
 
   if (error) {
+    const safeLink = isSafeImageUrl(src);
     return (
-      <a
-        href={src}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="w-full flex flex-col items-center justify-center gap-1.5 p-6 rounded-md bg-white/[0.03] text-center hover:bg-white/[0.06] transition-colors"
-      >
+      <div className="w-full flex flex-col items-center justify-center gap-1.5 p-6 rounded-md bg-white/[0.03] text-center">
         <ImageOff className="w-6 h-6 text-muted-foreground/60" />
         <span className="text-xs text-muted-foreground">{t.notes.imageLoadFailed}</span>
-        <span className="inline-flex items-center gap-1 text-[11px] text-primary">
-          <Link2 className="w-3.5 h-3.5" />
-          {t.notes.openLink}
-        </span>
-      </a>
+        {safeLink && (
+          <a
+            href={src}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 transition-colors"
+          >
+            <Link2 className="w-3.5 h-3.5" />
+            {t.notes.openLink}
+          </a>
+        )}
+      </div>
     );
   }
 

@@ -16,7 +16,21 @@ const app = express();
 const httpServer = createServer(app);
 // ── Helmet — безопасные HTTP заголовки ──
 app.use(helmet({
-  contentSecurityPolicy: false, // отключаем CSP чтобы не ломать Vite/React
+  contentSecurityPolicy: process.env.NODE_ENV === "production" ? {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      upgradeInsecureRequests: [],
+    },
+  } : false,
   crossOriginEmbedderPolicy: false,
 }));
 
@@ -45,19 +59,31 @@ const forgotPasswordLimiter = rateLimit({
   message: { message: "Слишком много запросов сброса пароля, попробуй через час" },
 });
 
+const resendVerificationLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 час
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Слишком много запросов, попробуй через час" },
+});
+
+const verifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Слишком много запросов, попробуй позже" },
+});
+
 app.use(globalLimiter);
-// ── Защита от NoSQL инъекций ──
-app.use(mongoSanitize({
-  replaceWith: "_",
-  onSanitize: ({ req, key }) => {
-    console.warn(`[security] Sanitized key "${key}" from ${req.ip}`);
-  },
-}));
 
 // ── Ограничение размера тела запроса ──
 app.use("/api/auth/login", authLimiter);
 app.use("/api/auth/register", authLimiter);
 app.use("/api/auth/forgot-password", forgotPasswordLimiter);
+app.use("/api/auth/reset-password", forgotPasswordLimiter);
+app.use("/api/auth/resend-verification", resendVerificationLimiter);
+app.use("/api/auth/verify-email", verifyLimiter);
 
 declare module "http" {
   interface IncomingMessage {
@@ -75,6 +101,15 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false }));
+
+// ── Защита от NoSQL инъекций ──
+// Must run AFTER body parsing so it actually sees parsed request bodies.
+app.use(mongoSanitize({
+  replaceWith: "_",
+  onSanitize: ({ req, key }) => {
+    console.warn(`[security] Sanitized key "${key}" from ${req.ip}`);
+  },
+}));
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -165,15 +200,19 @@ app.use((req, res, next) => {
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
 
+    // Log the full error server-side but never leak internal details to clients
     console.error("Internal Server Error:", err);
 
     if (res.headersSent) {
       return next(err);
     }
 
-    return res.status(status).json({ message });
+    const safeMessage = status >= 500
+      ? "Внутренняя ошибка сервера"
+      : (typeof err.message === "string" ? err.message : "Ошибка запроса");
+
+    return res.status(status).json({ message: safeMessage });
   });
 
   // importantly only setup vite in development and after

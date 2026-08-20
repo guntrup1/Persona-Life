@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ImageOff, Link2 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
+import { isSafeImageUrl } from "@/lib/url-safety";
 
 type RemoteImageProps = {
   src?: string;
@@ -27,20 +28,25 @@ export function RemoteImage({ src, alt = "", variant = "thumb", bordered = false
   const imgClass = variant === "thumb" ? "w-full h-full object-cover" : "w-full h-auto";
 
   if (error) {
+    // Only unsafe-but-present URLs get a plain fallback; safe https URLs
+    // become a clickable "open link" target.
+    const safeLink = isSafeImageUrl(src);
     return (
-      <a
-        href={src}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`${box} ${borderClass} flex flex-col items-center justify-center gap-1.5 p-3 rounded-md bg-white/[0.03] text-center hover:bg-white/[0.06] transition-colors`}
-      >
+      <div className={`${box} ${borderClass} flex flex-col items-center justify-center gap-1.5 p-3 rounded-md bg-white/[0.03] text-center ${safeLink ? "hover:bg-white/[0.06] transition-colors" : ""}`}>
         <ImageOff className="w-5 h-5 text-muted-foreground/60" />
         <span className="text-[11px] text-muted-foreground">{t.notes.imageLoadFailed}</span>
-        <span className="inline-flex items-center gap-1 text-[10px] text-primary">
-          <Link2 className="w-3 h-3" />
-          {t.notes.openLink}
-        </span>
-      </a>
+        {safeLink && (
+          <a
+            href={src}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-[10px] text-primary"
+          >
+            <Link2 className="w-3 h-3" />
+            {t.notes.openLink}
+          </a>
+        )}
+      </div>
     );
   }
 

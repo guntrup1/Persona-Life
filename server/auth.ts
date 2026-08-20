@@ -5,6 +5,7 @@ const MongoStore = (ConnectMongo as any).default || ConnectMongo;
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import mongoose from "mongoose";
+import { sanitizeBlobUrls } from "./url-safety";
 
 // ── Brevo email helper ──
 async function sendEmail(to: string, subject: string, html: string) {
@@ -36,7 +37,7 @@ const registerSchema = z.object({
     .max(100, "Email слишком длинный")
     .toLowerCase(),
   password: z.string()
-    .min(6, "Пароль должен быть не менее 6 символов")
+    .min(8, "Пароль должен быть не менее 8 символов")
     .max(100, "Пароль слишком длинный"),
 });
 
@@ -48,7 +49,7 @@ const loginSchema = z.object({
 const resetPasswordSchema = z.object({
   token: z.string().min(32).max(128),
   password: z.string()
-    .min(6, "Пароль должен быть не менее 6 символов")
+    .min(8, "Пароль должен быть не менее 8 символов")
     .max(100, "Пароль слишком длинный"),
 });
 
@@ -68,9 +69,11 @@ export function setupAuth(app: Express) {
         mongoUrl: process.env.MONGODB_URI,
         collectionName: "sessions",
       }),
+      name: "persona.sid",
       secret: process.env.SESSION_SECRET,
       resave: false,
       saveUninitialized: false,
+      rolling: true,
       cookie: {
         maxAge: 30 * 24 * 60 * 60 * 1000,
         httpOnly: true,
@@ -85,6 +88,7 @@ declare module "express-session" {
   interface SessionData {
     userId: string;
     email: string;
+    googleOAuthState: string;
   }
 }
 
@@ -173,12 +177,24 @@ export function registerAuthRoutes(app: Express) {
     }
   });
 
+  // ── Per-account login lockout (in-memory) ──
+  const loginAttempts = new Map<string, { count: number; until: number }>();
+  const MAX_LOGIN_ATTEMPTS = 5;
+  const LOCKOUT_MS = 15 * 60 * 1000;
+
   app.post("/api/auth/login", async (req, res) => {
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ message: parsed.error.errors[0].message });
     }
     const { email, password } = parsed.data;
+
+    const locked = loginAttempts.get(email);
+    if (locked && locked.until > Date.now()) {
+      const minsLeft = Math.ceil((locked.until - Date.now()) / 60000);
+      return res.status(429).json({ message: `Слишком много неудачных попыток. Попробуй через ${minsLeft} мин.` });
+    }
+    if (locked && locked.until <= Date.now()) loginAttempts.delete(email);
 
     try {
       const user = await mongoose.model("User").findOne({ email: email.toLowerCase() });
@@ -188,6 +204,15 @@ export function registerAuthRoutes(app: Express) {
 
       const valid = await bcrypt.compare(password, user.password_hash);
       if (!valid) {
+        const attempt = loginAttempts.get(email) || { count: 0, until: 0 };
+        attempt.count += 1;
+        if (attempt.count >= MAX_LOGIN_ATTEMPTS) {
+          attempt.until = Date.now() + LOCKOUT_MS;
+          attempt.count = 0;
+          loginAttempts.set(email, attempt);
+          return res.status(429).json({ message: "Слишком много неудачных попыток. Подожди 15 минут." });
+        }
+        loginAttempts.set(email, attempt);
         return res.status(401).json({ message: "Неверный email или пароль" });
       }
 
@@ -195,13 +220,21 @@ export function registerAuthRoutes(app: Express) {
         return res.status(403).json({ message: "Подтверди email перед входом. Проверь почту." });
       }
 
-      req.session.userId = user._id.toString();
-      req.session.email = user.email;
+      // Session fixation defense: issue a fresh session id on login
+      req.session.regenerate(async (err) => {
+        if (err) {
+          console.error("Session regenerate error:", err);
+          return res.status(500).json({ message: "Ошибка сервера" });
+        }
+        req.session.userId = user._id.toString();
+        req.session.email = user.email;
+        loginAttempts.delete(email);
 
-      const userData = await mongoose.model("UserData").findOne({ userId: user._id });
-      const data = userData?.data || null;
+        const userData = await mongoose.model("UserData").findOne({ userId: user._id });
+        const data = userData?.data || null;
 
-      return res.json({ id: user._id, email: user.email, data });
+        return res.json({ id: user._id, email: user.email, data });
+      });
     } catch (err) {
       console.error("Login error:", err);
       return res.status(500).json({ message: "Ошибка сервера" });
@@ -210,7 +243,7 @@ export function registerAuthRoutes(app: Express) {
 
   app.post("/api/auth/logout", (req, res) => {
     req.session.destroy(() => {
-      res.clearCookie("connect.sid");
+      res.clearCookie("persona.sid");
       return res.json({ ok: true });
     });
   });
@@ -304,7 +337,9 @@ export function registerAuthRoutes(app: Express) {
   }
 
   async function saveWithBackup(userId: string, data: any) {
-    const cleanData = sanitizeMongoInput(data);
+    // Strip mongo operator keys, then blank out unsafe image URLs
+    // (javascript:, data:, etc.) before persisting
+    const cleanData = sanitizeBlobUrls(sanitizeMongoInput(data));
     const existing = await mongoose.model("UserData").findOne({ userId });
 
     if (existing?.data) {
@@ -535,7 +570,8 @@ export function registerAuthRoutes(app: Express) {
 
   app.get("/api/user/settings", requireAuth, async (req, res) => {
     try {
-      let settings = await mongoose.model("UserSettings").findOne({ userId: req.session.userId });
+      let settings = await mongoose.model("UserSettings").findOne({ userId: req.session.userId })
+        .select("-geminiApiKey -googleRefreshToken");
       if (!settings) {
         settings = await mongoose.model("UserSettings").create({ userId: req.session.userId });
       }
@@ -642,6 +678,35 @@ app.get("/api/auth/verify-email", async (req, res) => {
       return res.json({ ok: true });
     } catch (err) {
       console.error("Resend verification error:", err);
+      return res.status(500).json({ message: "Ошибка сервера" });
+    }
+  });
+
+  // ── Удаление аккаунта (GDPR / полная очистка данных) ──
+  app.delete("/api/user/delete-account", requireAuth, async (req, res) => {
+    const userId = req.session.userId;
+    try {
+      const collectionNames = [
+        "UserData", "UserDataBackup", "UserSettings", "ResetToken",
+        "Task", "Goal", "DayNote", "TradingNote", "DailyBias",
+        "FocusSession", "RoutineTemplate", "Simulation",
+        "BrainstormSession", "ProcessedAudio",
+      ];
+      for (const name of collectionNames) {
+        const model = mongoose.model(name);
+        if (model && typeof model.deleteMany === "function") {
+          await model.deleteMany({ userId });
+        }
+      }
+      await mongoose.model("User").findByIdAndDelete(userId);
+
+      req.session.destroy(() => {
+        res.clearCookie("persona.sid");
+        console.log(`[account] Deleted account ${userId}`);
+        return res.json({ ok: true });
+      });
+    } catch (err) {
+      console.error("Delete account error:", err);
       return res.status(500).json({ message: "Ошибка сервера" });
     }
   });

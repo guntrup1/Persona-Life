@@ -48,7 +48,7 @@ const userDataSchema = new mongoose.Schema({
 const userDataBackupSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
   data: { type: mongoose.Schema.Types.Mixed, default: {} },
-  createdAt: { type: Date, default: Date.now },
+  createdAt: { type: Date, default: Date.now, index: { expires: "180d" } },
 });
 
 // ── Brainstorm Session Schema ──

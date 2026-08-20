@@ -19,7 +19,9 @@ services:
         sync: false
       - key: WORKER_SECRET_TOKEN
         sync: false
-      - key: GEMINI_API_KEY
+      - key: WEBHOOK_SECRET_TOKEN
+        sync: false
+      - key: ENCRYPTION_KEY
         sync: false
       - key: BREVO_API_KEY
         sync: false

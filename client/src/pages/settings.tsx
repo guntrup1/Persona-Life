@@ -84,6 +84,7 @@ export default function SettingsPage() {
   const [telegramLoading, setTelegramLoading] = useState(false);
   const [googleCalendarConnected, setGoogleCalendarConnected] = useState(false);
   const [googleCalLoading, setGoogleCalLoading] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   useEffect(() => {
     fetch("/api/user/settings", { credentials: "include" })
@@ -271,6 +272,29 @@ export default function SettingsPage() {
       toast({ title: lang === "ru" ? "Ошибка связи с сервером" : "Server error", variant: "destructive" });
     } finally {
       setGoogleCalLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    const confirmMsg = lang === "ru"
+      ? "Удалить аккаунт и ВСЕ данные без возможности восстановления? Это действие необратимо."
+      : "Delete your account and ALL data permanently? This cannot be undone.";
+    if (!window.confirm(confirmMsg)) return;
+    if (!window.confirm(lang === "ru" ? "Вы уверены? Все задачи, заметки, цели и бэкапы будут удалены." : "Are you sure? All tasks, notes, goals and backups will be deleted.")) return;
+
+    setDeletingAccount(true);
+    try {
+      const res = await fetch("/api/user/delete-account", { method: "DELETE", credentials: "include" });
+      if (res.ok) {
+        localStorage.clear();
+        window.location.href = "/";
+      } else {
+        toast({ title: lang === "ru" ? "Ошибка удаления аккаунта" : "Failed to delete account", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: t.settings.noConn, variant: "destructive" });
+    } finally {
+      setDeletingAccount(false);
     }
   };
 
@@ -574,6 +598,30 @@ export default function SettingsPage() {
         >
           {saving ? t.settings.saving : t.settings.save}
         </Button>
+
+        {/* Удаление аккаунта */}
+        <Card className="p-4 border-red-900/30 bg-red-950/10 rounded-2xl space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="font-display text-xs font-bold uppercase tracking-wider text-red-400">
+              {lang === "ru" ? "Опасная зона" : "Danger zone"}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            {lang === "ru"
+              ? "Удаление аккаунта навсегда стирает все данные: задачи, заметки, цели, голосовые записи, бэкапы и подключённые интеграции."
+              : "Deleting your account permanently erases all data: tasks, notes, goals, voice recordings, backups and connected integrations."}
+          </p>
+          <Button
+            variant="outline"
+            className="w-full h-10 rounded-full text-xs font-display uppercase tracking-widest text-red-400 border-red-900/40 hover:bg-red-950/30 hover:text-red-300 hover:border-red-700/60"
+            onClick={handleDeleteAccount}
+            disabled={deletingAccount}
+          >
+            {deletingAccount
+              ? (lang === "ru" ? "Удаление..." : "Deleting...")
+              : (lang === "ru" ? "Удалить аккаунт" : "Delete account")}
+          </Button>
+        </Card>
 
         {/* Contact Author */}
         <a

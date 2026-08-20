@@ -4,10 +4,9 @@
 
 export interface Env {
   TELEGRAM_BOT_TOKEN: string;
-  GROQ_API_KEY: string;
-  GEMINI_API_KEY: string;
   RENDER_APP_URL: string;
   WORKER_SECRET_TOKEN: string;
+  WEBHOOK_SECRET_TOKEN: string;
 }
 
 /**
