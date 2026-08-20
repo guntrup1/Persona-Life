@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, ReactNode } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SlidersHorizontal, Clock, ChevronDown, ChevronUp, Globe, Bot, CalendarDays } from "lucide-react";
+import { SlidersHorizontal, Clock, ChevronDown, ChevronUp, Globe, Bot, CalendarDays, Moon, Briefcase, Coffee, Sunset, CandlestickChart } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/lib/i18n";
 
@@ -38,16 +38,20 @@ const UTC_OFFSETS = Array.from({ length: 27 }, (_, i) => i - 12);
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const H = (h: number) => `${String(h).padStart(2, "0")}:00`;
 
-function Row({ label, startVal, endVal, onStart, onEnd }: {
+function Row({ label, icon, startVal, endVal, onStart, onEnd }: {
   label: string;
+  icon?: ReactNode;
   startVal: number;
   endVal: number;
   onStart: (v: number) => void;
   onEnd: (v: number) => void;
 }) {
   return (
-    <div className="flex items-center gap-2 py-1.5">
-      <span className="text-xs text-muted-foreground w-16 font-display">{label}</span>
+    <div className="flex items-center gap-2 py-2">
+      <span className="flex items-center gap-1.5 text-xs text-muted-foreground w-24 font-display flex-shrink-0">
+        {icon}
+        {label}
+      </span>
       <Select value={String(startVal)} onValueChange={v => onStart(Number(v))}>
         <SelectTrigger className="h-8 text-xs flex-1"><SelectValue /></SelectTrigger>
         <SelectContent>{HOURS.map(h => <SelectItem key={h} value={String(h)}>{H(h)}</SelectItem>)}</SelectContent>
@@ -298,50 +302,63 @@ export default function SettingsPage() {
           <h1 className="font-display text-lg font-bold uppercase tracking-wider">{t.settings.title}</h1>
         </div>
 
-        {/* Язык интерфейса */}
-        <Card className="p-3 border-card-border rounded-2xl space-y-2">
-          <div className="flex items-center gap-2">
-            <Globe className="w-3.5 h-3.5 text-primary" />
-            <span className="font-display text-xs font-bold uppercase tracking-wider">{t.settings.language}</span>
+        {/* Общие: язык + часовой пояс */}
+        <Card className="p-4 border-card-border rounded-2xl space-y-4">
+          <div className="flex items-center gap-2 pb-2 border-b border-border/50">
+            <SlidersHorizontal className="w-4 h-4 text-primary" />
+            <span className="font-display text-xs font-bold uppercase tracking-wider text-foreground">
+              {lang === "ru" ? "Общие" : "General"}
+            </span>
           </div>
-          <Select value={lang} onValueChange={(v: any) => setLang(v)}>
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ru">Русский (RU)</SelectItem>
-              <SelectItem value="en">English (EN)</SelectItem>
-            </SelectContent>
-          </Select>
-        </Card>
 
-        {/* Часовой пояс */}
-        <Card className="p-3 border-card-border rounded-2xl space-y-2">
-          <div className="flex items-center gap-2">
-            <Clock className="w-3.5 h-3.5 text-primary" />
-            <span className="font-display text-xs font-bold uppercase tracking-wider">{t.settings.timezone}</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <Globe className="w-3.5 h-3.5 text-primary/70" />
+                <span className="text-[11px] text-muted-foreground font-display font-medium uppercase tracking-wider">{t.settings.language}</span>
+              </div>
+              <Select value={lang} onValueChange={(v: any) => setLang(v)}>
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ru">Русский (RU)</SelectItem>
+                  <SelectItem value="en">English (EN)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-primary/70" />
+                <span className="text-[11px] text-muted-foreground font-display font-medium uppercase tracking-wider">{t.settings.timezone}</span>
+              </div>
+              <Select value={String(utcOffset)} onValueChange={v => set("utcOffset", Number(v))}>
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {UTC_OFFSETS.map(o => (
+                    <SelectItem key={o} value={String(o)}>
+                      {o >= 0 ? `UTC+${o}` : `UTC${o}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <Select value={String(utcOffset)} onValueChange={v => set("utcOffset", Number(v))}>
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {UTC_OFFSETS.map(o => (
-                <SelectItem key={o} value={String(o)}>
-                  {o >= 0 ? `UTC+${o}` : `UTC${o}`}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </Card>
 
         {/* Рабочие дни и статусы (Сворачиваемый блок) */}
-        <Card className="p-3 border-card-border rounded-2xl space-y-3">
+        <Card className="p-4 border-card-border rounded-2xl space-y-3">
           <button
             className="w-full flex items-center justify-between"
             onClick={() => setShowWorkSection(s => !s)}
           >
-            <span className="font-display text-xs font-bold uppercase tracking-wider">🗓️ Рабочие дни и статусы</span>
+            <span className="flex items-center gap-2 font-display text-xs font-bold uppercase tracking-wider text-foreground">
+              <CalendarDays className="w-4 h-4 text-primary" />
+              {lang === "ru" ? "Расписание дня" : "Day Schedule"}
+            </span>
             {showWorkSection
               ? <ChevronUp className="w-4 h-4 text-muted-foreground" />
               : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
@@ -383,13 +400,13 @@ export default function SettingsPage() {
               <div className="space-y-1 border-t border-border/50 pt-3">
                 <div className="font-display text-xs font-bold uppercase tracking-wider mb-1 text-muted-foreground">{t.settings.statuses}</div>
                 <div className="divide-y divide-border/50">
-                  <Row label={`😴 ${t.settings.sleep}`}    startVal={settings.sleepStart} endVal={settings.sleepEnd}
+                  <Row label={t.settings.sleep} icon={<Moon className="w-3.5 h-3.5 text-indigo-400" />} startVal={settings.sleepStart} endVal={settings.sleepEnd}
                     onStart={v => set("sleepStart", v)} onEnd={v => set("sleepEnd", v)} />
-                  <Row label={`💪 ${t.settings.work}`} startVal={settings.workStart}  endVal={settings.workEnd}
+                  <Row label={t.settings.work} icon={<Briefcase className="w-3.5 h-3.5 text-emerald-400" />} startVal={settings.workStart}  endVal={settings.workEnd}
                     onStart={v => set("workStart", v)}  onEnd={v => set("workEnd", v)} />
-                  <Row label={`☕ ${t.settings.rest}`}  startVal={settings.restStart}  endVal={settings.restEnd}
+                  <Row label={t.settings.rest} icon={<Coffee className="w-3.5 h-3.5 text-amber-400" />} startVal={settings.restStart}  endVal={settings.restEnd}
                     onStart={v => set("restStart", v)}  onEnd={v => set("restEnd", v)} />
-                  <Row label={`🌙 ${t.settings.evening}`}  startVal={settings.restEnd}  endVal={settings.sleepStart}
+                  <Row label={t.settings.evening} icon={<Sunset className="w-3.5 h-3.5 text-orange-400" />} startVal={settings.restEnd}  endVal={settings.sleepStart}
                     onStart={v => set("restEnd", v)}  onEnd={v => set("sleepStart", v)} />
                 </div>
               </div>
@@ -398,12 +415,15 @@ export default function SettingsPage() {
         </Card>
 
         {/* Торговые сессии (Сворачиваемый блок) */}
-        <Card className="p-3 border-card-border rounded-2xl">
+        <Card className="p-4 border-card-border rounded-2xl">
           <button
             className="w-full flex items-center justify-between"
             onClick={() => setShowSessions(s => !s)}
           >
-            <span className="font-display text-xs font-bold uppercase tracking-wider">📈 {t.settings.tradingSessions}</span>
+            <span className="flex items-center gap-2 font-display text-xs font-bold uppercase tracking-wider text-foreground">
+              <CandlestickChart className="w-4 h-4 text-primary" />
+              {t.settings.tradingSessions}
+            </span>
             {showSessions
               ? <ChevronUp className="w-4 h-4 text-muted-foreground" />
               : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
@@ -449,30 +469,38 @@ export default function SettingsPage() {
           )}
         </Card>
 
-        {/* Telegram Bot */}
-        <Card className="p-3 border-card-border rounded-2xl space-y-3">
-          <div className="flex items-center gap-2 mb-2">
+        {/* Интеграции: Telegram + Google Calendar */}
+        <Card className="p-4 border-card-border rounded-2xl space-y-4">
+          <div className="flex items-center gap-2 pb-2 border-b border-border/50">
             <Bot className="w-4 h-4 text-primary" />
-            <span className="font-display text-xs font-bold uppercase tracking-wider">
-              {lang === "ru" ? "Telegram Бот" : "Telegram Bot"}
+            <span className="font-display text-xs font-bold uppercase tracking-wider text-foreground">
+              {lang === "ru" ? "Интеграции" : "Integrations"}
             </span>
           </div>
-          
-          <div className="flex flex-col gap-2">
+
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-display font-bold uppercase tracking-wider text-muted-foreground">
+                {lang === "ru" ? "Telegram Бот" : "Telegram Bot"}
+              </span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#2AABEE]/10 text-[#2AABEE] border border-[#2AABEE]/30 font-semibold uppercase tracking-wider">
+                {lang === "ru" ? "Голосовой ассистент" : "Voice assistant"}
+              </span>
+            </div>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              {lang === "ru" 
+              {lang === "ru"
                 ? "Голосовой ИИ-ассистент: добавляйте задачи, заметки и цели голосовыми сообщениями прямо из Telegram."
                 : "Voice AI Assistant: add tasks, notes, and goals via voice messages directly from Telegram."}
             </p>
-            
+
             {telegramStatus?.linked ? (
               <div className="flex items-center justify-between mt-1">
                 <span className="text-xs text-emerald-400 font-medium">
                   {lang === "ru" ? "✅ Аккаунт привязан" : "✅ Account linked"}
                 </span>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="h-7 text-[10px] uppercase tracking-wider"
                   onClick={handleTelegramUnlink}
                   disabled={telegramLoading}
@@ -488,24 +516,20 @@ export default function SettingsPage() {
                 onClick={handleTelegramLink}
                 disabled={telegramLoading || telegramStatus === null}
               >
-                {telegramLoading 
-                  ? (lang === "ru" ? "Загрузка..." : "Loading...") 
+                {telegramLoading
+                  ? (lang === "ru" ? "Загрузка..." : "Loading...")
                   : (lang === "ru" ? "Подключить Telegram" : "Connect Telegram")}
               </Button>
             )}
           </div>
-        </Card>
 
-        {/* Google Calendar Integration */}
-        <Card className="p-3 border-card-border rounded-2xl space-y-3">
-          <div className="flex items-center gap-2 mb-2">
-            <CalendarDays className="w-4 h-4 text-primary" />
-            <span className="font-display text-xs font-bold uppercase tracking-wider">
-              {lang === "ru" ? "Google Календарь" : "Google Calendar"}
-            </span>
-          </div>
-
-          <div className="flex flex-col gap-2">
+          <div className="border-t border-border/50 pt-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <CalendarDays className="w-3.5 h-3.5 text-primary/70" />
+              <span className="text-xs font-display font-bold uppercase tracking-wider text-muted-foreground">
+                {lang === "ru" ? "Google Календарь" : "Google Calendar"}
+              </span>
+            </div>
             <p className="text-xs text-muted-foreground leading-relaxed">
               {lang === "ru"
                 ? "Автоматическая синхронизация задач с Google Календарём. Все задачи с датой и временем будут отображаться как события в вашем Google Calendar."

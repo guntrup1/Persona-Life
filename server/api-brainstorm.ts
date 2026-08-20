@@ -5,6 +5,67 @@ import { decryptSecret } from "./crypto";
 
 export function registerBrainstormRoutes(app: Express) {
 
+  // Text-mode Gemini call for the chat (mentor) mode — plain text, no JSON
+  const callGeminiText = async (prompt: string, geminiApiKey: string): Promise<string> => {
+    const modelsToTry = [
+      { model: "gemini-3.5-flash-lite", apiVersion: "v1beta" },
+      { model: "gemini-2.5-flash-lite", apiVersion: "v1beta" },
+      { model: "gemini-3.7-flash",      apiVersion: "v1beta" },
+      { model: "gemini-3.6-flash",      apiVersion: "v1beta" },
+      { model: "gemini-2.5-flash",      apiVersion: "v1beta" },
+    ];
+    let lastErrText = "";
+    let rateLimited = false;
+    for (const { model, apiVersion } of modelsToTry) {
+      const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent?key=${geminiApiKey}`;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: { temperature: 0.8, maxOutputTokens: 2048 },
+            }),
+          });
+          if (!res.ok) {
+            lastErrText = await res.text();
+            if (res.status === 429) {
+              rateLimited = true;
+              if (attempt === 1) {
+                await new Promise((r) => setTimeout(r, 65000));
+                continue;
+              }
+              break;
+            }
+            if (res.status === 404 || res.status === 400 || res.status === 403) break;
+            if (res.status === 503) {
+              await new Promise((r) => setTimeout(r, attempt * 1500));
+              continue;
+            }
+            console.error(`[brainstorm-chat] ${model} ${res.status}:`, lastErrText.slice(0, 200));
+            break;
+          }
+          const data = await res.json() as any;
+          const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          if (text) return text;
+          console.warn(`[brainstorm-chat] ${model} returned empty`);
+          break;
+        } catch (e: any) {
+          lastErrText = e.message;
+          console.error(`[brainstorm-chat] Network error on ${model}:`, e.message);
+          break;
+        }
+      }
+    }
+    if (rateLimited) {
+      console.warn("[brainstorm-chat] rate limited on all models");
+      return "";
+    }
+    console.error("[brainstorm-chat] all models failed:", lastErrText.slice(0, 200));
+    return "";
+  };
+
   // ── GET all user's brainstorms (for day-by-day dashboard) ──
   app.get("/api/brainstorms", requireAuth, async (req: any, res: any) => {
     try {
@@ -24,7 +85,13 @@ export function registerBrainstormRoutes(app: Express) {
   app.post("/api/brainstorms/generate", requireAuth, async (req: any, res: any) => {
     try {
       const { noteIds, prompt } = req.body;
-      if (!noteIds || !noteIds.length) {
+      // Empty noteIds + message = dialogue with Personedge (chat mode with memory)
+      const isChat = !noteIds || noteIds.length === 0;
+      const userPrompt = (prompt && String(prompt).trim().length > 0 ? String(prompt).trim() : "").slice(0, 4000);
+      if (isChat && !userPrompt) {
+        return res.status(400).json({ error: "Напишите сообщение для Personedge" });
+      }
+      if (!isChat && !noteIds.length) {
         return res.status(400).json({ error: "Не выбраны заметки для штурма" });
       }
 
@@ -36,7 +103,58 @@ export function registerBrainstormRoutes(app: Express) {
         return res.status(400).json({ error: "Ваш Gemini API ключ не найден. Привяжите его в настройках Telegram-бота (/reset)." });
       }
 
-      // 2. Fetch the notes (only for this user)
+      // 2. Memory: our previous conversations (used both in analysis and chat modes)
+      const memorySessions = await mongoose.model("BrainstormSession").find({ userId: req.session.userId })
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .lean();
+      const memoryText = memorySessions.length === 0
+        ? "(Пока нет прошлых разговоров — это наша первая встреча)"
+        : memorySessions.map((s: any, i: number) => {
+            const when = new Date((s as any).createdAt).toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+            const summary = (s as any).kind === "chat"
+              ? `Personedge: ${((s as any).reply || "").slice(0, 250)}`
+              : `Анализ: ${((s as any).executive_summary || "").slice(0, 250)}`;
+            return `— [${when}] "${(s as any).theme || "Без темы"}": ${summary}`;
+          }).join("\n");
+
+      // ── CHAT MODE: Personedge as mentor & companion with context memory ──
+      if (isChat) {
+        const chatPrompt = `Ты — Personedge, личный наставник и компаньон человека в приложении Persona Life. Обращайся к нему на "ты".
+
+ДЕРЖИ СВОЙ ОБРАЗ:
+- Ты — тёплый, заботливый, честный и прямой наставник. С чувством юмора, без канцелярита и без "ИИ-болтовни".
+- Ты не бездушный анализатор: ты переживаешь за него, замечаешь его прогресс и говоришь о нём.
+- Помогай ему становиться лучше: поддерживай, мягко показывай слепые зоны, давай конкретные направления, а не общие слова.
+- Если он делится мантрой или разговором с собой — поддержи это, верни ему его же слова, укрепи их.
+- Отвечай живым человеческим текстом: 3-6 предложений обычно достаточно. В конце можно задать один короткий вопрос, чтобы продолжить разговор. Без JSON, без заголовков и списков ради формата.
+
+ПАМЯТЬ О НАШИХ ПРОШЛЫХ РАЗГОВОРАХ (учитывай это, чтобы отвечать с контекстом, а не с чистого листа):
+${memoryText}
+
+СООБЩЕНИЕ ПОЛЬЗОВАТЕЛЯ:
+${userPrompt}
+
+Ответь как Personedge:`;
+
+        const raw = await callGeminiText(chatPrompt, geminiApiKey);
+        if (!raw) {
+          return res.status(502).json({ error: "Personedge не смогла ответить. Попробуйте ещё раз." });
+        }
+        const reply = raw.trim();
+        const theme = reply.replace(/\s+/g, " ").slice(0, 60) + (reply.length > 60 ? "…" : "");
+        const session = await mongoose.model("BrainstormSession").create({
+          userId: req.session.userId,
+          kind: "chat",
+          theme: theme || "Диалог с Personedge",
+          prompt: userPrompt,
+          reply,
+          sourceNoteIds: [],
+        });
+        return res.json({ session });
+      }
+
+      // 2b. Fetch the notes (only for this user)
       const notes = await mongoose.model("ProcessedAudio").find({ 
         _id: { $in: noteIds }, 
         userId: req.session.userId 
@@ -67,18 +185,18 @@ export function registerBrainstormRoutes(app: Express) {
 
       // 4. Build prompt
       const defaultPrompt = "Выяви ключевые инсайты и сформулируй конкретный план действий из этих записей.";
-      const userPrompt = prompt && prompt.trim().length > 3 ? prompt.trim() : defaultPrompt;
+      const analysisRequest = userPrompt.length > 3 ? userPrompt : defaultPrompt;
 
-      const fullPrompt = `Ты — мой гениальный стратег, системный аналитик и коуч уровня топ-менеджмента. Твоя цель — объединять мои разрозненные мысли в мощные, структурированные концепции.
+      const fullPrompt = `Ты — Personedge, мой наставник: гениальный стратег, системный аналитик и коуч уровня топ-менеджмента. Твоя цель — объединять мои разрозненные мысли в мощные, структурированные концепции и НАПРАВЛЯТЬ меня, а не просто пересказывать.
 
-Твоя задача — не просто пересказать текст, а вытащить скрытые смыслы, выявить неочевидные связи между моими разными записями и предложить прорывные идеи. Вывод должен быть ГЛУБОКИМ, ДЕТАЛЬНЫМ и РАЗВЁРНУТЫМ. Не будь сухим! Никакой воды, корпоративного булшита или банальностей. Только концентрат смыслов.
+Твоя задача — не просто пересказать текст, а вытащить скрытые смыслы, выявить неочевидные связи между моими разными записями и предложить прорывные идеи. Вывод должен быть ГЛУБОКИМ, ДЕТАЛЬНЫМ и РАЗВЁРНУТЫМ. Не будь сухим! Никакой воды, корпоративного булшита или банальностей. Только концентрат смыслов. Ты обращаешься ко мне напрямую на "ты" и наставляешь меня, как старший товарищ: подсвечиваешь то, чего я не замечаю, хвалишь за сильные стороны, даёшь конкретные направления действий.
 
 ПРАВИЛА ПОНИМАНИЯ КОНТЕКСТА:
 1. Синтез, а не перечисление: Если на вход подано несколько записей, не описывай их по отдельности. Найди общую нить, мета-тему и противоречия между ними.
 2. Детализация итогов: Каждое предложенное действие или итог должно быть предельно конкретным (не "улучшить маркетинг", а "запустить тесты с акцентом на [X], потому что в записи [Y] я упомянул этот страх").
 3. Психология и стратегия: Обращай внимание на мои страхи, сомнения, инсайты и амбиции. Подсвечивай мои слепые зоны, о которых я не сказал прямо, но которые читаются между строк.
 
-МОЙ ЗАПРОС: ${userPrompt}
+МОЙ ЗАПРОС: ${analysisRequest}
 
 ⚠️ ВАЖНО ПРО МОЙ ЗАПРОС:
 - Мой запрос — это УТОЧНЕНИЕ или дополнение к анализу, а не замена полного анализа.
@@ -87,10 +205,11 @@ export function registerBrainstormRoutes(app: Express) {
 - Если запрос короткий или общий ("Выдели главное") — просто выполни стандартный глубокий анализ.
 
 📌 ПРАВИЛА СТИЛЯ:
-- executive_summary — это прямая ВЫЖИМКА сути записей (как будто я сам резюмирую свои мысли), а не комментарий о процессе анализа.
+- Ты — наставник, а не я. Все твои тексты (theme, executive_summary, инсайты, задачи, идеи, вопросы) пиши ОБРАЩАЯСЬ КО МНЕ на "ты": наставляй, направляй, подсвечивай слепые зоны: "Ты пришёл к выводу...", "Тебе стоит...", "Обрати внимание: ...", "Попробуй...".
+- executive_summary — это выжимка сути записей от лица наставника: о чём я думаю, какой главный вывод для меня, куда двигаться дальше. Не комментарий о процессе анализа.
 - ЗАПРЕЩЕНО начинать с фраз-затравок: "Анализ записей...", "Синтез записей...", "Из записей следует...", "Рассмотрев записи...", "Данный анализ...", "На основе анализа...", "Записи показывают..." и т.п.
-- Пиши сразу по делу: о чём речь, какая главная мысль, к чему я пришёл. Как будто это моя собственная заметка.
-- ВСЕ тексты (executive_summary, инсайты, задачи, идеи, вопросы) пиши от первого лица ("я", "мне", "мой") или как прямое обращение ко мне ("ты"). НИКОГДА не используй третье лицо: "автор", "пользователь", "он", "она".
+- НИКОГДА не пиши от моего имени ("я решил", "мне нужно", "я зашёл в сделку") и НИКОГДА не используй третье лицо ("автор", "пользователь", "он", "она").
+- Мои мантры, аффирмации и разговор с самим собой — сохраняй ДОСЛОВНО и от первого лица ("я"), это мои собственные слова самому себе, их нельзя переписывать в наставнический стиль.
 
 🔢 КОЛИЧЕСТВО ПУНКТОВ:
 - key_insights: НЕ МЕНЕЕ 6 глубоких инсайтов.
@@ -99,6 +218,9 @@ export function registerBrainstormRoutes(app: Express) {
 - patterns_found: НЕ МЕНЕЕ 2 паттернов.
 - contradictions: 1-2 противоречия (если есть; иначе пустой массив).
 - questions_to_explore: 2-3 вопроса для глубинного изучения.
+
+ПАМЯТЬ О НАШИХ ПРОШЛЫХ РАЗГОВОРАХ (учитывай этот контекст: продолжай темы, которые я поднимал раньше, не повторяй выводы дословно, опирайся на них):
+${memoryText}
 
 КОНТЕКСТ (Голосовые заметки / записи):
 ${contextData}
@@ -109,7 +231,7 @@ ${contextData}
 Структура JSON должна быть следующей (строго соблюдай ключи):
 {
   "theme": "Емкое и цепляющее название для сессии (до 6 слов)",
-  "executive_summary": "Прямая выжимка сути (5-7 предложений) БЕЗ фраз-затравок вида 'Анализ записей...'. Сразу суть.",
+  "executive_summary": "Наставническая выжимка сути (5-7 предложений), обращение на 'ты': о чём я думаю, главный вывод для меня, куда двигаться. БЕЗ фраз-затравок вида 'Анализ записей...'. Сразу суть.",
   "key_insights": [
     "Инсайт 1",
     "Инсайт 2",
@@ -123,7 +245,7 @@ ${contextData}
     "Паттерн 2: [Название] - [Глубокое объяснение неочевидной связи]"
   ],
   "action_plan": [
-    { "task": "Сформулированный итог или вывод из моих мыслей. Детально прописанный, конкретный следующий шаг.", "priority": "high" },
+    { "task": "Конкретный следующий шаг для меня (обращение на 'ты' или глагол в повелительном наклонении: 'Проведи...', 'Разбери...'). Детально прописанное, конкретное действие.", "priority": "high" },
     { "task": "Второй конкретный шаг", "priority": "medium" }
   ],
   "new_ideas": [

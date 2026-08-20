@@ -57,7 +57,7 @@ function formatFullDate(dateStr: string, lang: string): { weekday: string; full:
   }
 }
 
-function convertNewsTime(timeStr: string, utcOffset: number): string {
+export function convertNewsTime(timeStr: string, utcOffset: number): string {
   if (!timeStr) return timeStr;
   const match = timeStr.match(/^(\d{1,2}):(\d{2})(am|pm)$/i);
   if (!match) return timeStr;
@@ -69,8 +69,8 @@ function convertNewsTime(timeStr: string, utcOffset: number): string {
   if (ampm === "pm" && h < 12) h += 12;
   if (ampm === "am" && h === 12) h = 0;
 
-  // Время новостей хранится в UTC+1, конвертируем в UTC пользователя
-  h = h - 1 + utcOffset;
+  // Время новостей в XML — UTC, конвертируем в часовой пояс пользователя
+  h = h + utcOffset;
   let dayDelta = 0;
   if (h >= 24) { h -= 24; dayDelta = 1; }
   if (h < 0) { h += 24; dayDelta = -1; }

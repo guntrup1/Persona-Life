@@ -24,9 +24,10 @@ import SettingsPage from "@/pages/settings";
 import VerifyEmailPage from "@/pages/verify-email";
 import TimerPipPage from "@/pages/timer-pip";
 import BrainstormPage from "@/pages/brainstorm";
+import { convertNewsTime } from "@/pages/news";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { I18nProvider, useI18n, LangToggle } from "@/lib/i18n";
-import { loadFromServerData, useStore, getTodayDate, syncFromServer, onSyncResult, type NoteType } from "@/lib/store";
+import { loadFromServerData, useStore, getTodayDate, syncFromServer, onSyncResult, loadUserSettings, type NoteType } from "@/lib/store";
 import { getUrgentGoalNotifications } from "@/lib/goal-notifications";
 import { useCallback, useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
@@ -192,9 +193,14 @@ function SyncButton() {
 
 function NewsIndicator() {
   const { t, lang } = useI18n();
+  const utcOffset = loadUserSettings().utcOffset;
   const { data: newsData } = useQuery<{ items: { title: string; currency: string; impact: string; time: string; day: string }[]; todayStr: string; nextStr: string }>({
-    queryKey: ["/api/news"],
-    staleTime: Infinity,
+    queryKey: ["/api/news", utcOffset],
+    queryFn: async () => {
+      const res = await fetch(`/api/news?utcOffset=${utcOffset}`, { credentials: "include" });
+      return res.json();
+    },
+    staleTime: 30 * 60 * 1000,
     select: (raw: unknown) => {
       if (Array.isArray(raw)) return { items: raw as { title: string; currency: string; impact: string; time: string; day: string }[], todayStr: "", nextStr: "" };
       return raw as { items: { title: string; currency: string; impact: string; time: string; day: string }[]; todayStr: string; nextStr: string };
@@ -207,7 +213,7 @@ function NewsIndicator() {
 
   const formatNextDate = (dateStr: string) => {
     if (!dateStr) return "";
-    const d = new Date(dateStr + "T00:00:00");
+    const d = new Date(dateStr + "T12:00:00Z");
     return d.toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", { day: "numeric", month: "short" });
   };
 
@@ -222,7 +228,7 @@ function NewsIndicator() {
           <div className="hidden sm:flex items-center gap-1.5 overflow-hidden">
             {todayHighNews.slice(0, 2).map((n, i) => (
               <span key={i} className="font-mono text-[10px] text-muted-foreground whitespace-nowrap truncate max-w-[120px]">
-                {n.time} {n.currency}
+                {convertNewsTime(n.time, utcOffset)} {n.currency}
               </span>
             ))}
             {todayHighNews.length > 2 && <span className="font-mono text-[10px] text-muted-foreground">+{todayHighNews.length - 2}</span>}

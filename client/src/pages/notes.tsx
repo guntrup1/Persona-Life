@@ -501,12 +501,10 @@ export default function NotesPage() {
                       {directionBadge(bias.direction)}
                     </div>
                     <div className="flex items-center gap-1">
-                      {bias.date === today && (
-                        <AddBiasDialog
-                          onAdd={(updates) => actions.updateDailyBias(bias.id, updates)}
-                          editBias={bias}
-                        />
-                      )}
+                      <AddBiasDialog
+                        onAdd={(updates) => actions.updateDailyBias(bias.id, updates)}
+                        editBias={bias}
+                      />
                       <Button
                         size="icon"
                         variant="ghost"
@@ -652,12 +650,10 @@ export default function NotesPage() {
                       )}
                     </div>
                     <div className="flex items-center gap-1">
-                      {note.date === today && (
-                        <AddNoteDialog
-                          onAdd={(updates) => actions.updateTradingNote(note.id, updates)}
-                          editNote={note}
-                        />
-                      )}
+                      <AddNoteDialog
+                        onAdd={(updates) => actions.updateTradingNote(note.id, updates)}
+                        editNote={note}
+                      />
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button size="icon" variant="ghost" className="flex-shrink-0" data-testid={`note-delete-${note.id}`}>
@@ -778,6 +774,11 @@ function TradingIdeasSection() {
                 </p>
               </div>
               <div className="flex items-center gap-1 flex-shrink-0">
+                <AddNoteDialog
+                  onAdd={(updates) => actions.updateTradingNote(idea.id, updates)}
+                  editNote={idea}
+                  testId={`trading-idea-edit-${idea.id}`}
+                />
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button

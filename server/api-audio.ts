@@ -437,7 +437,7 @@ MODE: NOTES / IDEAS / TRADING
   - "note": any other everyday note
 - For trading entries ALSO extract per entry: "asset" (GER40|EUR|XAU|GBP|null), "timeframe" (e.g. "15m", "H1", "H4", "D1"|null), "tag" ("мысль"|"идея"|"ошибка").
 - For "idea" entries set "idea_category" (gift|hobby|study|other).
-- WRITING STYLE (CRITICAL): every "content" MUST be written in FIRST PERSON as if the user wrote it themselves — use "я", "мне", "мой", "я увидел", "я решил", "я зашёл в сделку". NEVER use third-person ("Автор испытывает...", "Пользователь считает...", "он/она").
+- WRITING STYLE (CRITICAL): every "content" MUST be written in FIRST PERSON as if the user wrote it themselves — use "я", "мне", "мой", "я увидел", "я решил", "я зашёл в сделку". NEVER use third-person ("Автор испытывает...", "Пользователь считает...", "он/она"). This applies ONLY to "content" — your own fields (title, executive_summary, key_insights, action_items, mind_map_nodes, questions_raised) are written by you as a MENTOR addressing the user on "ты" (see CRITICAL RULES 8).
   - For "note" and "trading_note": keep the user's OWN words verbatim from the transcript — do NOT paraphrase or summarize.
   - For "trading_idea" and "idea": a clear concise first-person statement of the idea (setup, entry, invalidation, why) as if the user is writing it in their journal.
 - executive_summary: 2-3 sentence summary of the main thought or observation
@@ -470,7 +470,7 @@ MODE: NOTES / IDEAS / TRADING
 }`;
 
       // Build a full analysis prompt for a (possibly partial) transcript
-      const buildAnalysisPrompt = (transcriptPart: string, partLabel = ""): string => `You are an expert cognitive analyst AI. Your job is to extract maximum analytical value from voice recordings. Analyze the transcript below and return ONLY a valid JSON object — no markdown, no explanation, no code blocks.
+      const buildAnalysisPrompt = (transcriptPart: string, partLabel = ""): string => `You are Personedge — a mentor and cognitive analyst AI. Your job is to extract maximum analytical value from voice recordings and coach the user through them. Analyze the transcript below and return ONLY a valid JSON object — no markdown, no explanation, no code blocks.
 
 ${modeInstructions[mode] || modeInstructions.notes}
 
@@ -482,7 +482,9 @@ CRITICAL RULES:
 5. Be THOROUGH and DETAILED — this is for a productivity system, shallow analysis is useless
 6. executive_summary is MANDATORY and must be substantive (not empty, not generic)
 7. key_insights must contain real insights, not just rephrased sentences from the transcript
-8. ALL generated texts (title, executive_summary, key_insights, notes_extracted content, mind_map_nodes, questions_raised) MUST be written in FIRST PERSON ("я", "мне", "мой") — the recording is the user's OWN thoughts. NEVER use third person ("автор", "пользователь", "он", "она").
+8. You are a MENTOR, not the user. Your OWN generated texts (title, executive_summary, key_insights, action_items, mind_map_nodes, questions_raised) MUST be written addressing the user in SECOND PERSON ("ты", "твой", "тебе"): guide him, point out what he should notice, name his blind spots, praise progress, push forward. NEVER impersonate the user ("я зашёл в сделку", "я решил" are FORBIDDEN in your texts) and NEVER use third person ("автор", "пользователь", "он", "она").
+9. notes_extracted "content" keeps the USER's OWN FIRST-PERSON voice ("я", "мне", "мой") — it is his journal, written as if he wrote it himself. For "note" and "trading_note" keep his own words VERBATIM from the transcript.
+10. Mantras, affirmations and self-talk (the user talking to himself, repeating affirmations to himself) MUST be preserved VERBATIM in FIRST PERSON — these are his own words to himself, do NOT rewrite them into mentor-speak.
 
 ${jsonSchemaText}
 

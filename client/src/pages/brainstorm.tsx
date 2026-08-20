@@ -10,9 +10,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Sparkles, Brain, Loader2, ArrowRight, Save, Copy, Trash2,
-  Calendar, Paperclip, X, History, Lightbulb, ListChecks, ArrowUp
+  Calendar, Paperclip, X, History, Lightbulb, ListChecks, ArrowUp, ChevronDown
 } from "lucide-react";
-import { useStore, getTodayDate } from "@/lib/store";
+import { useStore, getTodayDate, formatUserClock } from "@/lib/store";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -25,6 +25,8 @@ interface BrainstormSession {
   key_insights?: string[];
   action_items?: Array<{ task: string; priority?: string }>;
   newIdeas?: string[];
+  reply?: string;
+  kind?: string;
   createdAt: string;
   sourceNoteIds: any[];
 }
@@ -65,14 +67,14 @@ function getDateKey(dateStr: string) {
 function RichResponseCard({
   session,
   onExportIdea,
-  onExportTask,
+  onExportTaskTo,
   onExportInsight,
   onCopy,
   onDelete,
 }: {
   session: BrainstormSession;
   onExportIdea: (idea: string) => void;
-  onExportTask: (task: string) => void;
+  onExportTaskTo: (task: string, target: "task" | "trading-note" | "trading-idea") => void;
   onExportInsight: (insight: string) => void;
   onCopy: (text: string) => void;
   onDelete: (id: string) => void;
@@ -133,9 +135,16 @@ function RichResponseCard({
             </div>
           </div>
 
+          {/* Chat reply (mentor mode) */}
+          {session.kind === "chat" ? (
+            <div className="bg-white/[0.03] border border-amber-500/15 rounded-xl p-4 sm:p-5 text-sm text-white/85 leading-relaxed whitespace-pre-wrap border-l-4 border-l-amber-500/70">
+              {session.reply}
+            </div>
+          ) : (
+            <>
           {/* Executive Summary (Краткая выжимка) */}
           {session.executive_summary && (
-            <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-white/80 leading-relaxed italic border-l-4 border-l-indigo-500">
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-white/80 leading-relaxed italic border-l-4 border-l-amber-500">
               {session.executive_summary}
             </div>
           )}
@@ -143,20 +152,20 @@ function RichResponseCard({
           {/* Key Insights (Ключевые инсайты) */}
           {(session.key_insights?.length ?? 0) > 0 && (
             <div className="space-y-3">
-              <div className="flex items-center gap-2 text-purple-400">
+              <div className="flex items-center gap-2 text-amber-400">
                 <Brain className="w-4 h-4" />
                 <h4 className="text-sm font-semibold uppercase tracking-wider">Ключевые инсайты</h4>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {(session.key_insights ?? []).map((insight, idx) => (
-                  <div key={idx} className="bg-gradient-to-br from-purple-500/10 to-transparent border border-purple-500/20 p-4 rounded-xl text-sm text-purple-100/80 leading-relaxed relative overflow-hidden group/insight">
-                    <div className="absolute top-0 left-0 w-1 h-full bg-purple-500/50" />
+                  <div key={idx} className="bg-gradient-to-br from-amber-500/10 to-transparent border border-amber-500/20 p-4 rounded-xl text-sm text-amber-100/80 leading-relaxed relative overflow-hidden group/insight">
+                    <div className="absolute top-0 left-0 w-1 h-full bg-amber-500/50" />
                     {insight}
                     <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover/insight:opacity-100 transition-opacity bg-[#121212]/80 backdrop-blur-md rounded-md px-1 py-0.5">
                       <Button onClick={() => onCopy(insight)} size="icon" variant="ghost" className="h-6 w-6 text-white/50 hover:text-white hover:bg-white/10">
                         <Copy className="w-3 h-3" />
                       </Button>
-                      <Button onClick={() => onExportInsight(insight)} size="icon" variant="ghost" className="h-6 w-6 text-purple-400/70 hover:text-purple-400 hover:bg-purple-400/10">
+                      <Button onClick={() => onExportInsight(insight)} size="icon" variant="ghost" className="h-6 w-6 text-amber-400/70 hover:text-amber-400 hover:bg-amber-400/10">
                         <Save className="w-3 h-3" />
                       </Button>
                     </div>
@@ -194,7 +203,7 @@ function RichResponseCard({
           {/* Action Plan */}
           {(session.action_items?.length ?? 0) > 0 && (
             <div className="space-y-3">
-              <div className="flex items-center gap-2 text-indigo-400">
+              <div className="flex items-center gap-2 text-amber-400">
                 <ListChecks className="w-4 h-4" />
                 <h4 className="text-sm font-semibold uppercase tracking-wider">План действий</h4>
               </div>
@@ -202,15 +211,30 @@ function RichResponseCard({
                 {(session.action_items ?? []).map((step, idx) => (
                   <div key={idx} className="flex items-start justify-between gap-3 bg-white/[0.02] border border-white/[0.05] p-3 rounded-xl hover:bg-white/[0.04] transition-colors group/task">
                     <div className="flex items-start gap-3">
-                      <Checkbox id={`step-${session._id}-${idx}`} className="mt-0.5 border-white/20 data-[state=checked]:bg-indigo-500" />
+                      <Checkbox id={`step-${session._id}-${idx}`} className="mt-0.5 border-white/20 data-[state=checked]:bg-amber-500" />
                       <label htmlFor={`step-${session._id}-${idx}`} className="text-sm text-white/80 leading-snug cursor-pointer select-none">
                         <span className="font-semibold text-white/50 mr-2">{idx + 1}.</span>
                         {step.task}
                       </label>
                     </div>
-                    <Button onClick={() => onExportTask(step.task)} size="icon" variant="ghost" className="h-7 w-7 text-indigo-400/70 hover:text-indigo-400 hover:bg-indigo-400/10 opacity-0 group-hover/task:opacity-100 transition-opacity flex-shrink-0">
-                      <Save className="w-3.5 h-3.5" />
-                    </Button>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-amber-400/70 hover:text-amber-400 hover:bg-amber-400/10 opacity-0 group-hover/task:opacity-100 transition-opacity flex-shrink-0" title="Сохранить">
+                          <Save className="w-3.5 h-3.5" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent align="end" side="left" className="w-48 p-1 bg-[#1C1C1E] border-white/10 text-white rounded-xl z-50">
+                        <button onClick={() => onExportTaskTo(step.task, "task")} className="w-full text-left text-xs px-2.5 py-2 rounded-lg hover:bg-white/10 transition-colors">
+                          📋 В задачи на день
+                        </button>
+                        <button onClick={() => onExportTaskTo(step.task, "trading-note")} className="w-full text-left text-xs px-2.5 py-2 rounded-lg hover:bg-white/10 transition-colors">
+                          📝 В торговые заметки
+                        </button>
+                        <button onClick={() => onExportTaskTo(step.task, "trading-idea")} className="w-full text-left text-xs px-2.5 py-2 rounded-lg hover:bg-white/10 transition-colors">
+                          💡 В торговые идеи
+                        </button>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 ))}
               </div>
@@ -218,8 +242,10 @@ function RichResponseCard({
           )}
           
           <div className="text-[10px] text-white/30 text-right pt-2 border-t border-white/5">
-            {new Date(session.createdAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
+            {formatUserClock(session.createdAt, "ru")}
           </div>
+            </>
+          )}
         </Card>
       </div>
     </div>
@@ -242,6 +268,7 @@ export default function BrainstormPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [loadingNotes, setLoadingNotes] = useState(true);
   const [loadingSessions, setLoadingSessions] = useState(true);
+  const [presetsOpen, setPresetsOpen] = useState(true);
   
   const feedRef = useRef<HTMLDivElement>(null);
   // Map of session._id -> DOM element for anchor navigation
@@ -324,7 +351,7 @@ export default function BrainstormPage() {
         el.scrollIntoView({ behavior: "smooth", block: "start" });
         // Flash highlight
         el.style.transition = "box-shadow 0.3s ease";
-        el.style.boxShadow = "0 0 0 2px rgba(99, 102, 241, 0.5)";
+        el.style.boxShadow = "0 0 0 2px rgba(245, 158, 11, 0.5)";
         setTimeout(() => { if (el) el.style.boxShadow = ""; }, 1500);
       }
     }, 300);
@@ -360,7 +387,7 @@ export default function BrainstormPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Ошибка генерации");
 
-      toast({ title: "✅ Брейн-шторм завершен!" });
+      toast({ title: selectedNotes.size === 0 ? "✅ Personedge ответила" : "✅ Брейн-шторм завершен!" });
       // Keep the selected note(s) as working context — user clears them manually
       // (tap ✕ on a chip) once the work with that note is done.
 
@@ -380,16 +407,32 @@ export default function BrainstormPage() {
     toast({ title: "💡 Идея сохранена!" });
   };
 
-  const handleExportTask = (task: string) => {
-    actions.addTodayTask({ 
-      name: task, 
-      type: "today", 
-      date: getTodayDate(), 
-      difficulty: "medium", 
-      category: "Mind", 
-      xp: 25
+  const handleExportTask = (task: string, target: "task" | "trading-note" | "trading-idea") => {
+    if (target === "task") {
+      actions.addTodayTask({
+        name: task,
+        type: "today",
+        date: getTodayDate(),
+        difficulty: "medium",
+        category: "Mind",
+        xp: 25
+      });
+      toast({ title: "✅ Задача добавлена в план на сегодня!" });
+      return;
+    }
+    const now = new Date();
+    const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    actions.addTradingNote({
+      title: task.length > 60 ? task.slice(0, 60) + "…" : task,
+      time,
+      asset: "GER40",
+      timeframe: "H1",
+      tag: target === "trading-idea" ? "идея" : "мысль",
+      text: task,
+      date: getTodayDate(),
+      isTradingIdea: target === "trading-idea",
     });
-    toast({ title: "✅ Задача добавлена в план на сегодня!" });
+    toast({ title: target === "trading-idea" ? "💡 Торговая идея сохранена!" : "📝 Торговая заметка сохранена!" });
   };
 
   const handleExportInsight = (insight: string) => {
@@ -441,14 +484,14 @@ export default function BrainstormPage() {
     <div className="relative flex flex-col h-full bg-[#0A0A0A] text-white overflow-hidden">
       
       {/* Top Header */}
-      <div className="absolute top-0 inset-x-0 h-16 bg-[#0A0A0A]/80 backdrop-blur-md z-10 border-b border-white/5 flex items-center justify-between px-4 sm:px-6">
+      <div className="absolute top-0 inset-x-0 h-[calc(4rem+env(safe-area-inset-top))] bg-[#0A0A0A]/80 backdrop-blur-md z-10 border-b border-white/5 flex items-center justify-between px-4 sm:px-6 pt-[env(safe-area-inset-top)]">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center border border-white/10">
-            <Sparkles className="w-4 h-4 text-purple-400" />
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center border border-amber-500/15">
+            <Sparkles className="w-4 h-4 text-amber-400" />
           </div>
           <div>
-            <h1 className="text-lg font-display font-semibold tracking-tight leading-none mb-1">Brainstorm</h1>
-            <p className="text-[10px] text-white/50 uppercase tracking-widest font-semibold">Personedge</p>
+            <h1 className="text-lg font-display font-semibold tracking-tight leading-none mb-1">Personedge</h1>
+            <p className="text-[10px] text-white/50 uppercase tracking-widest font-semibold">Наставник · помнит контекст</p>
           </div>
         </div>
 
@@ -458,7 +501,7 @@ export default function BrainstormPage() {
             variant="ghost" 
             size="sm" 
             onClick={() => setShowOnlyToday(!showOnlyToday)}
-            className={`h-9 gap-2 rounded-xl transition-colors ${showOnlyToday ? "bg-indigo-500/20 text-indigo-400" : "text-white/60 hover:text-white hover:bg-white/10"}`}
+            className={`h-9 gap-2 rounded-xl transition-colors ${showOnlyToday ? "bg-amber-500/20 text-amber-400" : "text-white/60 hover:text-white hover:bg-white/10"}`}
           >
             <Calendar className="w-4 h-4" />
             <span className="hidden sm:inline">Сегодня</span>
@@ -490,12 +533,12 @@ export default function BrainstormPage() {
                         <div
                           key={session._id}
                           onClick={() => scrollToSession(session._id)}
-                          className="bg-[#1C1C1E] p-3 rounded-xl border border-white/5 cursor-pointer hover:bg-[#252528] hover:border-indigo-500/30 transition-all duration-200 group relative"
+                          className="bg-[#1C1C1E] p-3 rounded-xl border border-white/5 cursor-pointer hover:bg-[#252528] hover:border-amber-500/30 transition-all duration-200 group relative"
                         >
                           <div className="pr-8">
                             <p className="text-sm font-medium text-white/90 truncate group-hover:text-white transition-colors">{session.theme}</p>
                             <p className="text-xs text-white/40 mt-1 truncate">{session.prompt || "Авто-анализ"}</p>
-                            <p className="text-[10px] text-indigo-400/50 mt-1.5 font-medium">↗ Перейти к сессии</p>
+                            <p className="text-[10px] text-amber-400/60 mt-1.5 font-medium">↗ Перейти к сессии</p>
                           </div>
                           <button
                             onClick={(e) => { e.stopPropagation(); handleDelete(session._id); }}
@@ -528,13 +571,13 @@ export default function BrainstormPage() {
           </div>
         ) : sessions.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full max-w-md mx-auto text-center animate-in fade-in zoom-in duration-700">
-            <div className="w-20 h-20 rounded-full overflow-hidden flex items-center justify-center mb-6 relative ring-1 ring-purple-500/30">
+            <div className="w-20 h-20 rounded-full overflow-hidden flex items-center justify-center mb-6 relative ring-1 ring-amber-500/30">
               <img src="/favicon.png" alt="Personedge" className="w-full h-full object-cover" />
-              <div className="absolute inset-0 rounded-full border border-purple-500/20 animate-[ping_3s_ease-in-out_infinite]" />
+              <div className="absolute inset-0 rounded-full border border-amber-500/20 animate-[ping_3s_ease-in-out_infinite]" />
             </div>
-            <h2 className="text-2xl font-display font-semibold text-white/90 mb-2">Готов к идеям</h2>
+            <h2 className="text-2xl font-display font-semibold text-white/90 mb-2">Personedge рядом</h2>
             <p className="text-sm text-white/50 leading-relaxed">
-              Прикрепи голосовые заметки 📎 или просто задай вопрос — я разберу твои мысли и помогу стать лучше.
+              Я — твой наставник и компаньон. Я помню наши разговоры и твои мысли. Прикрепи голосовые заметки 📎 или просто напиши мне — разберёмся вместе.
             </p>
           </div>
         ) : (
@@ -551,7 +594,7 @@ export default function BrainstormPage() {
                 <RichResponseCard
                   session={session}
                   onExportIdea={handleExportIdea}
-                  onExportTask={handleExportTask}
+                  onExportTaskTo={handleExportTask}
                   onExportInsight={handleExportInsight}
                   onCopy={handleCopy}
                   onDelete={handleDelete}
@@ -561,12 +604,12 @@ export default function BrainstormPage() {
             {isGenerating && (
               <div className="flex justify-start w-full mt-6 mb-2 animate-in fade-in slide-in-from-bottom-4">
                 <div className="bg-[#1C1C1E] border border-white/5 rounded-2xl rounded-tl-sm px-6 py-5 shadow-md flex flex-col gap-4 w-full max-w-sm ml-0 sm:ml-7 relative">
-                  <div className="absolute -left-10 top-0 w-7 h-7 rounded-full overflow-hidden border border-white/10 shadow-lg shadow-purple-500/10 hidden sm:flex">
+                  <div className="absolute -left-10 top-0 w-7 h-7 rounded-full overflow-hidden border border-white/10 shadow-lg shadow-amber-500/10 hidden sm:flex">
                      <img src="/favicon.png" alt="Personedge" className="w-full h-full object-cover animate-pulse" />
                   </div>
                   <div className="flex items-center gap-3">
-                    <Loader2 className="w-5 h-5 animate-spin text-purple-400" />
-                    <p className="text-sm font-medium text-white/80">Personedge анализирует контекст...</p>
+                    <Loader2 className="w-5 h-5 animate-spin text-amber-400" />
+                    <p className="text-sm font-medium text-white/80">Personedge думает над твоими мыслями...</p>
                   </div>
                   <div className="space-y-2.5 w-full">
                     <div className="h-2 bg-white/5 rounded-full w-full animate-pulse" />
@@ -581,11 +624,22 @@ export default function BrainstormPage() {
       </div>
 
       {/* Bottom Fixed Prompt Area */}
-      <div className="absolute bottom-0 inset-x-0 p-4 md:p-6 bg-gradient-to-t from-[#0A0A0A] via-[#0A0A0A] to-transparent pt-20">
+      <div className="absolute bottom-0 inset-x-0 p-4 md:p-6 pt-20 bg-gradient-to-t from-[#0A0A0A] via-[#0A0A0A] to-transparent" style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom))" }}>
         <div className="max-w-4xl mx-auto flex flex-col gap-3">
           
-          {/* Presets Grid (hides when typing) */}
-          <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5 overflow-hidden transition-all duration-300 ${prompt.length > 0 ? 'opacity-0 translate-y-2 pointer-events-none max-h-0' : 'opacity-100 translate-y-0 max-h-40'}`}>
+          {/* Presets Grid (collapsible, hides when typing) */}
+          <div className="flex items-center justify-between px-1">
+            <button
+              onClick={() => setPresetsOpen(o => !o)}
+              className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-white/40 hover:text-white/70 transition-colors"
+              title={presetsOpen ? "Скрыть шаблоны" : "Показать шаблоны"}
+            >
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${presetsOpen ? "" : "-rotate-90"}`} />
+              Шаблоны запросов
+            </button>
+            {presetsOpen && <span className="text-[10px] text-white/20">10</span>}
+          </div>
+          <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5 overflow-hidden transition-all duration-300 ${presetsOpen && prompt.length === 0 ? 'opacity-100 translate-y-0 max-h-40' : 'opacity-0 translate-y-2 pointer-events-none max-h-0'}`}>
             {PRESETS.map(preset => (
               <button
                 key={preset.label}
@@ -604,7 +658,7 @@ export default function BrainstormPage() {
                 const note = notes.find(n => n._id === noteId);
                 const title = getNoteTitle(note);
                 return (
-                  <div key={noteId} className="flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-300 backdrop-blur-md animate-in zoom-in-95 duration-200">
+                  <div key={noteId} className="flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 backdrop-blur-md animate-in zoom-in-95 duration-200">
                     <Paperclip className="w-3 h-3 opacity-70" />
                     <span className="truncate max-w-[150px] font-medium">{title}</span>
                     <button onClick={() => toggleNote(noteId)} className="w-5 h-5 rounded-full hover:bg-white/10 flex items-center justify-center transition-colors">
@@ -662,13 +716,13 @@ export default function BrainstormPage() {
                         <div
                           key={note._id}
                           className={`flex items-start gap-3 p-2.5 rounded-xl transition-colors group/note ${
-                            selectedNotes.has(note._id) ? "bg-indigo-500/10" : "hover:bg-white/5"
+                            selectedNotes.has(note._id) ? "bg-amber-500/10" : "hover:bg-white/5"
                           }`}
                         >
                           <Checkbox
                             checked={selectedNotes.has(note._id)}
                             onCheckedChange={() => toggleNote(note._id)}
-                            className="mt-0.5 border-white/20 data-[state=checked]:bg-indigo-500 flex-shrink-0 cursor-pointer"
+                            className="mt-0.5 border-white/20 data-[state=checked]:bg-amber-500 flex-shrink-0 cursor-pointer"
                           />
                           <div className="flex-1 min-w-0 cursor-pointer" onClick={() => toggleNote(note._id)}>
                             <p className="text-sm font-medium text-white/85 leading-snug whitespace-normal break-words">
@@ -710,7 +764,7 @@ export default function BrainstormPage() {
 
             {/* Text Input */}
             <Input
-              placeholder="Что сделать с заметками? Например: «Составь план на неделю» или свой запрос..."
+              placeholder="Напиши мне — я помню наши разговоры. Или прикрепи заметки 📎…"
               value={prompt}
               onChange={e => setPrompt(e.target.value)}
               onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleGenerate()}
@@ -725,7 +779,7 @@ export default function BrainstormPage() {
               size="icon"
               className={`w-10 h-10 rounded-full flex-shrink-0 transition-all duration-300 ${
                 prompt.trim() || selectedNotes.size > 0 
-                  ? "bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white shadow-lg shadow-purple-500/25" 
+                  ? "bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white shadow-lg shadow-amber-500/25" 
                   : "bg-white/5 text-white/20 hover:bg-white/5 cursor-not-allowed"
               }`}
             >

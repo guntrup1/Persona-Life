@@ -487,6 +487,19 @@ export function getUserTime(): Date {
   return new Date(utc + settings.utcOffset * 3600000);
 }
 
+// Форматирует ISO-момент времени (UTC) в часы:минуты по часовому поясу пользователя
+export function formatUserClock(iso: string, lang = "ru"): string {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    const utc = d.getTime() + d.getTimezoneOffset() * 60000;
+    const t = new Date(utc + loadUserSettings().utcOffset * 3600000);
+    return t.toLocaleTimeString(lang === "ru" ? "ru-RU" : "en-US", { hour: "2-digit", minute: "2-digit" });
+  } catch {
+    return "";
+  }
+}
+
 export function getCharacterState(): { state: string; label: string; emoji: string } {
   const settings = loadUserSettings();
   const hour = getUserTime().getHours();

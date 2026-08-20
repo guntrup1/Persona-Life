@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { ChevronLeft, ChevronRight, Plus, Hourglass, CheckCircle, Circle, ArrowUpCircle, ArrowDownCircle, MinusCircle, FileText, CandlestickChart, Edit2, CalendarDays, Brain } from "lucide-react";
-import { getTodayDate } from "@/lib/store";
+import { getTodayDate, formatUserClock } from "@/lib/store";
 import { Link } from "wouter";
 
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
@@ -30,6 +30,53 @@ function getFirstDayOfMonth(year: number, month: number): number {
 
 function formatDate(year: number, month: number, day: number): string {
   return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function MoveTaskDialog({ task, open, onOpenChange, onMove }: {
+  task: TodayTask | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onMove: (taskId: string, date: string) => void;
+}) {
+  const { t } = useI18n();
+  const [date, setDate] = useState<string>(getTodayDate());
+
+  useEffect(() => {
+    if (task) setDate(task.date || getTodayDate());
+  }, [task]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="font-display flex items-center gap-2">
+            <CalendarDays className="w-4 h-4 text-primary" />
+            Перенести задачу
+          </DialogTitle>
+        </DialogHeader>
+        {task && (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              «{task.name}» — выберите новую дату
+            </p>
+            <div className="space-y-1.5">
+              <Label>Новая дата</Label>
+              <Input type="date" value={date} onChange={e => setDate(e.target.value)} data-testid="input-move-date" />
+            </div>
+            <Button
+              className="w-full"
+              onClick={() => {
+                if (date) onMove(task.id, date);
+                onOpenChange(false);
+              }}
+            >
+              Перенести
+            </Button>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 export default function CalendarPage() {
@@ -52,6 +99,8 @@ export default function CalendarPage() {
   const [addToGoogleCalendar, setAddToGoogleCalendar] = useState(false);
 
   const [editingTask, setEditingTask] = useState<TodayTask | null>(null);
+  const [moveTask, setMoveTask] = useState<TodayTask | null>(null);
+  const [moveDate, setMoveDate] = useState<string>(getTodayDate());
 
   const [brainstormSessions, setBrainstormSessions] = useState<any[]>([]);
 
@@ -417,7 +466,10 @@ export default function CalendarPage() {
                             <span className="font-mono text-xs text-primary">+{task.xp}</span>
                             {!isPast && (
                               <div className="flex gap-1 ml-1">
-                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleEditTask(task)}>
+                                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setMoveDate(task.date || selectedDate); setMoveTask(task); }} title="Перенести">
+                                  <CalendarDays className="w-3 h-3" />
+                                </Button>
+                                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleEditTask(task)}>
                                   <Edit2 className="w-3 h-3" />
                                 </Button>
                                 <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => actions.deleteTask(task.id)}>
@@ -581,6 +633,14 @@ export default function CalendarPage() {
                         {task.name}
                       </span>
                       <span className="font-mono text-xs text-primary flex-shrink-0">+{task.xp}</span>
+                      <div className="flex items-center gap-0.5 flex-shrink-0">
+                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { setMoveDate(task.date || selectedDate); setMoveTask(task); }} title="Перенести">
+                          <CalendarDays className="w-3 h-3 text-muted-foreground" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => actions.deleteTask(task.id)} title="Удалить">
+                          <MinusCircle className="w-3 h-3" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -648,6 +708,13 @@ export default function CalendarPage() {
             )}
           </div>
         </div>
+
+        <MoveTaskDialog
+          task={moveTask}
+          open={!!moveTask}
+          onOpenChange={(open) => { if (!open) setMoveTask(null); }}
+          onMove={(taskId, date) => actions.scheduleTaskToDay(taskId, date)}
+        />
       </div>
     </div>
   );
@@ -674,7 +741,7 @@ function DayDetails({ selectedDate, brainstormSessions = [] }: { selectedDate: s
               <div key={session._id} className="border-b border-white/5 pb-2 last:border-0 last:pb-0 relative group">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-[10px] text-muted-foreground font-mono">
-                    {new Date(session.createdAt).toLocaleTimeString(lang === 'ru' ? 'ru-RU' : 'en-US', { hour: "2-digit", minute: "2-digit" })}
+                    {formatUserClock(session.createdAt, lang)}
                   </span>
                 </div>
                 <p className="text-sm text-foreground font-medium">{session.theme || "Без темы"}</p>
@@ -702,7 +769,7 @@ function DayDetails({ selectedDate, brainstormSessions = [] }: { selectedDate: s
               <div key={note.id} className="border-b border-border pb-2 last:border-0 last:pb-0">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-[10px] text-muted-foreground font-mono">
-                    {new Date(note.createdAt).toLocaleTimeString(lang === 'ru' ? 'ru-RU' : 'en-US', { hour: "2-digit", minute: "2-digit" })}
+                    {formatUserClock(note.createdAt, lang)}
                   </span>
                   {note.updatedAt !== note.createdAt && (
                     <span className="text-[10px] text-muted-foreground/60">{lang === 'en' ? '(ed.)' : '(ред.)'}</span>
@@ -773,7 +840,7 @@ function DayDetails({ selectedDate, brainstormSessions = [] }: { selectedDate: s
                   <span>•</span>
                   <span className="text-primary">#{note.tag}</span>
                   <span>•</span>
-                  <span>{new Date(note.createdAt).toLocaleTimeString(lang === 'ru' ? 'ru-RU' : 'en-US', { hour: "2-digit", minute: "2-digit" })}</span>
+                  <span>{formatUserClock(note.createdAt, lang)}</span>
                 </div>
                 <p className="text-[11px] text-muted-foreground line-clamp-3 italic">
                   "{note.text}"

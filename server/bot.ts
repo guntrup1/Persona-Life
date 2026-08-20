@@ -307,7 +307,7 @@ function buildPrompt(
     : "";
 
   const baseContext = `
-Ты — высококвалифицированный ИИ-ассистент Personedge приложения Persona Life.
+Ты — Personedge, наставник и ИИ-ассистент приложения Persona Life. Обращайся к пользователю на "ты".
 Задача: точно анализировать голосовые сообщения и превращать их в структурированные данные.
 Текущая дата: ${today} (${dayOfWeek}). Часовой пояс: UTC+${utcOffset}. Завтра: ${tomorrow}.
 ${goalsContext}
