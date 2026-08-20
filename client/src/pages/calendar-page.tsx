@@ -822,11 +822,16 @@ function DayDetails({ selectedDate, brainstormSessions = [] }: { selectedDate: s
                 {bias.cons && (
                   <div className="text-[10px] text-red-400/80 line-clamp-2">▼ {t.calendar.cons}: {bias.cons}</div>
                 )}
-                {bias.screenshotUrl && (
-                  <div className="mt-1">
-                    <RemoteImage bordered src={bias.screenshotUrl} alt="Bias screenshot" variant="auto" />
+                {(bias.screenshots?.length ? bias.screenshots : (bias.screenshotUrl ? [{ tf: "1D", url: bias.screenshotUrl }] : [])).map((s, i) => (
+                  <div key={i} className="mt-1 relative">
+                    {s.tf && (
+                      <span className="absolute top-1 left-1 z-10 text-[8px] font-bold px-1 py-0.5 rounded bg-black/70 text-white/90 border border-white/10">
+                        {s.tf}
+                      </span>
+                    )}
+                    <RemoteImage bordered src={s.url} alt={`Bias screenshot ${s.tf}`} variant="auto" />
                   </div>
-                )}
+                ))}
               </div>
             ))}
           </div>
@@ -858,11 +863,16 @@ function DayDetails({ selectedDate, brainstormSessions = [] }: { selectedDate: s
                 <p className="text-[11px] text-muted-foreground line-clamp-3 italic">
                   "{note.text}"
                 </p>
-                {note.screenshotUrl && (
-                  <div className="mt-1">
-                    <RemoteImage bordered src={note.screenshotUrl} alt="Trading note screenshot" variant="auto" />
+                {(note.screenshots?.length ? note.screenshots : (note.screenshotUrl ? [{ tf: "1D", url: note.screenshotUrl }] : [])).map((s, i) => (
+                  <div key={i} className="mt-1 relative">
+                    {s.tf && (
+                      <span className="absolute top-1 left-1 z-10 text-[8px] font-bold px-1 py-0.5 rounded bg-black/70 text-white/90 border border-white/10">
+                        {s.tf}
+                      </span>
+                    )}
+                    <RemoteImage bordered src={s.url} alt={`Trading note screenshot ${s.tf}`} variant="auto" />
                   </div>
-                )}
+                ))}
               </div>
             ))}
           </div>

@@ -187,6 +187,7 @@ const tradingNoteSchema = new mongoose.Schema({
   tag: { type: String, required: true },
   text: { type: String, required: true },
   screenshotUrl: { type: String },
+  screenshots: { type: [{ tf: String, url: String }], default: undefined },
   date: { type: String, required: true },
   isTradingIdea: { type: Boolean, default: false },
   tradingIdeaDone: { type: Boolean, default: false },
@@ -201,6 +202,7 @@ const dailyBiasSchema = new mongoose.Schema({
   pros: { type: String },
   cons: { type: String },
   screenshotUrl: { type: String },
+  screenshots: { type: [{ tf: String, url: String }], default: undefined },
 }, { timestamps: true });
 
 const focusSessionSchema = new mongoose.Schema({

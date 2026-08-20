@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useI18n } from "@/lib/i18n";
-import { useStore, type TradeAsset, type NoteTag, type BiasDirection, getTodayDate } from "@/lib/store";
+import { useStore, type TradeAsset, type NoteTag, type BiasDirection, type ScreenshotEntry, getTodayDate } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { MonteCarloSimulator } from "@/components/MonteCarloSimulator";
 import { RemoteImage } from "@/components/remote-image";
+import { ZoomableImage } from "@/components/zoomable-image";
 import { FileText, Plus, Trash2, Clock, CandlestickChart, ArrowUpRight, ArrowDownRight, MoveRight, Camera, X, Pencil, Puzzle, CheckCircle, Circle } from "lucide-react";
 
 const ASSETS: TradeAsset[] = ["GER40", "EUR", "XAU", "GBP"];
@@ -24,13 +25,20 @@ const getTags = (t: any): { value: NoteTag; label: string; color: string }[] => 
   { value: "ошибка", label: "Ошибка", color: "text-red-400 border-red-500/30" },
 ];
 
+const TF_OPTIONS = ["1D", "4H", "H1", "M15"];
+
+const entryList = (b: any): ScreenshotEntry[] =>
+  b?.screenshots?.length ? b.screenshots.map((s: ScreenshotEntry) => ({ tf: s.tf, url: s.url }))
+    : b?.screenshotUrl ? [{ tf: "1D", url: b.screenshotUrl }]
+    : [];
+
 function AddBiasDialog({ onAdd, editBias }: { onAdd: (b: any) => void; editBias?: any }) {
   const [open, setOpen] = useState(false);
   const [asset, setAsset] = useState<TradeAsset>(editBias?.asset || "GER40");
   const [direction, setDirection] = useState<BiasDirection>(editBias?.direction || "bullish");
   const [pros, setPros] = useState(editBias?.pros || "");
   const [cons, setCons] = useState(editBias?.cons || "");
-  const [screenshotUrl, setScreenshotUrl] = useState<string | undefined>(editBias?.screenshotUrl);
+  const [screenshots, setScreenshots] = useState<ScreenshotEntry[]>(() => entryList(editBias));
   const { t, lang } = useI18n();
 
   useEffect(() => {
@@ -39,26 +47,37 @@ function AddBiasDialog({ onAdd, editBias }: { onAdd: (b: any) => void; editBias?
       setDirection(editBias.direction);
       setPros(editBias.pros);
       setCons(editBias.cons);
-      setScreenshotUrl(editBias.screenshotUrl);
+      setScreenshots(entryList(editBias));
     }
   }, [editBias]);
 
+  const updateShot = (i: number, patch: Partial<ScreenshotEntry>) =>
+    setScreenshots(prev => prev.map((s, idx) => idx === i ? { ...s, ...patch } : s));
+  const addShot = () => {
+    const used = new Set(screenshots.map(s => s.tf));
+    const next = TF_OPTIONS.find(tf => !used.has(tf)) ?? TF_OPTIONS[0];
+    setScreenshots(prev => [...prev, { tf: next, url: "" }]);
+  };
+  const removeShot = (i: number) => setScreenshots(prev => prev.filter((_, idx) => idx !== i));
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const clean = screenshots.filter(s => s.url.trim()).map(s => ({ tf: s.tf, url: s.url.trim() }));
     onAdd({
       date: editBias?.date || getTodayDate(),
       asset,
       direction,
       pros,
       cons,
-      screenshotUrl: screenshotUrl?.trim() || undefined,
+      screenshotUrl: undefined,
+      screenshots: clean.length ? clean : undefined,
     });
     if (!editBias) {
       setAsset("GER40");
       setDirection("bullish");
       setPros("");
       setCons("");
-      setScreenshotUrl(undefined);
+      setScreenshots([]);
     }
     setOpen(false);
   };
@@ -131,33 +150,53 @@ function AddBiasDialog({ onAdd, editBias }: { onAdd: (b: any) => void; editBias?
             />
           </div>
 
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <Label>{t.notes.screenshot}</Label>
-            <div className="flex items-center gap-2">
-              <Input
-                type="url"
-                value={screenshotUrl ?? ""}
-                onChange={e => setScreenshotUrl(e.target.value)}
-                placeholder={t.notes.screenshotLinkPlaceholder}
-                className="text-sm"
-                data-testid="input-screenshot-link"
-              />
-              {screenshotUrl && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setScreenshotUrl(undefined)}
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              )}
-            </div>
-            {screenshotUrl && /^https?:\/\/.+/i.test(screenshotUrl.trim()) && (
-              <div className="mt-2">
-                <RemoteImage bordered src={screenshotUrl.trim()} alt="Bias screenshot" variant="thumb" />
+            {screenshots.map((s, i) => (
+              <div key={i} className="space-y-1.5 p-2 rounded-lg border border-white/5 bg-white/[0.02]">
+                <div className="flex items-center gap-2">
+                  <Select value={s.tf} onValueChange={(v) => updateShot(i, { tf: v })}>
+                    <SelectTrigger className="w-[76px] h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TF_OPTIONS.map(tf => <SelectItem key={tf} value={tf}>{tf}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="url"
+                    value={s.url}
+                    onChange={e => updateShot(i, { url: e.target.value })}
+                    placeholder={t.notes.screenshotLinkPlaceholder}
+                    className="text-sm"
+                    data-testid={`input-screenshot-link-${i}`}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    onClick={() => removeShot(i)}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+                {s.url && /^https?:\/\/.+/i.test(s.url.trim()) && (
+                  <RemoteImage bordered src={s.url.trim()} alt={`Bias screenshot ${s.tf}`} variant="thumb" />
+                )}
               </div>
-            )}
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1"
+              onClick={addShot}
+              data-testid="button-add-screenshot"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              {t.notes.addImage}
+            </Button>
           </div>
 
           <Button type="submit" className="w-full" data-testid="button-bias-submit">
@@ -177,7 +216,7 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
   const [tag, setTag] = useState<NoteTag>(editNote?.tag || "мысль");
   const [text, setText] = useState(editNote?.text || "");
   const [time, setTime] = useState(editNote?.time || new Date().toTimeString().slice(0, 5));
-  const [screenshotUrl, setScreenshotUrl] = useState<string | undefined>(editNote?.screenshotUrl);
+  const [screenshots, setScreenshots] = useState<ScreenshotEntry[]>(() => entryList(editNote));
   const [isTradingIdea, setIsTradingIdea] = useState(editNote?.isTradingIdea || false);
   const { t, lang } = useI18n();
 
@@ -189,14 +228,24 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
       setTag(editNote.tag);
       setText(editNote.text);
       setTime(editNote.time);
-      setScreenshotUrl(editNote.screenshotUrl);
+      setScreenshots(entryList(editNote));
       setIsTradingIdea(editNote.isTradingIdea || false);
     }
   }, [editNote]);
 
+  const updateShot = (i: number, patch: Partial<ScreenshotEntry>) =>
+    setScreenshots(prev => prev.map((s, idx) => idx === i ? { ...s, ...patch } : s));
+  const addShot = () => {
+    const used = new Set(screenshots.map(s => s.tf));
+    const next = TF_OPTIONS.find(tf => !used.has(tf)) ?? TF_OPTIONS[0];
+    setScreenshots(prev => [...prev, { tf: next, url: "" }]);
+  };
+  const removeShot = (i: number) => setScreenshots(prev => prev.filter((_, idx) => idx !== i));
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!text.trim()) return;
+    const clean = screenshots.filter(s => s.url.trim()).map(s => ({ tf: s.tf, url: s.url.trim() }));
     onAdd({
       title: title.trim(),
       time,
@@ -204,14 +253,15 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
       timeframe,
       tag,
       text: text.trim(),
-      screenshotUrl: screenshotUrl?.trim() || undefined,
+      screenshotUrl: undefined,
+      screenshots: clean.length ? clean : undefined,
       isTradingIdea: tag === "идея" ? isTradingIdea : false,
       date: editNote?.date || getTodayDate(),
     });
     if (!editNote) {
       setTitle("");
       setText("");
-      setScreenshotUrl(undefined);
+      setScreenshots([]);
     }
     setOpen(false);
   };
@@ -304,33 +354,53 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
             />
           </div>
 
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <Label>{t.notes.screenshot}</Label>
-            <div className="flex items-center gap-2">
-              <Input
-                type="url"
-                value={screenshotUrl ?? ""}
-                onChange={e => setScreenshotUrl(e.target.value)}
-                placeholder={t.notes.screenshotLinkPlaceholder}
-                className="text-sm"
-                data-testid="input-note-screenshot-link"
-              />
-              {screenshotUrl && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setScreenshotUrl(undefined)}
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              )}
-            </div>
-            {screenshotUrl && /^https?:\/\/.+/i.test(screenshotUrl.trim()) && (
-              <div className="mt-2">
-                <RemoteImage bordered src={screenshotUrl.trim()} alt="Note screenshot" variant="thumb" />
+            {screenshots.map((s, i) => (
+              <div key={i} className="space-y-1.5 p-2 rounded-lg border border-white/5 bg-white/[0.02]">
+                <div className="flex items-center gap-2">
+                  <Select value={s.tf} onValueChange={(v) => updateShot(i, { tf: v })}>
+                    <SelectTrigger className="w-[76px] h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TF_OPTIONS.map(tf => <SelectItem key={tf} value={tf}>{tf}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="url"
+                    value={s.url}
+                    onChange={e => updateShot(i, { url: e.target.value })}
+                    placeholder={t.notes.screenshotLinkPlaceholder}
+                    className="text-sm"
+                    data-testid={`input-note-screenshot-link-${i}`}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    onClick={() => removeShot(i)}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+                {s.url && /^https?:\/\/.+/i.test(s.url.trim()) && (
+                  <RemoteImage bordered src={s.url.trim()} alt={`Note screenshot ${s.tf}`} variant="thumb" />
+                )}
               </div>
-            )}
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1"
+              onClick={addShot}
+              data-testid="button-note-add-screenshot"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              {t.notes.addImage}
+            </Button>
           </div>
 
           {tag === "идея" && (
@@ -483,21 +553,26 @@ export default function NotesPage() {
                     </div>
                   </div>
 
-                  {bias.screenshotUrl && (
-                    <Dialog>
+                  {(bias.screenshots?.length ? bias.screenshots : (bias.screenshotUrl ? [{ tf: "1D", url: bias.screenshotUrl }] : [])).map((s, i) => (
+                    <Dialog key={i}>
                       <DialogTrigger asChild>
                         <div className="relative mt-2 cursor-pointer group/thumb">
-                          <RemoteImage bordered src={bias.screenshotUrl} alt="Bias screenshot" variant="thumb" />
+                          {s.tf && (
+                            <span className="absolute top-1.5 left-1.5 z-10 text-[9px] font-bold px-1.5 py-0.5 rounded bg-black/70 text-white/90 border border-white/10">
+                              {s.tf}
+                            </span>
+                          )}
+                          <RemoteImage bordered src={s.url} alt={`Bias screenshot ${s.tf}`} variant="thumb" />
                           <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
                             <Camera className="w-6 h-6 text-white" />
                           </div>
                         </div>
                       </DialogTrigger>
-                      <DialogContent className="max-w-4xl p-0 overflow-hidden border-none bg-transparent">
-                        <RemoteImage src={bias.screenshotUrl} alt="Bias screenshot" variant="auto" />
+                      <DialogContent className="max-w-5xl p-0 overflow-hidden border-none bg-transparent">
+                        <ZoomableImage src={s.url} alt={`Bias screenshot ${s.tf}`} />
                       </DialogContent>
                     </Dialog>
-                  )}
+                  ))}
                 </Card>
               ))}
             </div>
@@ -588,21 +663,26 @@ export default function NotesPage() {
                         <h3 className="text-sm font-bold text-foreground mb-1">{note.title}</h3>
                       )}
                       <p className="text-sm text-foreground leading-relaxed">{note.text}</p>
-                      {note.screenshotUrl && (
-                        <Dialog>
+                      {(note.screenshots?.length ? note.screenshots : (note.screenshotUrl ? [{ tf: "1D", url: note.screenshotUrl }] : [])).map((s, i) => (
+                        <Dialog key={i}>
                           <DialogTrigger asChild>
                             <div className="relative mt-3 w-48 cursor-pointer group/thumb">
-                              <RemoteImage bordered src={note.screenshotUrl} alt="Note screenshot" variant="thumb" />
+                              {s.tf && (
+                                <span className="absolute top-1.5 left-1.5 z-10 text-[9px] font-bold px-1.5 py-0.5 rounded bg-black/70 text-white/90 border border-white/10">
+                                  {s.tf}
+                                </span>
+                              )}
+                              <RemoteImage bordered src={s.url} alt={`Note screenshot ${s.tf}`} variant="thumb" />
                               <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
                                 <Camera className="w-5 h-5 text-white" />
                               </div>
                             </div>
                           </DialogTrigger>
-                          <DialogContent className="max-w-4xl p-0 overflow-hidden border-none bg-transparent">
-                            <RemoteImage src={note.screenshotUrl} alt="Note screenshot" variant="auto" />
+                          <DialogContent className="max-w-5xl p-0 overflow-hidden border-none bg-transparent">
+                            <ZoomableImage src={s.url} alt={`Note screenshot ${s.tf}`} />
                           </DialogContent>
                         </Dialog>
-                      )}
+                      ))}
                     </div>
                     <div className="flex items-center gap-1">
                       <AddNoteDialog

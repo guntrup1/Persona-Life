@@ -176,6 +176,7 @@ export interface TradingNote {
   tag: NoteTag;
   text: string;
   screenshotUrl?: string;
+  screenshots?: ScreenshotEntry[];
   date: string;
   createdAt: string;
   isTradingIdea?: boolean;
@@ -190,8 +191,11 @@ export interface DailyBias {
   pros: string;
   cons: string;
   screenshotUrl?: string;
+  screenshots?: ScreenshotEntry[];
   createdAt: string;
 }
+
+export type ScreenshotEntry = { tf: string; url: string };
 
 export type NoteType = "note" | "idea";
 export type IdeaCategory = "gift" | "hobby" | "study" | "other";
