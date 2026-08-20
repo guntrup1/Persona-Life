@@ -96,7 +96,7 @@ function AddBiasDialog({ onAdd, editBias }: { onAdd: (b: any) => void; editBias?
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-display">{editBias ? t.notes.editBias : t.notes.dailyBias}</DialogTitle>
         </DialogHeader>
@@ -280,7 +280,7 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-display">{editNote ? t.notes.editNote : t.notes.tradingNotes}</DialogTitle>
         </DialogHeader>

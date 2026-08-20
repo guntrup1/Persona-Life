@@ -13,6 +13,7 @@ type ZoomableImageProps = {
 export function ZoomableImage({ src, alt = "" }: ZoomableImageProps) {
   const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
   const [zoom, setZoom] = useState(1);
@@ -26,9 +27,16 @@ export function ZoomableImage({ src, alt = "" }: ZoomableImageProps) {
   }, [src]);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    setLens({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    const img = imgRef.current;
+    if (!img || zoom > 1) return;
+    const rect = img.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    if (x < 0 || y < 0 || x > rect.width || y > rect.height) {
+      setLens(null);
+      return;
+    }
+    setLens({ x, y });
   };
 
   if (error) {
@@ -62,18 +70,18 @@ export function ZoomableImage({ src, alt = "" }: ZoomableImageProps) {
       className="relative w-full max-h-[80vh] overflow-auto bg-black/40 select-none"
     >
       <img
+        ref={imgRef}
         src={src}
         alt={alt}
         onLoad={() => setLoaded(true)}
         onError={() => setError(true)}
         style={{
-          transform: zoom > 1 ? `scale(${zoom})` : undefined,
-          transformOrigin: "center",
-          transition: "transform 0.2s ease",
+          width: `${zoom * 100}%`,
+          transition: "width 0.2s ease",
         }}
-        className={`w-full max-h-[80vh] object-contain ${zoom === 1 ? "cursor-zoom-in" : "cursor-zoom-out"}`}
+        className={`block ${zoom === 1 ? "cursor-zoom-in" : "cursor-zoom-out"}`}
       />
-      <div className="absolute top-3 right-3 flex items-center gap-1 rounded-full bg-black/50 backdrop-blur-sm border border-white/10 p-1">
+      <div className="sticky top-3 right-3 ml-auto flex items-center gap-1 rounded-full bg-black/50 backdrop-blur-sm border border-white/10 p-1 w-fit mr-3">
         <button
           onClick={() => setZoom(z => Math.min(4, +(z + 0.5).toFixed(1)))}
           className="w-8 h-8 rounded-full flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 transition-colors"
@@ -99,7 +107,7 @@ export function ZoomableImage({ src, alt = "" }: ZoomableImageProps) {
             left: lens.x - LENS_SIZE / 2,
             top: lens.y - LENS_SIZE / 2,
             backgroundImage: `url(${src})`,
-            backgroundSize: `${containerRef.current ? containerRef.current.clientWidth * LENS_ZOOM : 0}px ${containerRef.current ? containerRef.current.clientHeight * LENS_ZOOM : 0}px`,
+            backgroundSize: `${imgRef.current ? imgRef.current.clientWidth * LENS_ZOOM : 0}px ${imgRef.current ? imgRef.current.clientHeight * LENS_ZOOM : 0}px`,
             backgroundPosition: `${-(lens.x * LENS_ZOOM - LENS_SIZE / 2)}px ${-(lens.y * LENS_ZOOM - LENS_SIZE / 2)}px`,
             backgroundRepeat: "no-repeat",
           }}
