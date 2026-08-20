@@ -100,7 +100,7 @@ export function ZoomableImage({ src, alt = "" }: ZoomableImageProps) {
       </div>
       {loaded && zoom === 1 && lens && createPortal(
         <div
-          className="pointer-events-none fixed rounded-full border-2 border-white/20 shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
+          className="pointer-events-none fixed z-[9999] rounded-full border-2 border-white/20 shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
           style={{
             width: LENS_SIZE,
             height: LENS_SIZE,
