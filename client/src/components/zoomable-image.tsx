@@ -17,7 +17,7 @@ export function ZoomableImage({ src, alt = "" }: ZoomableImageProps) {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
   const [zoom, setZoom] = useState(1);
-  const [lens, setLens] = useState<{ x: number; y: number } | null>(null);
+  const [lens, setLens] = useState<{ x: number; y: number; vx: number; vy: number } | null>(null);
 
   useEffect(() => {
     setLoaded(false);
@@ -36,7 +36,7 @@ export function ZoomableImage({ src, alt = "" }: ZoomableImageProps) {
       setLens(null);
       return;
     }
-    setLens({ x, y });
+    setLens({ x, y, vx: e.clientX, vy: e.clientY });
   };
 
   if (error) {
@@ -99,12 +99,12 @@ export function ZoomableImage({ src, alt = "" }: ZoomableImageProps) {
       </div>
       {loaded && zoom === 1 && lens && (
         <div
-          className="pointer-events-none absolute rounded-full border-2 border-white/20 shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
+          className="pointer-events-none fixed rounded-full border-2 border-white/20 shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
           style={{
             width: LENS_SIZE,
             height: LENS_SIZE,
-            left: lens.x - LENS_SIZE / 2,
-            top: lens.y - LENS_SIZE / 2,
+            left: Math.min(Math.max(0, lens.vx - LENS_SIZE / 2), window.innerWidth - LENS_SIZE),
+            top: Math.min(Math.max(0, lens.vy - LENS_SIZE / 2), window.innerHeight - LENS_SIZE),
             backgroundImage: `url(${src})`,
             backgroundSize: `${imgRef.current ? imgRef.current.clientWidth * LENS_ZOOM : 0}px ${imgRef.current ? imgRef.current.clientHeight * LENS_ZOOM : 0}px`,
             backgroundPosition: `${-(lens.x * LENS_ZOOM - LENS_SIZE / 2)}px ${-(lens.y * LENS_ZOOM - LENS_SIZE / 2)}px`,
