@@ -34,6 +34,7 @@ const userSchema = new mongoose.Schema({
   googleCalendarConnected: { type: Boolean, default: false },
   googleCalendarId: { type: String, default: "primary" },
   googleReminderMinutes: { type: [Number], default: [30] },
+  personaMemory: { type: String, default: null }, // encrypted JSON: {boli[], oshibki[], zadachi[], zhelaniya[]}
 }, { timestamps: true });
 
 const userDataSchema = new mongoose.Schema({

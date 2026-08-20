@@ -105,7 +105,7 @@ function RichResponseCard({
 
       {/* AI Response Block */}
       <div className="flex justify-start w-full group relative">
-        <div className="absolute -left-10 top-0 w-7 h-7 rounded-full overflow-hidden border border-white/10 shadow-lg shadow-purple-500/20 hidden sm:flex">
+        <div className="absolute -left-10 top-0 w-7 h-7 rounded-full overflow-hidden border border-white/10 shadow-lg shadow-red-500/20 hidden sm:flex">
           <img src="/favicon.png" alt="Personedge" className="w-full h-full object-cover" />
         </div>
         
@@ -121,7 +121,7 @@ function RichResponseCard({
                   onClick={() => onRefresh(session._id)}
                   size="icon"
                   variant="ghost"
-                  className="h-7 w-7 text-amber-400/70 hover:text-amber-400 hover:bg-amber-400/10"
+                  className="h-7 w-7 text-red-400/70 hover:text-red-400 hover:bg-red-400/10"
                   title="Обновить план с учётом нашего обсуждения"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
@@ -152,7 +152,7 @@ function RichResponseCard({
           {/* Chat reply (mentor mode) */}
           {session.kind === "chat" ? (
             <div>
-              <div className="bg-white/[0.03] border border-amber-500/15 rounded-xl p-4 sm:p-5 text-sm text-white/85 leading-relaxed whitespace-pre-wrap border-l-4 border-l-amber-500/70">
+              <div className="bg-white/[0.03] border border-red-500/15 rounded-xl p-4 sm:p-5 text-sm text-white/85 leading-relaxed whitespace-pre-wrap border-l-4 border-l-red-500/70">
                 {session.reply}
               </div>
               {session.parentSessionId && /обнов/i.test(session.reply || "") && (
@@ -160,7 +160,7 @@ function RichResponseCard({
                   onClick={() => onRefresh(session.parentSessionId!)}
                   variant="ghost"
                   size="sm"
-                  className="mt-2 h-8 gap-1.5 text-amber-400/80 hover:text-amber-400 hover:bg-amber-400/10 border border-amber-500/20 rounded-xl"
+                  className="mt-2 h-8 gap-1.5 text-red-400/80 hover:text-red-400 hover:bg-red-400/10 border border-red-500/20 rounded-xl"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
                   Обновить план с учётом нашего разговора
@@ -171,7 +171,7 @@ function RichResponseCard({
             <>
           {/* Executive Summary (Краткая выжимка) */}
           {session.executive_summary && (
-            <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-white/80 leading-relaxed italic border-l-4 border-l-amber-500">
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-white/80 leading-relaxed italic border-l-4 border-l-red-500">
               {session.executive_summary}
             </div>
           )}
@@ -179,20 +179,20 @@ function RichResponseCard({
           {/* Key Insights (Ключевые инсайты) */}
           {(session.key_insights?.length ?? 0) > 0 && (
             <div className="space-y-3">
-              <div className="flex items-center gap-2 text-amber-400">
+              <div className="flex items-center gap-2 text-red-400">
                 <Brain className="w-4 h-4" />
                 <h4 className="text-sm font-semibold uppercase tracking-wider">Ключевые инсайты</h4>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {(session.key_insights ?? []).map((insight, idx) => (
-                  <div key={idx} className="bg-gradient-to-br from-amber-500/10 to-transparent border border-amber-500/20 p-4 rounded-xl text-sm text-amber-100/80 leading-relaxed relative overflow-hidden group/insight">
-                    <div className="absolute top-0 left-0 w-1 h-full bg-amber-500/50" />
+                  <div key={idx} className="bg-gradient-to-br from-red-500/10 to-transparent border border-red-500/20 p-4 rounded-xl text-sm text-red-100/80 leading-relaxed relative overflow-hidden group/insight">
+                    <div className="absolute top-0 left-0 w-1 h-full bg-red-500/50" />
                     {insight}
                     <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover/insight:opacity-100 transition-opacity bg-[#121212]/80 backdrop-blur-md rounded-md px-1 py-0.5">
                       <Button onClick={() => onCopy(insight)} size="icon" variant="ghost" className="h-6 w-6 text-white/50 hover:text-white hover:bg-white/10">
                         <Copy className="w-3 h-3" />
                       </Button>
-                      <Button onClick={() => onExportInsight(insight)} size="icon" variant="ghost" className="h-6 w-6 text-amber-400/70 hover:text-amber-400 hover:bg-amber-400/10">
+                      <Button onClick={() => onExportInsight(insight)} size="icon" variant="ghost" className="h-6 w-6 text-red-400/70 hover:text-red-400 hover:bg-red-400/10">
                         <Save className="w-3 h-3" />
                       </Button>
                     </div>
@@ -230,7 +230,7 @@ function RichResponseCard({
           {/* Action Plan */}
           {(session.action_items?.length ?? 0) > 0 && (
             <div className="space-y-3">
-              <div className="flex items-center gap-2 text-amber-400">
+              <div className="flex items-center gap-2 text-red-400">
                 <ListChecks className="w-4 h-4" />
                 <h4 className="text-sm font-semibold uppercase tracking-wider">План действий</h4>
               </div>
@@ -238,7 +238,7 @@ function RichResponseCard({
                 {(session.action_items ?? []).map((step, idx) => (
                   <div key={idx} className="flex items-start justify-between gap-3 bg-white/[0.02] border border-white/[0.05] p-3 rounded-xl hover:bg-white/[0.04] transition-colors group/task">
                     <div className="flex items-start gap-3">
-                      <Checkbox id={`step-${session._id}-${idx}`} className="mt-0.5 border-white/20 data-[state=checked]:bg-amber-500" />
+                      <Checkbox id={`step-${session._id}-${idx}`} className="mt-0.5 border-white/20 data-[state=checked]:bg-red-600" />
                       <label htmlFor={`step-${session._id}-${idx}`} className="text-sm text-white/80 leading-snug cursor-pointer select-none">
                         <span className="font-semibold text-white/50 mr-2">{idx + 1}.</span>
                         {step.task}
@@ -246,7 +246,7 @@ function RichResponseCard({
                     </div>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <Button size="icon" variant="ghost" className="h-7 w-7 text-amber-400/70 hover:text-amber-400 hover:bg-amber-400/10 opacity-0 group-hover/task:opacity-100 transition-opacity flex-shrink-0" title="Сохранить">
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-red-400/70 hover:text-red-400 hover:bg-red-400/10 opacity-0 group-hover/task:opacity-100 transition-opacity flex-shrink-0" title="Сохранить">
                           <Save className="w-3.5 h-3.5" />
                         </Button>
                       </PopoverTrigger>
@@ -378,7 +378,7 @@ export default function BrainstormPage() {
         el.scrollIntoView({ behavior: "smooth", block: "start" });
         // Flash highlight
         el.style.transition = "box-shadow 0.3s ease";
-        el.style.boxShadow = "0 0 0 2px rgba(245, 158, 11, 0.5)";
+        el.style.boxShadow = "0 0 0 2px rgba(220, 38, 38, 0.5)";
         setTimeout(() => { if (el) el.style.boxShadow = ""; }, 1500);
       }
     }, 300);
@@ -535,8 +535,8 @@ export default function BrainstormPage() {
       {/* Top Header */}
       <div className="absolute top-0 inset-x-0 h-[calc(4rem+env(safe-area-inset-top))] bg-[#0A0A0A]/80 backdrop-blur-md z-10 border-b border-white/5 flex items-center justify-between px-4 sm:px-6 pt-[env(safe-area-inset-top)]">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center border border-amber-500/15">
-            <Sparkles className="w-4 h-4 text-amber-400" />
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500/20 to-red-700/20 flex items-center justify-center border border-red-500/15">
+            <Sparkles className="w-4 h-4 text-red-400" />
           </div>
           <div>
             <h1 className="text-lg font-display font-semibold tracking-tight leading-none mb-1">Personedge</h1>
@@ -550,7 +550,7 @@ export default function BrainstormPage() {
             variant="ghost" 
             size="sm" 
             onClick={() => setShowOnlyToday(!showOnlyToday)}
-            className={`h-9 gap-2 rounded-xl transition-colors ${showOnlyToday ? "bg-amber-500/20 text-amber-400" : "text-white/60 hover:text-white hover:bg-white/10"}`}
+            className={`h-9 gap-2 rounded-xl transition-colors ${showOnlyToday ? "bg-red-500/20 text-red-400" : "text-white/60 hover:text-white hover:bg-white/10"}`}
           >
             <Calendar className="w-4 h-4" />
             <span className="hidden sm:inline">Сегодня</span>
@@ -582,12 +582,12 @@ export default function BrainstormPage() {
                         <div
                           key={session._id}
                           onClick={() => scrollToSession(session._id)}
-                          className="bg-[#1C1C1E] p-3 rounded-xl border border-white/5 cursor-pointer hover:bg-[#252528] hover:border-amber-500/30 transition-all duration-200 group relative"
+                          className="bg-[#1C1C1E] p-3 rounded-xl border border-white/5 cursor-pointer hover:bg-[#252528] hover:border-red-500/30 transition-all duration-200 group relative"
                         >
                           <div className="pr-8">
                             <p className="text-sm font-medium text-white/90 truncate group-hover:text-white transition-colors">{session.theme}</p>
                             <p className="text-xs text-white/40 mt-1 truncate">{session.prompt || "Авто-анализ"}</p>
-                            <p className="text-[10px] text-amber-400/60 mt-1.5 font-medium">↗ Перейти к сессии</p>
+                            <p className="text-[10px] text-red-400/60 mt-1.5 font-medium">↗ Перейти к сессии</p>
                           </div>
                           <button
                             onClick={(e) => { e.stopPropagation(); handleDelete(session._id); }}
@@ -620,9 +620,9 @@ export default function BrainstormPage() {
           </div>
         ) : sessions.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full max-w-md mx-auto text-center animate-in fade-in zoom-in duration-700">
-            <div className="w-20 h-20 rounded-full overflow-hidden flex items-center justify-center mb-6 relative ring-1 ring-amber-500/30">
+            <div className="w-20 h-20 rounded-full overflow-hidden flex items-center justify-center mb-6 relative ring-1 ring-red-500/30">
               <img src="/favicon.png" alt="Personedge" className="w-full h-full object-cover" />
-              <div className="absolute inset-0 rounded-full border border-amber-500/20 animate-[ping_3s_ease-in-out_infinite]" />
+              <div className="absolute inset-0 rounded-full border border-red-500/20 animate-[ping_3s_ease-in-out_infinite]" />
             </div>
             <h2 className="text-2xl font-display font-semibold text-white/90 mb-2">Personedge рядом</h2>
             <p className="text-sm text-white/50 leading-relaxed">
@@ -677,11 +677,11 @@ export default function BrainstormPage() {
             {isGenerating && (
               <div className="flex justify-start w-full mt-6 mb-2 animate-in fade-in slide-in-from-bottom-4">
                 <div className="bg-[#1C1C1E] border border-white/5 rounded-2xl rounded-tl-sm px-6 py-5 shadow-md flex flex-col gap-4 w-full max-w-sm ml-0 sm:ml-7 relative">
-                  <div className="absolute -left-10 top-0 w-7 h-7 rounded-full overflow-hidden border border-white/10 shadow-lg shadow-amber-500/10 hidden sm:flex">
+                  <div className="absolute -left-10 top-0 w-7 h-7 rounded-full overflow-hidden border border-white/10 shadow-lg shadow-red-500/10 hidden sm:flex">
                      <img src="/favicon.png" alt="Personedge" className="w-full h-full object-cover animate-pulse" />
                   </div>
                   <div className="flex items-center gap-3">
-                    <Loader2 className="w-5 h-5 animate-spin text-amber-400" />
+                    <Loader2 className="w-5 h-5 animate-spin text-red-400" />
                     <p className="text-sm font-medium text-white/80">Personedge думает над твоими мыслями...</p>
                   </div>
                   <div className="space-y-2.5 w-full">
@@ -731,7 +731,7 @@ export default function BrainstormPage() {
                 const note = notes.find(n => n._id === noteId);
                 const title = getNoteTitle(note);
                 return (
-                  <div key={noteId} className="flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 backdrop-blur-md animate-in zoom-in-95 duration-200">
+                  <div key={noteId} className="flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-300 backdrop-blur-md animate-in zoom-in-95 duration-200">
                     <Paperclip className="w-3 h-3 opacity-70" />
                     <span className="truncate max-w-[150px] font-medium">{title}</span>
                     <button onClick={() => toggleNote(noteId)} className="w-5 h-5 rounded-full hover:bg-white/10 flex items-center justify-center transition-colors">
@@ -789,13 +789,13 @@ export default function BrainstormPage() {
                         <div
                           key={note._id}
                           className={`flex items-start gap-3 p-2.5 rounded-xl transition-colors group/note ${
-                            selectedNotes.has(note._id) ? "bg-amber-500/10" : "hover:bg-white/5"
+                            selectedNotes.has(note._id) ? "bg-red-500/10" : "hover:bg-white/5"
                           }`}
                         >
                           <Checkbox
                             checked={selectedNotes.has(note._id)}
                             onCheckedChange={() => toggleNote(note._id)}
-                            className="mt-0.5 border-white/20 data-[state=checked]:bg-amber-500 flex-shrink-0 cursor-pointer"
+                            className="mt-0.5 border-white/20 data-[state=checked]:bg-red-600 flex-shrink-0 cursor-pointer"
                           />
                           <div className="flex-1 min-w-0 cursor-pointer" onClick={() => toggleNote(note._id)}>
                             <p className="text-sm font-medium text-white/85 leading-snug whitespace-normal break-words">
@@ -852,7 +852,7 @@ export default function BrainstormPage() {
               size="icon"
               className={`w-10 h-10 rounded-full flex-shrink-0 transition-all duration-300 ${
                 prompt.trim() || selectedNotes.size > 0 
-                  ? "bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white shadow-lg shadow-amber-500/25" 
+                  ? "bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-700 text-white shadow-lg shadow-red-600/25" 
                   : "bg-white/5 text-white/20 hover:bg-white/5 cursor-not-allowed"
               }`}
             >

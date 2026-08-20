@@ -1,7 +1,7 @@
 import { Express } from "express";
 import mongoose from "mongoose";
 import { requireAuth } from "./auth";
-import { decryptSecret } from "./crypto";
+import { decryptSecret, encryptSecret } from "./crypto";
 
 export function registerBrainstormRoutes(app: Express) {
 
@@ -163,6 +163,86 @@ export function registerBrainstormRoutes(app: Express) {
     return JSON.parse(candidate);
   };
 
+  // ── Long-term persona memory (boli / oshibki / zadachi / zhelaniya) ──
+  // Stored as an AES-256-GCM encrypted JSON string on User.personaMemory (same envelope as API keys).
+  // Bounded shape: ≤8 entries per category, ≤140 chars each — protects the user, the token budget and the DB.
+  type PersonaProfile = { boli: string[]; oshibki: string[]; zadachi: string[]; zhelaniya: string[] };
+
+  const sanitizeProfile = (p: any): PersonaProfile | null => {
+    if (!p || typeof p !== "object") return null;
+    const clean = (v: any): string[] =>
+      Array.isArray(v)
+        ? v.filter((x: any) => typeof x === "string").map((x: string) => x.trim().replace(/\s+/g, " ").slice(0, 140)).filter(Boolean).slice(0, 8)
+        : [];
+    const out: PersonaProfile = { boli: clean(p.boli), oshibki: clean(p.oshibki), zadachi: clean(p.zadachi), zhelaniya: clean(p.zhelaniya) };
+    if (!out.boli.length && !out.oshibki.length && !out.zadachi.length && !out.zhelaniya.length) return null;
+    return out;
+  };
+
+  const loadPersonaProfile = async (userId: any): Promise<PersonaProfile | null> => {
+    try {
+      const user = await mongoose.model("User").findById(userId).select("personaMemory").lean();
+      const stored = (user as any)?.personaMemory;
+      if (!stored || typeof stored !== "string") return null;
+      const decrypted = decryptSecret(stored);
+      if (!decrypted) return null;
+      return sanitizeProfile(JSON.parse(decrypted));
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const profileToText = (p: PersonaProfile): string => {
+    const parts: string[] = [];
+    if (p.boli.length) parts.push(`Боли: ${p.boli.join("; ")}`);
+    if (p.oshibki.length) parts.push(`Ошибки: ${p.oshibki.join("; ")}`);
+    if (p.zadachi.length) parts.push(`Задачи/цели: ${p.zadachi.join("; ")}`);
+    if (p.zhelaniya.length) parts.push(`Желания: ${p.zhelaniya.join("; ")}`);
+    return parts.join("\n") || "(профиль пока пуст)";
+  };
+
+  // Fire-and-forget: merge new material into the encrypted long-term profile.
+  // Single best-effort flash-lite call — never blocks replies, never breaks the main flow.
+  const updatePersonaMemory = async (userId: any, materialText: string, geminiApiKey: string): Promise<void> => {
+    try {
+      const user = await mongoose.model("User").findById(userId).select("personaMemory").lean();
+      let current: PersonaProfile | null = null;
+      try {
+        current = sanitizeProfile(JSON.parse(decryptSecret((user as any)?.personaMemory) || "null"));
+      } catch (e) { /* corrupted entry — rebuild from scratch */ }
+      const currentText = current ? JSON.stringify(current) : "(пусто — создай профиль с нуля)";
+      const prompt = `Ты ведёшь долгосрочную карточку пользователя для его личного наставника. Карточка хранит: боли (что тревожит, что не получается), ошибки (прошлые промахи, которые не стоит повторять), задачи (текущие и глобальные цели), желания (к чему пользователь стремится).
+ТЕКУЩИЙ ПРОФИЛЬ:
+${currentText}
+НОВЫЙ МАТЕРИАЛ О ПОЛЬЗОВАТЕЛЕ:
+${materialText.slice(0, 4000)}
+Объедини новый материал с текущим профилем: добавь новое, удали устаревшее, объедини похожее. Только факты о пользователе — ничего не выдумывай. Максимум 8 пунктов на категорию, до 140 символов на пункт.
+Верни СТРОГО валидный JSON без markdown: {"boli": [...], "oshibki": [...], "zadachi": [...], "zhelaniya": [...]}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${geminiApiKey}`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.2, maxOutputTokens: 1200, responseMimeType: "application/json" },
+        }),
+      });
+      if (!res.ok) return;
+      const data = await res.json() as any;
+      const raw = (data?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
+      if (!raw) return;
+      const updated = sanitizeProfile(JSON.parse(raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "")));
+      if (!updated) return;
+      await mongoose.model("User").updateOne(
+        { _id: userId },
+        { $set: { personaMemory: encryptSecret(JSON.stringify(updated)) } }
+      );
+      console.log("[brainstorm] persona memory updated");
+    } catch (e: any) {
+      console.error("[brainstorm] persona memory update failed:", e.message);
+    }
+  };
+
   // ── GET all user's brainstorms (for day-by-day dashboard) ──
   app.get("/api/brainstorms", requireAuth, async (req: any, res: any) => {
     try {
@@ -217,6 +297,16 @@ export function registerBrainstormRoutes(app: Express) {
             return `— [${when}] "${(s as any).theme || "Без темы"}": ${summary}`;
           }).join("\n");
 
+      // Long-term persona profile (boli / oshibki / zadachi / zhelaniya) — encrypted at rest
+      const personaProfile = await loadPersonaProfile(req.session.userId);
+      const profileBlock = personaProfile
+        ? `ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ (долгосрочная память наставника — боли, ошибки, задачи, желания):
+${profileToText(personaProfile)}
+
+⚠️ КРИТИЧЕСКОЕ ПРАВИЛО ПАМЯТИ: Используй профиль ТОЛЬКО тогда, когда он на 100% логически вписывается в текущий контекст. Запрещено притягивать прошлые ошибки, боли или желания за уши к не связанной с ними теме. Не будь навязчивым психологом — будь ситуативным наставником. Если профиль не релевантен — полностью игнорируй его.
+`
+        : "";
+
       // ── DISCUSSION MODE: Personedge as mentor & companion discussing OUR plan with context ──
       if (isChat) {
         const lastPlan = await mongoose.model("BrainstormSession")
@@ -228,32 +318,48 @@ export function registerBrainstormRoutes(app: Express) {
           ? `«${(lastPlan as any).theme || "Без темы"}»\nСуть: ${((lastPlan as any).executive_summary || "").slice(0, 400)}\nКлючевые шаги:\n${(((lastPlan as any).action_items || []) as any[]).slice(0, 8).map((a: any) => `- ${a.task}`).join("\n")}\nИнсайты: ${(((lastPlan as any).key_insights || []) as any[]).slice(0, 4).join("; ")}`
           : "(У нас пока нет готового плана — мы только знакомимся. Можешь помочь ему разобраться в мыслях или предложить сделать план из его заметок.)";
 
-        const chatPrompt = `Ты — Personedge, личный наставник и компаньон человека в приложении Persona Life. Обращайся к нему на "ты".
+        // Raw content of the notes behind the plan, so we can discuss the actual details ("сухой контекст заметки")
+        let noteContextText = "";
+        if (lastPlan && (lastPlan as any).sourceNoteIds?.length) {
+          const planNotes = await mongoose.model("ProcessedAudio").find({
+            _id: { $in: (lastPlan as any).sourceNoteIds },
+            userId: req.session.userId,
+          }).lean();
+          noteContextText = (planNotes as any[])
+            .map((n: any) => `--- ${(n as any).title || "Заметка"} ---\n${(((n as any).raw_transcript || (n as any).executive_summary) || "").slice(0, 2500)}`)
+            .join("\n\n")
+            .slice(0, 8000);
+        }
 
-ДЕРЖИ СВОЙ ОБРАЗ:
-- Ты — тёплый, заботливый, честный и прямой наставник. С чувством юмора, без канцелярита и без "ИИ-болтовни".
-- Ты не бездушный анализатор: ты переживаешь за него, замечаешь его прогресс и говоришь о нём.
-- Помогай ему становиться лучше: поддерживай, мягко показывай слепые зоны, давай конкретные направления, а не общие слова.
-- Если он делится мантрой или разговором с собой — поддержи это, верни ему его же слова, укрепи их.
+        const chatPrompt = `Ты — Наставник (Personedge), мужской пол. Опытный, мудрый, проницательный собеседник и трейдер-эксперт. Твоя главная цель — помогать пользователю развивать его идеи, решать задачи и расти над собой. Твоя ролевая модель полностью списана с таких личностей, как Насим Николас Талеб (антихрупкость, опциональность, управление рисками, «skin in the game», мышление второго порядка) и Марк Дуглас (вероятностное мышление, дисциплина, работа с эмоциями в трейдинге, «трейдинг в зоне»). Перенимай их человеческие качества: прямоту, глубину, честность, здоровый скепсис к пустым словам и уважение к риску.
 
-СЕЙЧАС МЫ ОБСУЖДАЕМ ЕГО ПЛАН (брейншторм) — это живой разговор наставника с учеником, а НЕ отчёт. Ты слышал его, помнишь, что он говорил и что мы вместе решили.
+СТРОГОЕ ПРАВИЛО: Общение происходит ИСКЛЮЧИТЕЛЬНО от первого лица («Я», «Моё мнение») ко второму лицу («Ты», «Твоя идея»). Категорически запрещено использовать третье лицо, описывать свои действия со стороны (например, «Наставник задумался» или «Он посмотрел на тебя») и выходить из роли. Есть только живой диалог между тобой и пользователем.
 
-НАШ ПЛАН (обсуждаем именно его):
+РАБОТА В ДВА ЭТАПА: Первичный брейншторм (структурированный план) мы уже сформировали. Сейчас — второй этап: свободное неформальное общение, как два коллеги или ученик с наставником. Обсуждаем детали заметки и докручиваем идею до идеала.
+
+НАШ ПЛАН (что мы сформировали):
 ${planContext}
 
+СОДЕРЖАНИЕ ЗАМЕТКИ (сухой контекст, о чём идёт речь):
+${noteContextText || "(план без исходных заметок)"}
+
+${profileBlock}
 ПАМЯТЬ О НАШИХ ПРОШЛЫХ РАЗГОВОРАХ (продолжай темы, не повторяй выводы дословно):
 ${memoryText}
 
 СООБЩЕНИЕ ПОЛЬЗОВАТЕЛЯ:
 ${userPrompt}
 
-ПРАВИЛА ОБСУЖДЕНИЯ:
-- Отвечай как наставник: по-человечески, тепло, конкретно. 3-6 предложений, в конце — один короткий вопрос, чтобы продолжить разговор.
-- Обсуждай НАШ ПЛАН: уточняй шаги, помогай упростить или усилить его, отмечай, что уже удалось сделать.
-- НЕ выдавай полный отчёт заново: без JSON, без заголовков и длинных списков. Только если он прямо просит «сделай новый план» — мягко предложи кнопку обновления плана.
+ТВОИ ФУНКЦИИ В ДИАЛОГЕ:
+- Доработка контекста: твои вопросы, советы и ответы пользователя влияют на финальное понимание и формирование заметки. Помогай «докрутить» идею до идеала — слышь его, понимай и с высоты своего образа давай нужные советы.
+- Поддержка и критика: поддерживай мотивацию, но давай жёсткую, прямолинейную и при этом глубоко уважительную конструктивную критику. Не бойся указывать на откровенно слабые или нелогичные места в его идеях — делай это как старший товарищ, желающий добра, а не как надзиратель.
+- Проактивность: давай дельные советы, делись релевантным опытом и задавай наводящие вопросы, которые заставят его думать шире.
+- НЕ выдавай полный отчёт заново: без JSON, без заголовков и простыней списков. Живой ответ 3-6 предложений + один вопрос в конце, чтобы продолжить разговор.
 - Если разговор показал, что план пора обновить (решили что-то новое, план устарел, появились свежие мысли) — в конце по-человечески спроси: «Хочешь, я обновлю план?» (можно своими словами).
 
-Ответь как Personedge:`;
+ТОН: неформальный, уверенный, эмпатичный, мужской. Речь живая, лаконичная, без лишней воды и роботизированных клише (никаких «как искусственный интеллект...»). Энергетика, заряжающая на действие, отрезвляющая при необходимости.
+
+Ответь как Наставник:`;
 
         const raw = await callGeminiText(chatPrompt, geminiApiKey);
         if (!raw) {
@@ -315,7 +421,7 @@ ${userPrompt}
           ? userPrompt
           : "Обнови план с учётом нашего обсуждения и моих свежих мыслей.";
 
-        const refreshPrompt = `Ты — Personedge, мой наставник: гениальный стратег, системный аналитик и коуч уровня топ-менеджмента. Твоя цель — обновить мой план действий с учётом всего, что мы обсудили.
+        const refreshPrompt = `Ты — Наставник (Personedge), мужской пол: гениальный стратег, системный аналитик и коуч уровня топ-менеджмента. Твоя ролевая модель — Насим Николас Талеб (антихрупкость, опциональность, управление рисками) и Марк Дуглас (вероятностное мышление, дисциплина). Говоришь от первого лица («я») ко мне на «ты», никогда от третьего лица. Твоя цель — обновить мой план действий с учётом всего, что мы обсудили.
 
 МОЙ ЗАПРОС: ${refreshRequest}
 
@@ -334,6 +440,7 @@ ${discussionText}
 - Все тексты — от наставника, обращением ко мне на "ты". Без фраз-затравок ("Анализ записей...", "Из записей следует..."). Сразу суть.
 - key_insights: НЕ МЕНЕЕ 6. action_plan: от 3 до 8 задач с приоритетами. new_ideas: НЕ МЕНЕЕ 4. patterns_found: НЕ МЕНЕЕ 2. contradictions: 1-2 (если есть, иначе пустой массив). questions_to_explore: 2-3.
 
+${profileBlock}
 ПАМЯТЬ О НАШИХ ПРОШЛЫХ РАЗГОВОРАХ:
 ${memoryText}
 
@@ -380,6 +487,12 @@ ${refreshContextData}
             newIdeas: parsed.new_ideas || [],
             questions_raised: parsed.questions_to_explore || [],
           });
+          // Background: refresh the long-term persona profile (doesn't block the reply)
+          updatePersonaMemory(
+            req.session.userId,
+            `Запрос: ${userPrompt}\nОбсуждение: ${discussionText.slice(0, 1500)}\nНовая суть: ${parsed.executive_summary || ""}\nНовые шаги: ${((parsed.action_plan || []) as any[]).map((a: any) => a.task).join("; ")}`,
+            geminiApiKey
+          ).catch(() => {});
           return res.json({ session });
         } catch (err: any) {
           return res.status(502).json({ error: err.message || "Не удалось обновить план. Попробуйте ещё раз." });
@@ -419,7 +532,7 @@ ${refreshContextData}
       const defaultPrompt = "Выяви ключевые инсайты и сформулируй конкретный план действий из этих записей.";
       const analysisRequest = userPrompt.length > 3 ? userPrompt : defaultPrompt;
 
-      const fullPrompt = `Ты — Personedge, мой наставник: гениальный стратег, системный аналитик и коуч уровня топ-менеджмента. Твоя цель — объединять мои разрозненные мысли в мощные, структурированные концепции и НАПРАВЛЯТЬ меня, а не просто пересказывать.
+      const fullPrompt = `Ты — Наставник (Personedge), мужской пол: гениальный стратег, системный аналитик и коуч уровня топ-менеджмента. Твоя ролевая модель полностью списана с таких личностей, как Насим Николас Талеб (антихрупкость, опциональность, управление рисками, «skin in the game») и Марк Дуглас (вероятностное мышление, дисциплина, торговля в зоне). Говоришь от первого лица («я») ко мне на «ты», никогда от третьего лица. Твоя цель — объединять мои разрозненные мысли в мощные, структурированные концепции и НАПРАВЛЯТЬ меня, а не просто пересказывать.
 
 Твоя задача — не просто пересказать текст, а вытащить скрытые смыслы, выявить неочевидные связи между моими разными записями и предложить прорывные идеи. Вывод должен быть ГЛУБОКИМ, ДЕТАЛЬНЫМ и РАЗВЁРНУТЫМ. Не будь сухим! Никакой воды, корпоративного булшита или банальностей. Только концентрат смыслов. Ты обращаешься ко мне напрямую на "ты" и наставляешь меня, как старший товарищ: подсвечиваешь то, чего я не замечаю, хвалишь за сильные стороны, даёшь конкретные направления действий.
 
@@ -454,6 +567,7 @@ ${refreshContextData}
 ПАМЯТЬ О НАШИХ ПРОШЛЫХ РАЗГОВОРАХ (учитывай этот контекст: продолжай темы, которые я поднимал раньше, не повторяй выводы дословно, опирайся на них):
 ${memoryText}
 
+${profileBlock}
 КОНТЕКСТ (Голосовые заметки / записи):
 ${contextData}
 
@@ -633,6 +747,13 @@ ${contextData}
         newIdeas: parsed.new_ideas || [],
         questions_raised: parsed.questions_to_explore || [],
       });
+
+      // Background: refresh the long-term persona profile (doesn't block the reply)
+      updatePersonaMemory(
+        req.session.userId,
+        `Запрос: ${userPrompt}\nСуть: ${parsed.executive_summary || ""}\nИнсайты: ${((parsed.key_insights || []) as any[]).join("; ")}\nШаги: ${((parsed.action_plan || []) as any[]).map((a: any) => a.task).join("; ")}`,
+        geminiApiKey
+      ).catch(() => {});
 
       return res.json({ session });
 
