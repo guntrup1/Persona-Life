@@ -23,8 +23,8 @@ export function RemoteImage({ src, alt = "", variant = "thumb", bordered = false
   if (!src) return null;
 
   const box = variant === "thumb" ? "aspect-video w-full" : "w-full min-h-24";
-  const imgClass = variant === "thumb" ? "object-cover w-full h-full" : "w-full h-auto object-cover";
   const borderClass = bordered ? "border border-border" : "";
+  const imgClass = variant === "thumb" ? "w-full h-full object-cover" : "w-full h-auto";
 
   if (error) {
     return (
@@ -44,21 +44,20 @@ export function RemoteImage({ src, alt = "", variant = "thumb", bordered = false
     );
   }
 
-  if (!loaded) {
-    return (
-      <div className={`${box} ${borderClass} rounded-md bg-white/5 animate-pulse`} />
-    );
-  }
-
   return (
-    <img
-      src={src}
-      alt={alt}
-      loading="lazy"
-      onClick={onClick}
-      onLoad={() => setLoaded(true)}
-      onError={() => setError(true)}
-      className={`${imgClass} ${borderClass} rounded-md`}
-    />
+    <div className={`relative ${box} ${borderClass} rounded-md overflow-hidden bg-white/[0.03]`}>
+      <img
+        src={src}
+        alt={alt}
+        loading="lazy"
+        onClick={onClick}
+        onLoad={() => setLoaded(true)}
+        onError={() => setError(true)}
+        className={`${imgClass} transition-opacity duration-300 ${loaded ? "opacity-100" : "opacity-0"} ${onClick ? "cursor-pointer" : ""}`}
+      />
+      {!loaded && (
+        <div className="absolute inset-0 bg-white/5 animate-pulse pointer-events-none" />
+      )}
+    </div>
   );
 }
