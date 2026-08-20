@@ -449,18 +449,48 @@ export default function BrainstormPage() {
     if (newSet.has(id)) newSet.delete(id);
     else newSet.add(id);
     setSelectedNotes(newSet);
+    // Choosing a note implies a brainstorm; removing the last one returns to discussion
+    setMode(newSet.size > 0 ? "analysis" : "chat");
   };
 
-  // Choosing notes implies a brainstorm; clearing them returns to discussion
-  useEffect(() => {
-    setMode(selectedNotes.size > 0 ? "analysis" : "chat");
-  }, [selectedNotes]);
+  // Notes of the latest plan — used to re-attach the same note for a repeat brainstorm
+  const getLastPlanNoteIds = useCallback((): string[] => {
+    const lastPlan = sessions
+      .filter(s => !s.parentSessionId && s.sourceNoteIds?.length)
+      .slice(-1)[0];
+    if (!lastPlan) return [];
+    return (lastPlan.sourceNoteIds as any[])
+      .map(n => (typeof n === "string" ? n : n?._id))
+      .filter(Boolean) as string[];
+  }, [sessions]);
+
+  // Mode switch: a repeat brainstorm re-attaches the same notes of the current session
+  const switchMode = (m: "chat" | "analysis") => {
+    if (m === "analysis" && selectedNotes.size === 0) {
+      const ids = getLastPlanNoteIds();
+      if (ids.length) {
+        setSelectedNotes(new Set(ids));
+        toast({ title: "📎 Заметка прикреплена — продолжаем с той же заметкой" });
+      } else {
+        toast({ title: "Для брейншторма прикрепите заметки 📎", variant: "destructive" });
+      }
+    }
+    setMode(m);
+  };
 
   // ── Generate ──
   const handleGenerate = async () => {
-    if (mode === "analysis" && selectedNotes.size === 0) {
-      toast({ title: "Для брейншторма прикрепите заметки 📎", variant: "destructive" });
-      return;
+    // For a brainstorm, re-attach the same note of the current session if it got detached
+    let noteIds = Array.from(selectedNotes);
+    if (mode === "analysis" && noteIds.length === 0) {
+      noteIds = getLastPlanNoteIds();
+      if (noteIds.length) {
+        setSelectedNotes(new Set(noteIds));
+        toast({ title: "📎 Заметка прикреплена снова" });
+      } else {
+        toast({ title: "Для брейншторма прикрепите заметки 📎", variant: "destructive" });
+        return;
+      }
     }
     if (mode === "chat" && !prompt.trim()) {
       toast({ title: "Напишите сообщение для Personedge", variant: "destructive" });
@@ -476,7 +506,7 @@ export default function BrainstormPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ noteIds: Array.from(selectedNotes), prompt: currentPrompt, mode }),
+        body: JSON.stringify({ noteIds, prompt: currentPrompt, mode }),
       });
 
       const data = await res.json();
@@ -843,14 +873,14 @@ export default function BrainstormPage() {
           <div className="flex items-center justify-between gap-2 px-1">
             <div className="flex items-center gap-1 p-1 bg-white/5 border border-white/10 rounded-xl">
               <button
-                onClick={() => setMode("chat")}
+                onClick={() => switchMode("chat")}
                 className={`flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-lg transition-colors ${mode === "chat" ? "bg-red-500/15 text-red-300 border border-red-500/25" : "text-white/50 hover:text-white hover:bg-white/5 border border-transparent"}`}
               >
                 <MessageCircle className="w-3 h-3" />
                 Обсуждение
               </button>
               <button
-                onClick={() => setMode("analysis")}
+                onClick={() => switchMode("analysis")}
                 className={`flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-lg transition-colors ${mode === "analysis" ? "bg-red-500/15 text-red-300 border border-red-500/25" : "text-white/50 hover:text-white hover:bg-white/5 border border-transparent"}`}
               >
                 <Brain className="w-3 h-3" />
@@ -870,7 +900,7 @@ export default function BrainstormPage() {
             {PRESETS.map(preset => (
               <button
                 key={preset.label}
-                onClick={() => { setPrompt(preset.prompt); setMode("analysis"); }}
+                onClick={() => { setPrompt(preset.prompt); switchMode("analysis"); }}
                 className="text-[11px] font-medium text-left px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white transition-colors backdrop-blur-sm truncate"
               >
                 {preset.label}
