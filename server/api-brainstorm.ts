@@ -264,8 +264,8 @@ ${materialText.slice(0, 4000)}
       const { noteIds, prompt, refreshSessionId } = req.body;
       // refreshSessionId = rebuild an existing plan taking our discussion into account
       const isRefresh = !!refreshSessionId;
-      // Empty noteIds + message = discussion with Personedge (mentor, with context)
-      const isChat = !isRefresh && (!noteIds || noteIds.length === 0);
+      // Explicit mode wins; otherwise empty noteIds = discussion (mentor chat), non-empty = brainstorm
+      const isChat = !isRefresh && (req.body.mode === "chat" || (!noteIds || noteIds.length === 0));
       const userPrompt = (prompt && String(prompt).trim().length > 0 ? String(prompt).trim() : "").slice(0, 4000);
       if (isChat && !userPrompt) {
         return res.status(400).json({ error: "Напишите сообщение для Personedge" });
@@ -318,11 +318,12 @@ ${profileToText(personaProfile)}
           ? `«${(lastPlan as any).theme || "Без темы"}»\nСуть: ${((lastPlan as any).executive_summary || "").slice(0, 400)}\nКлючевые шаги:\n${(((lastPlan as any).action_items || []) as any[]).slice(0, 8).map((a: any) => `- ${a.task}`).join("\n")}\nИнсайты: ${(((lastPlan as any).key_insights || []) as any[]).slice(0, 4).join("; ")}`
           : "(У нас пока нет готового плана — мы только знакомимся. Можешь помочь ему разобраться в мыслях или предложить сделать план из его заметок.)";
 
-        // Raw content of the notes behind the plan, so we can discuss the actual details ("сухой контекст заметки")
+        // Raw content of the notes behind the plan (or the ones attached to the discussion), so we can talk about the actual details ("сухой контекст заметки")
         let noteContextText = "";
-        if (lastPlan && (lastPlan as any).sourceNoteIds?.length) {
+        const discussionNoteIds = (noteIds && noteIds.length ? noteIds : (lastPlan as any)?.sourceNoteIds) || [];
+        if (discussionNoteIds.length) {
           const planNotes = await mongoose.model("ProcessedAudio").find({
-            _id: { $in: (lastPlan as any).sourceNoteIds },
+            _id: { $in: discussionNoteIds },
             userId: req.session.userId,
           }).lean();
           noteContextText = (planNotes as any[])

@@ -9,7 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Sparkles, Brain, Loader2, ArrowRight, Save, Copy, Trash2, RefreshCw, Send,
+  Sparkles, Brain, Loader2, ArrowRight, Save, Copy, Trash2, RefreshCw, Send, MessageCircle,
   Calendar, Paperclip, X, History, Lightbulb, ListChecks, ArrowUp, ChevronDown
 } from "lucide-react";
 import { useStore, getTodayDate, formatUserClock } from "@/lib/store";
@@ -287,6 +287,8 @@ export default function BrainstormPage() {
 
   const [notes, setNotes] = useState<ProcessedNote[]>([]);
   const [selectedNotes, setSelectedNotes] = useState<Set<string>>(new Set());
+  // chat = informal discussion with the mentor; analysis = structured brainstorm
+  const [mode, setMode] = useState<"chat" | "analysis">("chat");
   const [sessions, setSessions] = useState<BrainstormSession[]>([]);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [showOnlyToday, setShowOnlyToday] = useState(false);
@@ -449,10 +451,19 @@ export default function BrainstormPage() {
     setSelectedNotes(newSet);
   };
 
+  // Choosing notes implies a brainstorm; clearing them returns to discussion
+  useEffect(() => {
+    setMode(selectedNotes.size > 0 ? "analysis" : "chat");
+  }, [selectedNotes]);
+
   // ── Generate ──
   const handleGenerate = async () => {
-    if (selectedNotes.size === 0 && !prompt) {
-      toast({ title: "Выберите заметку или введите текст", variant: "destructive" });
+    if (mode === "analysis" && selectedNotes.size === 0) {
+      toast({ title: "Для брейншторма прикрепите заметки 📎", variant: "destructive" });
+      return;
+    }
+    if (mode === "chat" && !prompt.trim()) {
+      toast({ title: "Напишите сообщение для Personedge", variant: "destructive" });
       return;
     }
 
@@ -465,15 +476,15 @@ export default function BrainstormPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ noteIds: Array.from(selectedNotes), prompt: currentPrompt }),
+        body: JSON.stringify({ noteIds: Array.from(selectedNotes), prompt: currentPrompt, mode }),
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Ошибка генерации");
 
-      toast({ title: selectedNotes.size === 0 ? "✅ Personedge ответила" : "✅ Брейн-шторм завершен!" });
-      // Keep the selected note(s) as working context — user clears them manually
-      // (tap ✕ on a chip) once the work with that note is done.
+      toast({ title: mode === "chat" ? "✅ Personedge ответила" : "✅ Брейншторм завершен!" });
+      // The first brainstorm is done — the next messages naturally continue as an informal discussion
+      if (mode === "analysis") setMode("chat");
 
       // Reload to show the new card
       await loadSessions();
@@ -817,23 +828,38 @@ export default function BrainstormPage() {
       <div className="absolute bottom-0 inset-x-0 p-4 md:p-6 pt-20 bg-gradient-to-t from-[#0A0A0A] via-[#0A0A0A] to-transparent" style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom))" }}>
         <div className="max-w-4xl mx-auto flex flex-col gap-3">
           
-          {/* Presets Grid (collapsible, hides when typing) */}
-          <div className="flex items-center justify-between px-1">
+          {/* Mode switch: informal discussion vs structured brainstorm */}
+          <div className="flex items-center justify-between gap-2 px-1">
+            <div className="flex items-center gap-1 p-1 bg-white/5 border border-white/10 rounded-xl">
+              <button
+                onClick={() => setMode("chat")}
+                className={`flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-lg transition-colors ${mode === "chat" ? "bg-red-500/15 text-red-300 border border-red-500/25" : "text-white/50 hover:text-white hover:bg-white/5 border border-transparent"}`}
+              >
+                <MessageCircle className="w-3 h-3" />
+                Обсуждение
+              </button>
+              <button
+                onClick={() => setMode("analysis")}
+                className={`flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-lg transition-colors ${mode === "analysis" ? "bg-red-500/15 text-red-300 border border-red-500/25" : "text-white/50 hover:text-white hover:bg-white/5 border border-transparent"}`}
+              >
+                <Brain className="w-3 h-3" />
+                Брейншторм
+              </button>
+            </div>
             <button
               onClick={() => setPresetsOpen(o => !o)}
               className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-white/40 hover:text-white/70 transition-colors"
               title={presetsOpen ? "Скрыть шаблоны" : "Показать шаблоны"}
             >
               <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${presetsOpen ? "" : "-rotate-90"}`} />
-              Шаблоны запросов
+              Шаблоны
             </button>
-            {presetsOpen && <span className="text-[10px] text-white/20">10</span>}
           </div>
           <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5 overflow-hidden transition-all duration-300 ${presetsOpen && prompt.length === 0 ? 'opacity-100 translate-y-0 max-h-40' : 'opacity-0 translate-y-2 pointer-events-none max-h-0'}`}>
             {PRESETS.map(preset => (
               <button
                 key={preset.label}
-                onClick={() => setPrompt(preset.prompt)}
+                onClick={() => { setPrompt(preset.prompt); setMode("analysis"); }}
                 className="text-[11px] font-medium text-left px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white transition-colors backdrop-blur-sm truncate"
               >
                 {preset.label}
@@ -954,7 +980,9 @@ export default function BrainstormPage() {
 
             {/* Text Input */}
             <Input
-              placeholder="Напиши мне — я помню наши разговоры. Или прикрепи заметки 📎…"
+              placeholder={mode === "chat"
+                ? "Напиши мне — я помню наши разговоры. Или прикрепи заметки 📎…"
+                : "Опиши, на чём сделать акцент в брейншторме…"}
               value={prompt}
               onChange={e => setPrompt(e.target.value)}
               onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleGenerate()}
@@ -965,10 +993,10 @@ export default function BrainstormPage() {
             {/* Send Button */}
             <Button
               onClick={handleGenerate}
-              disabled={isGenerating || (selectedNotes.size === 0 && !prompt.trim())}
+              disabled={isGenerating || (mode === "chat" ? !prompt.trim() : selectedNotes.size === 0)}
               size="icon"
               className={`w-10 h-10 rounded-full flex-shrink-0 transition-all duration-300 ${
-                prompt.trim() || selectedNotes.size > 0 
+                (mode === "chat" ? prompt.trim() : selectedNotes.size > 0)
                   ? "bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-700 text-white shadow-lg shadow-red-600/25" 
                   : "bg-white/5 text-white/20 hover:bg-white/5 cursor-not-allowed"
               }`}
