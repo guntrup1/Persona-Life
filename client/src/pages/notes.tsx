@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useI18n } from "@/lib/i18n";
-import { useStore, type TradeAsset, type NoteTag, type BiasDirection, getTodayDate, compressImage } from "@/lib/store";
+import { useStore, type TradeAsset, type NoteTag, type BiasDirection, getTodayDate } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { MonteCarloSimulator } from "@/components/MonteCarloSimulator";
+import { RemoteImage } from "@/components/remote-image";
 import { FileText, Plus, Trash2, Clock, CandlestickChart, ArrowUpRight, ArrowDownRight, MoveRight, Camera, X, Pencil, Puzzle, CheckCircle, Circle } from "lucide-react";
 
 const ASSETS: TradeAsset[] = ["GER40", "EUR", "XAU", "GBP"];
@@ -30,7 +31,6 @@ function AddBiasDialog({ onAdd, editBias }: { onAdd: (b: any) => void; editBias?
   const [pros, setPros] = useState(editBias?.pros || "");
   const [cons, setCons] = useState(editBias?.cons || "");
   const [screenshotUrl, setScreenshotUrl] = useState<string | undefined>(editBias?.screenshotUrl);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { t, lang } = useI18n();
 
   useEffect(() => {
@@ -43,18 +43,6 @@ function AddBiasDialog({ onAdd, editBias }: { onAdd: (b: any) => void; editBias?
     }
   }, [editBias]);
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const compressed = await compressImage(reader.result as string);
-        setScreenshotUrl(compressed);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onAdd({
@@ -63,7 +51,7 @@ function AddBiasDialog({ onAdd, editBias }: { onAdd: (b: any) => void; editBias?
       direction,
       pros,
       cons,
-      screenshotUrl,
+      screenshotUrl: screenshotUrl?.trim() || undefined,
     });
     if (!editBias) {
       setAsset("GER40");
@@ -146,23 +134,13 @@ function AddBiasDialog({ onAdd, editBias }: { onAdd: (b: any) => void; editBias?
           <div className="space-y-1.5">
             <Label>{t.notes.screenshot}</Label>
             <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-full gap-2"
-                onClick={() => fileInputRef.current?.click()}
-                data-testid="button-upload-screenshot"
-              >
-                <Camera className="w-4 h-4" />
-                {screenshotUrl ? t.notes.changeScreenshot : t.notes.uploadScreenshot}
-              </Button>
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                accept="image/*"
-                className="hidden"
+              <Input
+                type="url"
+                value={screenshotUrl ?? ""}
+                onChange={e => setScreenshotUrl(e.target.value)}
+                placeholder={t.notes.screenshotLinkPlaceholder}
+                className="text-sm"
+                data-testid="input-screenshot-link"
               />
               {screenshotUrl && (
                 <Button
@@ -175,9 +153,9 @@ function AddBiasDialog({ onAdd, editBias }: { onAdd: (b: any) => void; editBias?
                 </Button>
               )}
             </div>
-            {screenshotUrl && (
-              <div className="mt-2 rounded-md overflow-hidden border border-border aspect-video relative">
-                <img src={screenshotUrl} alt="Bias screenshot" className="object-cover w-full h-full" />
+            {screenshotUrl && /^https?:\/\/.+/i.test(screenshotUrl.trim()) && (
+              <div className="mt-2">
+                <RemoteImage bordered src={screenshotUrl.trim()} alt="Bias screenshot" variant="thumb" />
               </div>
             )}
           </div>
@@ -201,7 +179,6 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
   const [time, setTime] = useState(editNote?.time || new Date().toTimeString().slice(0, 5));
   const [screenshotUrl, setScreenshotUrl] = useState<string | undefined>(editNote?.screenshotUrl);
   const [isTradingIdea, setIsTradingIdea] = useState(editNote?.isTradingIdea || false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { t, lang } = useI18n();
 
   useEffect(() => {
@@ -217,18 +194,6 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
     }
   }, [editNote]);
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const compressed = await compressImage(reader.result as string);
-        setScreenshotUrl(compressed);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!text.trim()) return;
@@ -239,7 +204,7 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
       timeframe,
       tag,
       text: text.trim(),
-      screenshotUrl,
+      screenshotUrl: screenshotUrl?.trim() || undefined,
       isTradingIdea: tag === "идея" ? isTradingIdea : false,
       date: editNote?.date || getTodayDate(),
     });
@@ -342,23 +307,13 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
           <div className="space-y-1.5">
             <Label>{t.notes.screenshot}</Label>
             <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-full gap-2"
-                onClick={() => fileInputRef.current?.click()}
-                data-testid="button-note-upload-screenshot"
-              >
-                <Camera className="w-4 h-4" />
-                {screenshotUrl ? t.notes.changeScreenshot : t.notes.uploadScreenshot}
-              </Button>
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                accept="image/*"
-                className="hidden"
+              <Input
+                type="url"
+                value={screenshotUrl ?? ""}
+                onChange={e => setScreenshotUrl(e.target.value)}
+                placeholder={t.notes.screenshotLinkPlaceholder}
+                className="text-sm"
+                data-testid="input-note-screenshot-link"
               />
               {screenshotUrl && (
                 <Button
@@ -371,9 +326,9 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
                 </Button>
               )}
             </div>
-            {screenshotUrl && (
-              <div className="mt-2 rounded-md overflow-hidden border border-border aspect-video relative">
-                <img src={screenshotUrl} alt="Note screenshot" className="object-cover w-full h-full" />
+            {screenshotUrl && /^https?:\/\/.+/i.test(screenshotUrl.trim()) && (
+              <div className="mt-2">
+                <RemoteImage bordered src={screenshotUrl.trim()} alt="Note screenshot" variant="thumb" />
               </div>
             )}
           </div>
@@ -531,15 +486,15 @@ export default function NotesPage() {
                   {bias.screenshotUrl && (
                     <Dialog>
                       <DialogTrigger asChild>
-                        <div className="cursor-pointer rounded-md overflow-hidden border border-border aspect-video mt-2 relative hover:opacity-90 transition-opacity">
-                          <img src={bias.screenshotUrl} alt="Bias screenshot" className="object-cover w-full h-full" />
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity">
+                        <div className="relative mt-2 cursor-pointer group/thumb">
+                          <RemoteImage bordered src={bias.screenshotUrl} alt="Bias screenshot" variant="thumb" />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
                             <Camera className="w-6 h-6 text-white" />
                           </div>
                         </div>
                       </DialogTrigger>
                       <DialogContent className="max-w-4xl p-0 overflow-hidden border-none bg-transparent">
-                        <img src={bias.screenshotUrl} alt="Bias screenshot" className="w-full h-auto" />
+                        <RemoteImage src={bias.screenshotUrl} alt="Bias screenshot" variant="auto" />
                       </DialogContent>
                     </Dialog>
                   )}
@@ -636,15 +591,15 @@ export default function NotesPage() {
                       {note.screenshotUrl && (
                         <Dialog>
                           <DialogTrigger asChild>
-                            <div className="cursor-pointer rounded-md overflow-hidden border border-border aspect-video mt-3 relative hover:opacity-90 transition-opacity w-48">
-                              <img src={note.screenshotUrl} alt="Note screenshot" className="object-cover w-full h-full" />
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity">
+                            <div className="relative mt-3 w-48 cursor-pointer group/thumb">
+                              <RemoteImage bordered src={note.screenshotUrl} alt="Note screenshot" variant="thumb" />
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
                                 <Camera className="w-5 h-5 text-white" />
                               </div>
                             </div>
                           </DialogTrigger>
                           <DialogContent className="max-w-4xl p-0 overflow-hidden border-none bg-transparent">
-                            <img src={note.screenshotUrl} alt="Note screenshot" className="w-full h-auto" />
+                            <RemoteImage src={note.screenshotUrl} alt="Note screenshot" variant="auto" />
                           </DialogContent>
                         </Dialog>
                       )}

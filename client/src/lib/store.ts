@@ -857,25 +857,6 @@ function scheduleServerSync(state: AppState) {
   }, 800);
 }
 
-export function compressImage(dataUrl: string, maxWidth = 1200, quality = 0.82): Promise<string> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      let w = img.width;
-      let h = img.height;
-      if (w > maxWidth) { h = (h * maxWidth) / w; w = maxWidth; }
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext("2d")!;
-      ctx.drawImage(img, 0, 0, w, h);
-      resolve(canvas.toDataURL("image/jpeg", quality));
-    };
-    img.onerror = () => resolve(dataUrl);
-    img.src = dataUrl;
-  });
-}
-
 function mergeArraysById<T extends { id: string }>(local: T[], server: T[], deletedIds?: Set<string>): T[] {
   const map = new Map<string, T>();
   for (const item of server) map.set(item.id, item);

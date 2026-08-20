@@ -58,7 +58,7 @@ State is stored in localStorage under key `lifeos_v2`. The store is a simple rea
   - Server-side backups: last 10 versions saved in `userdatabackups` collection (10-minute cooldown)
   - Export: GET `/api/user/export` downloads full JSON backup; button in sidebar footer
   - Restore: GET `/api/user/backups` lists backups; POST `/api/user/restore/:id` restores from backup
-- **Image compression**: `compressImage(dataUrl, maxWidth=1200, quality=0.82)` utility compresses screenshots before storing as base64
+- **Image links**: BIAS and trading-note screenshots are stored as external image URLs (`screenshotUrl`) — no files are uploaded to the server, nothing is stored server-side or in localStorage as base64; the image is rendered inline from the link (with loading/error fallback)
 - **Bias upsert**: `addDailyBias` upserts by date+asset (no duplicates for same day/instrument)
 - **Calendar**: Day notes shown read-only with timestamps; trading note and bias screenshots displayed inline
 

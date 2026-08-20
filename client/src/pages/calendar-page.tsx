@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { ChevronLeft, ChevronRight, Plus, Hourglass, CheckCircle, Circle, ArrowUpCircle, ArrowDownCircle, MinusCircle, FileText, CandlestickChart, Edit2, CalendarDays, Brain } from "lucide-react";
 import { getTodayDate, formatUserClock } from "@/lib/store";
+import { RemoteImage } from "@/components/remote-image";
 import { Link } from "wouter";
 
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
@@ -823,7 +824,7 @@ function DayDetails({ selectedDate, brainstormSessions = [] }: { selectedDate: s
                 )}
                 {bias.screenshotUrl && (
                   <div className="mt-1">
-                    <img src={bias.screenshotUrl} alt="Bias screenshot" className="rounded-md w-full h-auto object-cover max-h-24 border border-border" />
+                    <RemoteImage bordered src={bias.screenshotUrl} alt="Bias screenshot" variant="auto" />
                   </div>
                 )}
               </div>
@@ -859,7 +860,7 @@ function DayDetails({ selectedDate, brainstormSessions = [] }: { selectedDate: s
                 </p>
                 {note.screenshotUrl && (
                   <div className="mt-1">
-                    <img src={note.screenshotUrl} alt="Trading note screenshot" className="rounded-md w-full h-auto object-cover max-h-24 border border-border" />
+                    <RemoteImage bordered src={note.screenshotUrl} alt="Trading note screenshot" variant="auto" />
                   </div>
                 )}
               </div>
