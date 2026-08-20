@@ -9,7 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Sparkles, Brain, Loader2, ArrowRight, Save, Copy, Trash2,
+  Sparkles, Brain, Loader2, ArrowRight, Save, Copy, Trash2, RefreshCw,
   Calendar, Paperclip, X, History, Lightbulb, ListChecks, ArrowUp, ChevronDown
 } from "lucide-react";
 import { useStore, getTodayDate, formatUserClock } from "@/lib/store";
@@ -27,6 +27,7 @@ interface BrainstormSession {
   newIdeas?: string[];
   reply?: string;
   kind?: string;
+  parentSessionId?: string;
   createdAt: string;
   sourceNoteIds: any[];
 }
@@ -71,6 +72,7 @@ function RichResponseCard({
   onExportInsight,
   onCopy,
   onDelete,
+  onRefresh,
 }: {
   session: BrainstormSession;
   onExportIdea: (idea: string) => void;
@@ -78,6 +80,7 @@ function RichResponseCard({
   onExportInsight: (insight: string) => void;
   onCopy: (text: string) => void;
   onDelete: (id: string) => void;
+  onRefresh: (sessionId: string) => void;
 }) {
   return (
     <div className="flex flex-col gap-3 w-full max-w-4xl mx-auto my-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -113,6 +116,17 @@ function RichResponseCard({
               {session.theme}
             </h3>
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+              {session.kind !== "chat" && (
+                <Button
+                  onClick={() => onRefresh(session._id)}
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 text-amber-400/70 hover:text-amber-400 hover:bg-amber-400/10"
+                  title="Обновить план с учётом нашего обсуждения"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                </Button>
+              )}
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button size="icon" variant="ghost" className="h-7 w-7 text-white/40 hover:text-red-400 hover:bg-white/5">
@@ -137,8 +151,21 @@ function RichResponseCard({
 
           {/* Chat reply (mentor mode) */}
           {session.kind === "chat" ? (
-            <div className="bg-white/[0.03] border border-amber-500/15 rounded-xl p-4 sm:p-5 text-sm text-white/85 leading-relaxed whitespace-pre-wrap border-l-4 border-l-amber-500/70">
-              {session.reply}
+            <div>
+              <div className="bg-white/[0.03] border border-amber-500/15 rounded-xl p-4 sm:p-5 text-sm text-white/85 leading-relaxed whitespace-pre-wrap border-l-4 border-l-amber-500/70">
+                {session.reply}
+              </div>
+              {session.parentSessionId && /обнов/i.test(session.reply || "") && (
+                <Button
+                  onClick={() => onRefresh(session.parentSessionId!)}
+                  variant="ghost"
+                  size="sm"
+                  className="mt-2 h-8 gap-1.5 text-amber-400/80 hover:text-amber-400 hover:bg-amber-400/10 border border-amber-500/20 rounded-xl"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Обновить план с учётом нашего разговора
+                </Button>
+              )}
             </div>
           ) : (
             <>
@@ -456,6 +483,28 @@ export default function BrainstormPage() {
     }
   };
 
+  // ── Refresh: rebuild the plan of a session, taking the discussion into account ──
+  const handleRefresh = async (sessionId: string) => {
+    if (isGenerating) return;
+    setIsGenerating(true);
+    try {
+      const res = await fetch("/api/brainstorms/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ noteIds: [], prompt: "", refreshSessionId: sessionId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Ошибка обновления плана");
+      toast({ title: "✅ План обновлён с учётом нашего разговора!" });
+      await loadSessions();
+    } catch (err: any) {
+      toast({ title: err.message, variant: "destructive" });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const handleDeleteNote = async (noteId: string) => {
     try {
       const res = await fetch(`/api/processed-audios/${noteId}`, { method: "DELETE", credentials: "include" });
@@ -582,25 +631,49 @@ export default function BrainstormPage() {
           </div>
         ) : (
           <div className="flex flex-col justify-end min-h-full pb-10">
-            {sessions
-              .filter(session => !showOnlyToday || new Date(session.createdAt).toISOString().slice(0, 10) === getTodayDate())
-              .map(session => (
-              <div
-                key={session._id}
-                id={`session-${session._id}`}
-                ref={el => { sessionRefs.current[session._id] = el; }}
-                className="scroll-mt-20"
-              >
-                <RichResponseCard
-                  session={session}
-                  onExportIdea={handleExportIdea}
-                  onExportTaskTo={handleExportTask}
-                  onExportInsight={handleExportInsight}
-                  onCopy={handleCopy}
-                  onDelete={handleDelete}
-                />
-              </div>
-            ))}
+            {(() => {
+              const visible = sessions.filter(session => !showOnlyToday || new Date(session.createdAt).toISOString().slice(0, 10) === getTodayDate());
+              const roots = visible.filter(s => !s.parentSessionId);
+              const parentIds = new Set(roots.map(r => r._id));
+              const childrenByParent = new Map<string, BrainstormSession[]>();
+              visible.filter(s => s.parentSessionId).forEach(s => {
+                if (!parentIds.has(s.parentSessionId!)) return; // orphan (plan deleted) → rendered as root
+                const list = childrenByParent.get(s.parentSessionId!) ?? [];
+                list.push(s);
+                childrenByParent.set(s.parentSessionId!, list);
+              });
+              const orphans = visible.filter(s => s.parentSessionId && !parentIds.has(s.parentSessionId!));
+              const renderCard = (session: BrainstormSession) => (
+                <div
+                  key={session._id}
+                  id={`session-${session._id}`}
+                  ref={el => { sessionRefs.current[session._id] = el; }}
+                  className="scroll-mt-20"
+                >
+                  <RichResponseCard
+                    session={session}
+                    onExportIdea={handleExportIdea}
+                    onExportTaskTo={handleExportTask}
+                    onExportInsight={handleExportInsight}
+                    onCopy={handleCopy}
+                    onDelete={handleDelete}
+                    onRefresh={handleRefresh}
+                  />
+                </div>
+              );
+              return (
+                <>
+                  {[...roots, ...orphans]
+                    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                    .map(session => (
+                    <div key={session._id}>
+                      {renderCard(session)}
+                      {(childrenByParent.get(session._id) ?? []).map(child => renderCard(child))}
+                    </div>
+                  ))}
+                </>
+              );
+            })()}
             {isGenerating && (
               <div className="flex justify-start w-full mt-6 mb-2 animate-in fade-in slide-in-from-bottom-4">
                 <div className="bg-[#1C1C1E] border border-white/5 rounded-2xl rounded-tl-sm px-6 py-5 shadow-md flex flex-col gap-4 w-full max-w-sm ml-0 sm:ml-7 relative">
