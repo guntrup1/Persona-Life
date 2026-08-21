@@ -141,6 +141,27 @@ const dayNotePatchSchema = z.object({
   link: z.string().refine((v) => /^https?:\/\//i.test(v), { message: "Ссылка должна начинаться с http(s)://" }).nullable().optional(),
   ideaDone: z.boolean().optional(),
   updatedAt: z.string().optional(),
+  }).strip();
+
+const biasSchema = z.object({
+  id: z.string(),
+  date: z.string(),
+  asset: z.enum(["GER40", "EUR", "XAU", "GBP"]),
+  direction: z.enum(["bullish", "bearish", "neutral"]),
+  pros: z.string().optional(),
+  cons: z.string().optional(),
+  screenshotUrl: z.string().optional(),
+  screenshots: z.array(z.object({ tf: z.string(), url: z.string() })).optional(),
+});
+
+const biasPatchSchema = z.object({
+  date: z.string().optional(),
+  asset: z.enum(["GER40", "EUR", "XAU", "GBP"]).optional(),
+  direction: z.enum(["bullish", "bearish", "neutral"]).optional(),
+  pros: z.string().nullable().optional(),
+  cons: z.string().nullable().optional(),
+  screenshotUrl: z.string().nullable().optional(),
+  screenshots: z.array(z.object({ tf: z.string(), url: z.string() })).nullable().optional(),
 }).strip();
 
 export function registerDataRoutes(app: Express) {
@@ -503,6 +524,48 @@ export function registerDataRoutes(app: Express) {
   app.delete("/api/trading-notes/:id", requireAuth, async (req: any, res) => {
     try {
       await TradingNote.findOneAndDelete({ userId: req.session.userId, noteId: req.params.id });
+      await bumpRevision(req.session.userId);
+      res.json({ ok: true });
+    } catch {
+      res.status(400).json({ ok: false });
+    }
+  });
+
+  // --- DAILY BIAS ---
+  app.post("/api/bias", requireAuth, async (req: any, res) => {
+    try {
+      const data = biasSchema.parse(req.body);
+      await DailyBias.findOneAndUpdate(
+        { userId: req.session.userId, biasId: data.id },
+        { ...data, biasId: data.id, userId: req.session.userId },
+        { upsert: true }
+      );
+      await bumpRevision(req.session.userId);
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error("[api-data] bias error:", err);
+      const msg = err instanceof z.ZodError ? (err.issues[0]?.message || "Ошибка валидации") : "Ошибка запроса";
+      res.status(400).json({ ok: false, message: msg });
+    }
+  });
+
+  app.patch("/api/bias/:id", requireAuth, async (req: any, res) => {
+    try {
+      const parsed = biasPatchSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ ok: false, message: parsed.error.errors[0].message });
+      }
+      await DailyBias.findOneAndUpdate({ userId: req.session.userId, biasId: req.params.id }, parsed.data);
+      await bumpRevision(req.session.userId);
+      res.json({ ok: true });
+    } catch {
+      res.status(400).json({ ok: false });
+    }
+  });
+
+  app.delete("/api/bias/:id", requireAuth, async (req: any, res) => {
+    try {
+      await DailyBias.findOneAndDelete({ userId: req.session.userId, biasId: req.params.id });
       await bumpRevision(req.session.userId);
       res.json({ ok: true });
     } catch {

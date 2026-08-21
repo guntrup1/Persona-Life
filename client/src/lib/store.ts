@@ -1435,21 +1435,26 @@ export function useStore() {
     }, []),
 
     addDailyBias: useCallback((bias: Omit<DailyBias, "id" | "createdAt">) => {
-      mutate(s => {
-        const existing = s.dailyBiases.find(b => b.date === bias.date && b.asset === bias.asset);
-        if (existing) {
-          return { ...s, dailyBiases: s.dailyBiases.map(b => b.id === existing.id ? { ...b, ...bias, createdAt: b.createdAt } : b) };
-        }
-        return { ...s, dailyBiases: [...s.dailyBiases, { ...bias, id: crypto.randomUUID(), createdAt: new Date().toISOString() }] };
-      });
+      const existing = globalState.dailyBiases.find(b => b.date === bias.date && b.asset === bias.asset);
+      if (existing) {
+        const updated = { ...existing, ...bias, createdAt: existing.createdAt };
+        mutate(s => ({ ...s, dailyBiases: s.dailyBiases.map(b => b.id === existing.id ? updated : b) }));
+        apiCall('PATCH', `/api/bias/${existing.id}`, updated);
+      } else {
+        const newBias = { ...bias, id: crypto.randomUUID(), createdAt: new Date().toISOString() };
+        mutate(s => ({ ...s, dailyBiases: [...s.dailyBiases, newBias] }));
+        apiCall('POST', '/api/bias', newBias);
+      }
     }, []),
 
     updateDailyBias: useCallback((id: string, updates: Partial<DailyBias>) => {
       mutate(s => ({ ...s, dailyBiases: s.dailyBiases.map(b => b.id === id ? { ...b, ...updates } : b) }));
+      apiCall('PATCH', `/api/bias/${id}`, updates);
     }, []),
 
     deleteDailyBias: useCallback((id: string) => {
       mutate(s => ({ ...s, dailyBiases: s.dailyBiases.filter(b => b.id !== id), _deletedIds: [...(s._deletedIds || []), id].slice(-200) }));
+      apiCall('DELETE', `/api/bias/${id}`);
     }, []),
 
     rescheduleTask: useCallback((id: string, newDate: string) => {

@@ -4,6 +4,7 @@ import { LIFE_AREAS_TEXT, mapToLifeArea } from "./life-areas";
 import { encryptSecret, decryptSecret } from "./crypto";
 import { bumpRevision } from "./revision";
 import { findDuplicateTask, findDuplicateGoal, findDuplicateDayNote, findDuplicateTradingNote } from "./dedupe";
+import { DailyBias } from "./mongodb";
 import crypto from "crypto";
 
 export function registerAudioRoutes(app: Express) {
@@ -429,7 +430,6 @@ MODE: GOALS
 - For each goal, generate a detailed step-by-step plan (array of strings) in the "plan_steps" field.
 - Identify underlying motivation / "why" behind each goal
 - time_limit MUST be exactly one of: week, month, year, life, custom_date
-- VERY IMPORTANT FOR TIME_LIMIT: Be highly context-aware! Listen carefully to the user's words. If they mention "в этом году", "планы на год" -> use "year". If they mention "в этом месяце", "цели на февраль" -> use "month". If they mention "планы на неделю" -> use "week". DO NOT default everything to "week". If no timeframe is explicitly stated but the context implies a larger scale (e.g., "заработать миллион", "выучить язык"), use "year" or "life".
 - life_area MUST be exactly one of: ${LIFE_AREAS_TEXT}
 - key_insights should reveal what obstacles or dependencies were mentioned
 - executive_summary: what the person ultimately wants to achieve and why`,
@@ -456,9 +456,10 @@ MODE: NOTES / IDEAS / TRADING
 - WRITING STYLE (CRITICAL): every "content" MUST be written in FIRST PERSON as if the user wrote it themselves — use "я", "мне", "мой", "я увидел", "я решил", "я зашёл в сделку". NEVER use third-person ("Автор испытывает...", "Пользователь считает...", "он/она"). This applies ONLY to "content" — your own fields (title, executive_summary, key_insights, action_items, mind_map_nodes, questions_raised) are written by you as a MENTOR addressing the user on "ты" (see CRITICAL RULES 8).
   - For "note" and "trading_note": keep the user's OWN words verbatim from the transcript — do NOT paraphrase or summarize.
   - For "trading_idea" and "idea": a clear concise first-person statement of the idea (setup, entry, invalidation, why) as if the user is writing it in their journal.
-- executive_summary: 2-3 sentence summary of the main thought or observation
-- key_insights: 2-4 key takeaways
-- semantic_tags: relevant topic tags`,
+  - executive_summary: 2-3 sentence summary of the main thought or observation
+  - key_insights: 2-4 key takeaways
+  - semantic_tags: relevant topic tags
+  - ALSO, if the recording expresses a DAILY BIAS / directional market view (e.g. "по GER40 сегодня бычий биас", "ждём retest", "BIAS на EUR медвежий", "вижу лонг по XAU"), extract it into a SEPARATE array "biases_extracted". A bias is a market outlook for an asset for the day: its direction, short pros (why) and cons (what could invalidate it). Do NOT put biases into notes_extracted — they are a distinct entity. Only extract a bias when the user clearly expresses a directional view for a specific asset. If no bias is stated, return an empty array.`,
       };
 
       // JSON schema shared by every Gemini call (single shot and per-chunk map calls)
@@ -470,6 +471,7 @@ MODE: NOTES / IDEAS / TRADING
   "action_items": [{"task": "specific actionable step", "date": "YYYY-MM-DD", "start_time": "HH:MM or null", "end_time": "HH:MM or null", "priority": "high|medium|low"}],
   "goals_extracted": [{"title": "goal title", "time_limit": "week|month|year|life", "life_area": "Body|Mind|Hard Skills|Soft Skills|Creativity|Mission|Finance", "plan_steps": ["step 1", "step 2"]}],
   "notes_extracted": [{"type": "trading_note|trading_idea|note|idea", "title": "short title or null", "content": "first-person text", "idea_category": "gift|hobby|study|other|null", "asset": "GER40|EUR|XAU|GBP|null", "timeframe": "15m|H1|H4|D1|null", "tag": "мысль|идея|ошибка|null"}],
+  "biases_extracted": [{"asset": "GER40|EUR|XAU|GBP", "direction": "bullish|bearish|neutral", "pros": "short reasons for the bias or null", "cons": "reasons that could invalidate the bias or null", "timeframe": "15m|H1|H4|D1|null"}],
   "semantic_tags": ["tag1", "tag2", "tag3"],
   "topics": ["main topic", "secondary topic"],
   "sentiment": "positive|neutral|negative|mixed",
@@ -920,6 +922,31 @@ ${transcriptPart}`;
           }).catch((e) => console.error("DayNote creation failed", e));
           }
         }
+
+        // Save daily biases extracted from the voice (distinct entity from notes)
+        if (Array.isArray((result as any).biases_extracted) && (result as any).biases_extracted.length) {
+          const validDirections = ["bullish", "bearish", "neutral"];
+          for (const b of (result as any).biases_extracted) {
+            const bAsset = b.asset && validAssets.includes(b.asset) ? b.asset : "GER40";
+            const bDir = b.direction && validDirections.includes(b.direction) ? b.direction : "neutral";
+            const biasId = `bias_${(user as any)._id}_${today}_${bAsset}`;
+            await DailyBias.findOneAndUpdate(
+              { userId: (user as any)._id, biasId },
+              {
+                userId: (user as any)._id,
+                biasId,
+                date: today,
+                asset: bAsset,
+                direction: bDir,
+                pros: b.pros ? String(b.pros).slice(0, 2000) : undefined,
+                cons: b.cons ? String(b.cons).slice(0, 2000) : undefined,
+                screenshots: undefined,
+                screenshotUrl: undefined,
+              },
+              { upsert: true }
+            ).catch((e: any) => console.error("DailyBias creation failed", e));
+          }
+        }
       }
 
       // Notify clients: entities were created by the bot
@@ -946,7 +973,10 @@ ${transcriptPart}`;
         const tradingCount = result.notes_extracted.filter((n: any) => n.type === "trading_note" || n.type === "trading_idea").length;
         const noteCount = result.notes_extracted.filter((n: any) => n.type === "note").length;
         const ideaCount = result.notes_extracted.filter((n: any) => n.type === "idea").length;
-        lines.push(`\n📌 _Сохранено: торговых ${tradingCount} · заметок ${noteCount} · идей ${ideaCount}_`);
+        const biasCount = Array.isArray((result as any).biases_extracted) ? (result as any).biases_extracted.length : 0;
+        const savedBits = [`торговых ${tradingCount}`, `заметок ${noteCount}`, `идей ${ideaCount}`];
+        if (biasCount) savedBits.push(`BIAS ${biasCount}`);
+        lines.push(`\n📌 _Сохранено: ${savedBits.join(" · ")}_`);
       }
       lines.push(`\n━━━━━━━━━━━━━━━━━━━━━━`);
       if ((user as any).googleCalendarConnected) {
