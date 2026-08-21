@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -32,7 +33,7 @@ const entryList = (b: any): ScreenshotEntry[] =>
     : b?.screenshotUrl ? [{ tf: "1D", url: b.screenshotUrl }]
     : [];
 
-function AddBiasDialog({ onAdd, editBias }: { onAdd: (b: any) => void; editBias?: any }) {
+function AddBiasDialog({ onAdd, editBias }: { onAdd: (b: any) => any; editBias?: any }) {
   const [open, setOpen] = useState(false);
   const [asset, setAsset] = useState<TradeAsset>(editBias?.asset || "GER40");
   const [direction, setDirection] = useState<BiasDirection>(editBias?.direction || "bullish");
@@ -40,6 +41,7 @@ function AddBiasDialog({ onAdd, editBias }: { onAdd: (b: any) => void; editBias?
   const [cons, setCons] = useState(editBias?.cons || "");
   const [screenshots, setScreenshots] = useState<ScreenshotEntry[]>(() => entryList(editBias));
   const { t, lang } = useI18n();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (editBias) {
@@ -60,10 +62,10 @@ function AddBiasDialog({ onAdd, editBias }: { onAdd: (b: any) => void; editBias?
   };
   const removeShot = (i: number) => setScreenshots(prev => prev.filter((_, idx) => idx !== i));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const clean = screenshots.filter(s => s.url.trim()).map(s => ({ tf: s.tf, url: s.url.trim() }));
-    onAdd({
+    const ok = await onAdd({
       date: editBias?.date || getTodayDate(),
       asset,
       direction,
@@ -72,6 +74,11 @@ function AddBiasDialog({ onAdd, editBias }: { onAdd: (b: any) => void; editBias?
       screenshotUrl: undefined,
       screenshots: clean.length ? clean : undefined,
     });
+    if (ok) {
+      toast({ title: editBias ? "✅ BIAS обновлён" : "✅ BIAS сохранён" });
+    } else {
+      toast({ title: "Не удалось сохранить BIAS", variant: "destructive" });
+    }
     if (!editBias) {
       setAsset("GER40");
       setDirection("bullish");
