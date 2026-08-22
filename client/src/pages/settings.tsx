@@ -146,6 +146,31 @@ export default function SettingsPage() {
     return () => window.removeEventListener("message", onMessage);
   }, []);
 
+  // Reflect settings synced from another device (syncFromServer -> settingsUpdated)
+  useEffect(() => {
+    const onUpd = () => {
+      fetch("/api/user/settings", { credentials: "include" })
+        .then(r => r.json())
+        .then(data => {
+          if (data?.settings) {
+            setSettings(prev => ({
+              ...prev,
+              ...data.settings,
+              tradingSessions: data.settings.tradingSessions?.length
+                ? data.settings.tradingSessions
+                : DEFAULT_SESSIONS,
+              workDays: data.settings.workDays?.length
+                ? data.settings.workDays
+                : [1, 2, 3, 4, 5],
+            }));
+          }
+        })
+        .catch(() => {});
+    };
+    window.addEventListener("settingsUpdated", onUpd);
+    return () => window.removeEventListener("settingsUpdated", onUpd);
+  }, []);
+
   const set = <K extends keyof UserSettings>(key: K, value: UserSettings[K]) =>
     setSettings(prev => ({ ...prev, [key]: value }));
 

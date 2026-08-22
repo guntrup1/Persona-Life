@@ -484,6 +484,15 @@ export function loadUserSettings(): UserSettings {
   };
 }
 
+// Persist user settings locally AND notify listeners (ClockWidget on the hub
+// reads settings from localStorage, so this is what keeps the dashboard in sync).
+export function saveUserSettings(s: UserSettings) {
+  try {
+    localStorage.setItem("userSettings", JSON.stringify(s));
+  } catch {}
+  window.dispatchEvent(new Event("settingsUpdated"));
+}
+
 export function getUserTime(): Date {
   const settings = loadUserSettings();
   const now = new Date();
@@ -1027,6 +1036,15 @@ export async function syncFromServer(force = false): Promise<boolean> {
     const json = await res.json();
     if (json?.data) {
       loadFromServerData(json.data as AppState, false);
+      // User settings live in a separate localStorage key (read by the hub
+      // clock / getMarketSession), so refresh them on every sync too.
+      try {
+        const sRes = await fetch("/api/user/settings", { credentials: "include" });
+        if (sRes.ok) {
+          const sData = await sRes.json();
+          if (sData?.settings) saveUserSettings(sData.settings);
+        }
+      } catch {}
       return true;
     }
     return false;

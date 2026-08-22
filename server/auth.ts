@@ -7,6 +7,7 @@ import { z } from "zod";
 import mongoose from "mongoose";
 import { sanitizeBlobUrls } from "./url-safety";
 import { sendTelegramMessage } from "./telegram";
+import { bumpRevision } from "./revision";
 
 // ── Brevo email helper ──
 async function sendEmail(to: string, subject: string, html: string) {
@@ -596,6 +597,7 @@ export function registerAuthRoutes(app: Express) {
       if (googleReminderMinutes !== undefined) {
         await mongoose.model("User").findByIdAndUpdate(req.session.userId, { googleReminderMinutes });
       }
+      await bumpRevision(req.session.userId);
       return res.json({ settings });
     } catch (err: any) {
       console.error("Save settings error:", err);
