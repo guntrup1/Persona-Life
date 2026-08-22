@@ -983,8 +983,9 @@ export function loadFromServerData(data: AppState, forceServer = false) {
     best = { ...backup, _deletedIds: [...new Set([...(backup._deletedIds || []), ...(globalState._deletedIds || [])])] };
   }
   const merged = mergeStates(best, data);
-  if (countItems(merged) < countItems(best) * 0.1 && countItems(best) > 20) {
-    console.warn("[store] Merge would lose >90% of data, keeping local state");
+  const serverCount = countItems(data);
+  if (serverCount === 0 && countItems(best) > 20 && (data._deletedIds?.length || 0) === 0) {
+    console.warn("[store] Sync returned empty data, keeping local state");
     return;
   }
   const prevState = globalState;

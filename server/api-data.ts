@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { requireAuth } from "./auth";
 import { z } from "zod";
-import { bumpRevision } from "./revision";
+import { bumpRevision, recordDeletion } from "./revision";
 import { findDuplicateTask, findDuplicateGoal, findDuplicateDayNote } from "./dedupe";
 import {
   Task, Goal, DayNote, TradingNote, DailyBias,
@@ -276,6 +276,7 @@ export function registerDataRoutes(app: Express) {
           tradingNotes: mapBack(tradingNotes, 'noteId'),
           streak: udData.streak,
           xp: udData.xp,
+          _deletedIds: (ud?.deletedIds as string[] | undefined) || [],
         }
       });
     } catch (err) {
@@ -343,7 +344,7 @@ export function registerDataRoutes(app: Express) {
   app.delete("/api/tasks/:id", requireAuth, async (req: any, res) => {
     try {
       await Task.findOneAndDelete({ userId: req.session.userId, taskId: req.params.id });
-      await bumpRevision(req.session.userId);
+      await recordDeletion(req.session.userId, req.params.id);
       res.json({ ok: true });
     } catch {
       res.status(400).json({ ok: false });
@@ -396,7 +397,7 @@ export function registerDataRoutes(app: Express) {
   app.delete("/api/goals/:id", requireAuth, async (req: any, res) => {
     try {
       await Goal.findOneAndDelete({ userId: req.session.userId, goalId: req.params.id });
-      await bumpRevision(req.session.userId);
+      await recordDeletion(req.session.userId, req.params.id);
       res.json({ ok: true });
     } catch {
       res.status(400).json({ ok: false });
@@ -439,7 +440,7 @@ export function registerDataRoutes(app: Express) {
   app.delete("/api/routines/:id", requireAuth, async (req: any, res) => {
     try {
       await RoutineTemplate.findOneAndDelete({ userId: req.session.userId, templateId: req.params.id });
-      await bumpRevision(req.session.userId);
+      await recordDeletion(req.session.userId, req.params.id);
       res.json({ ok: true });
     } catch {
       res.status(400).json({ ok: false });
@@ -514,7 +515,7 @@ export function registerDataRoutes(app: Express) {
   app.delete("/api/notes/:id", requireAuth, async (req: any, res) => {
     try {
       await DayNote.findOneAndDelete({ userId: req.session.userId, noteId: req.params.id });
-      await bumpRevision(req.session.userId);
+      await recordDeletion(req.session.userId, req.params.id);
       res.json({ ok: true });
     } catch {
       res.status(400).json({ ok: false });
@@ -524,7 +525,7 @@ export function registerDataRoutes(app: Express) {
   app.delete("/api/trading-notes/:id", requireAuth, async (req: any, res) => {
     try {
       await TradingNote.findOneAndDelete({ userId: req.session.userId, noteId: req.params.id });
-      await bumpRevision(req.session.userId);
+      await recordDeletion(req.session.userId, req.params.id);
       res.json({ ok: true });
     } catch {
       res.status(400).json({ ok: false });
@@ -566,7 +567,7 @@ export function registerDataRoutes(app: Express) {
   app.delete("/api/bias/:id", requireAuth, async (req: any, res) => {
     try {
       await DailyBias.findOneAndDelete({ userId: req.session.userId, biasId: req.params.id });
-      await bumpRevision(req.session.userId);
+      await recordDeletion(req.session.userId, req.params.id);
       res.json({ ok: true });
     } catch {
       res.status(400).json({ ok: false });

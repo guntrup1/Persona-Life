@@ -15,3 +15,22 @@ export async function bumpRevision(userId: string): Promise<void> {
     console.error("[revision] bump error:", e.message);
   }
 }
+
+// Record a delete tombstone so removals propagate to other devices. The client
+// merge prunes any local item whose id is present in UserData.deletedIds, which
+// is returned by /api/sync/init. Capped (rolling) to avoid unbounded growth.
+export async function recordDeletion(userId: string, id: string): Promise<void> {
+  try {
+    await mongoose.model("UserData").updateOne(
+      { userId },
+      {
+        $push: { deletedIds: { $each: [id], $slice: -500 } },
+        $set: { updatedAt: new Date() },
+        $inc: { revision: 1 },
+      },
+      { upsert: true }
+    );
+  } catch (e: any) {
+    console.error("[revision] recordDeletion error:", e?.message || e);
+  }
+}

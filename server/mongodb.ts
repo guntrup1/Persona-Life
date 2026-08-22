@@ -55,6 +55,7 @@ const userDataSchema = new mongoose.Schema({
   data: { type: mongoose.Schema.Types.Mixed, default: {} },
   updatedAt: { type: Date, default: Date.now },
   revision: { type: Number, default: 0 },
+  deletedIds: { type: [String], default: [] }, // tombstones so deletes propagate across devices
   migrated: { type: Boolean, default: false }, // legacy blob → strict collections, once
 });
 
