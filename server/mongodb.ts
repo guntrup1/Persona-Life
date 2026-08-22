@@ -11,6 +11,19 @@ export async function connectMongoDB() {
   try {
     await mongoose.connect(MONGODB_URI);
     console.log("Connected to MongoDB Atlas");
+    // Reconcile the telegramId unique index: a previous non-sparse/sparse index
+    // that indexed `null` values broke registration for any 2nd user. Drop and
+    // rebuild as a partial unique index so `null`/unset telegramId is excluded.
+    try {
+      await User.collection.dropIndex("telegramId_1");
+    } catch {
+      // index already absent or already correct — ignore
+    }
+    try {
+      await User.createIndexes();
+    } catch (e) {
+      console.error("telegramId index reconcile failed:", e);
+    }
   } catch (error) {
     console.error("MongoDB connection error:", error);
     process.exit(1);
@@ -23,7 +36,7 @@ const userSchema = new mongoose.Schema({
   isVerified: { type: Boolean, default: false },
   verifyToken: { type: String, default: null, index: true},
   verifyTokenExpires: { type: Date, default: null },
-  telegramId: { type: String, default: null, unique: true, sparse: true },
+  telegramId: { type: String, index: { unique: true, partialFilterExpression: { telegramId: { $ne: null } } } },
   telegramLinkToken: { type: String, default: null },
   telegramLinkExpires: { type: Date, default: null },
   geminiApiKey: { type: String, default: null },
