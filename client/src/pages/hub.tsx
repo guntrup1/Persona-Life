@@ -43,7 +43,7 @@ const CharacterEmoji = memo(function CharacterEmoji({ state, emoji }: { state: s
 
   return (
     <div className="relative flex items-center justify-center w-full h-full select-none">
-      <div className={`text-7xl flex items-center justify-center ${animClass}`}>
+        <div className={`text-4xl md:text-7xl flex items-center justify-center ${animClass}`}>
         {emoji}
         {state === "sleeping" && <>
           <span className="char-zletter char-z1">Z</span>
@@ -103,11 +103,11 @@ function ClockWidget() {
 
   return (
     <>
-      <div className="text-center">
-        <div className="font-mono text-2xl font-bold text-foreground tracking-tight">{timeStr}</div>
+      <div className="text-center max-md:text-left max-md:rounded-2xl max-md:bg-gradient-to-br max-md:from-primary/10 max-md:to-transparent max-md:border max-md:border-primary/20 max-md:px-3 max-md:py-2">
+        <div className="font-mono text-2xl font-bold text-foreground tracking-tight max-md:text-3xl max-md:font-display">{timeStr}</div>
         <div className="text-muted-foreground text-xs capitalize mt-0.5">{dateStr}</div>
       </div>
-      <div className="w-full flex items-center justify-between rounded-xl px-3 py-2 bg-muted/20 border border-card-border">
+      <div className="w-full flex items-center justify-between rounded-xl px-3 py-2 bg-muted/20 border border-card-border max-md:mt-1.5 max-md:bg-primary/5 max-md:border-primary/15">
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${session.active ? "bg-green-500 animate-pulse" : "bg-muted-foreground"}`} />
           <span className={`font-display text-xs font-semibold ${session.color}`}>{session.name}</span>
@@ -184,7 +184,7 @@ export default function HubPage() {
   const [newNoteType, setNewNoteType] = useState<NoteType>("note");
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
-  const [notesOpen, setNotesOpen] = useState(true);
+  const [notesOpen, setNotesOpen] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches ? false : true);
   const { toast } = useToast();
   const prevCompleted = useRef(completedToday);
 
@@ -260,14 +260,15 @@ export default function HubPage() {
           <div className="flex flex-col gap-3 min-h-0 md:overflow-y-auto">
 
             {/* Character panel — pinned, never scrolled away by week blocks */}
-            <div className="p-3.5 bg-card border border-card-border flex flex-col items-center gap-2.5 relative overflow-hidden shrink-0">
+            <div className="p-3.5 bg-card border border-card-border flex flex-col items-center gap-2.5 relative overflow-hidden shrink-0 max-md:flex-row max-md:items-center max-md:gap-3 max-md:py-2 max-md:px-3">
               <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-primary via-primary/50 to-transparent" />
               <div className="absolute top-0 right-0 w-4 h-4 bg-primary" style={{ clipPath: "polygon(0 0, 100% 0, 100% 100%)" }} />
-              <div className="w-28 h-32 overflow-visible flex items-center justify-center">
+              <div className="w-14 h-14 md:w-28 md:h-32 overflow-visible flex items-center justify-center shrink-0">
                 <CharacterEmoji state={charState.state} emoji={charState.emoji} />
               </div>
 
-              <div className="text-xs font-display text-muted-foreground uppercase tracking-widest text-center">
+              <div className="contents max-md:flex max-md:flex-col max-md:flex-1 max-md:gap-1.5">
+              <div className="text-xs font-display text-muted-foreground uppercase tracking-widest text-center max-md:text-left">
                 {charState.label}
               </div>
 
@@ -293,6 +294,7 @@ export default function HubPage() {
                   <span className="text-orange-400 font-bold">{state.streak.currentStreak} {t.hub.days}</span>
                 </span>
                 <span className="text-muted-foreground">{t.hub.record} <span className="text-yellow-400 font-bold">{state.streak.longestStreak} {t.hub.days}</span></span>
+              </div>
               </div>
 
             </div>
@@ -457,17 +459,17 @@ export default function HubPage() {
       </div>
 
       {/* ── Notes — pinned to the bottom, collapsible and compact ── */}
-      <div className="shrink-0 border-t border-card-border bg-background">
-        <div className="max-w-7xl mx-auto px-4 pb-3 pt-2">
-        <div className="p-3 bg-card border border-card-border flex flex-col gap-2 relative overflow-hidden">
+      <div className="shrink-0 border-t border-card-border bg-background max-md:order-first max-md:border-t-0 max-md:border-b">
+        <div className="max-w-7xl mx-auto px-4 pb-3 pt-2 max-md:px-2 max-md:py-1.5 max-md:bg-transparent">
+        <div className="p-3 bg-card border border-card-border flex flex-col gap-2 relative overflow-hidden max-md:p-2 max-md:bg-transparent max-md:border-0 max-md:shadow-none">
           <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-primary via-primary/50 to-transparent" />
           <button
             onClick={() => setNotesOpen(o => !o)}
-            className="flex items-center gap-2 w-full hover:opacity-80 transition-opacity"
+              className="flex items-center gap-2 w-full hover:opacity-80 transition-opacity max-md:py-1.5 max-md:rounded-xl max-md:bg-primary/5"
             data-testid="notes-toggle"
           >
             <FileText className="w-4 h-4 text-primary" />
-            <div className="font-display text-sm font-bold uppercase tracking-wider text-foreground">{t.hub.dayNotes}</div>
+              <div className="font-display text-sm font-bold uppercase tracking-wider text-foreground max-md:text-xs">{t.hub.dayNotes}</div>
             {todayNotes.length > 0 && (
               <Badge variant="secondary" className="font-mono text-xs rounded-full">{todayNotes.length}</Badge>
             )}
