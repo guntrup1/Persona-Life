@@ -570,11 +570,11 @@ export function registerAuthRoutes(app: Express) {
 
   app.get("/api/user/settings", requireAuth, async (req, res) => {
     try {
-      let settings = await mongoose.model("UserSettings").findOne({ userId: req.session.userId })
-        .select("-geminiApiKey -googleRefreshToken");
-      if (!settings) {
-        settings = await mongoose.model("UserSettings").create({ userId: req.session.userId });
-      }
+      const settings = await mongoose.model("UserSettings").findOneAndUpdate(
+        { userId: req.session.userId },
+        { $setOnInsert: { userId: req.session.userId } },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      ).select("-geminiApiKey -googleRefreshToken");
       return res.json({ settings });
     } catch (err) {
       console.error("Get settings error:", err);
@@ -585,18 +585,20 @@ export function registerAuthRoutes(app: Express) {
   app.put("/api/user/settings", requireAuth, async (req, res) => {
     const { utcOffset, workStart, workEnd, restStart, restEnd, sleepStart, sleepEnd, tradingSessions, workDays, googleReminderMinutes } = req.body;
     try {
+      const update: any = { utcOffset, workStart, workEnd, restStart, restEnd, sleepStart, sleepEnd, tradingSessions, workDays, updatedAt: new Date() };
+      if (googleReminderMinutes !== undefined) update.googleReminderMinutes = googleReminderMinutes;
       const settings = await mongoose.model("UserSettings").findOneAndUpdate(
         { userId: req.session.userId },
-        { utcOffset, workStart, workEnd, restStart, restEnd, sleepStart, sleepEnd, tradingSessions, workDays, googleReminderMinutes, updatedAt: new Date() },
-        { upsert: true, returnDocument: "after" }
-      );
+        update,
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      ).select("-geminiApiKey -googleRefreshToken");
       if (googleReminderMinutes !== undefined) {
         await mongoose.model("User").findByIdAndUpdate(req.session.userId, { googleReminderMinutes });
       }
       return res.json({ settings });
-    } catch (err) {
+    } catch (err: any) {
       console.error("Save settings error:", err);
-      return res.status(500).json({ message: "Ошибка сервера" });
+      return res.status(500).json({ message: "Ошибка сервера", error: err?.message || String(err) });
     }
   });
 

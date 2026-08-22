@@ -184,7 +184,7 @@ export default function HubPage() {
   const [newNoteType, setNewNoteType] = useState<NoteType>("note");
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
-  const [notesOpen, setNotesOpen] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches ? false : true);
+  const [notesOpen, setNotesOpen] = useState(true);
   const { toast } = useToast();
   const prevCompleted = useRef(completedToday);
 
@@ -275,7 +275,7 @@ export default function HubPage() {
               <ClockWidget />
 
               {/* Level + XP */}
-              <div className="w-full space-y-1.5">
+              <div className="w-full space-y-1.5 max-md:hidden">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-display text-muted-foreground flex items-center gap-1">
                     <Star className="w-3 h-3 text-primary" /> {t.hub.level} {level}
@@ -367,10 +367,10 @@ export default function HubPage() {
           <div className="flex flex-col gap-3 min-w-0 min-h-0">
 
             {/* Прогресс дня */}
-            <div className="p-4 bg-card border border-card-border relative overflow-hidden shrink-0">
+            <div className="p-4 bg-card border border-card-border relative overflow-hidden shrink-0 max-md:p-2.5">
               <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-primary via-primary/50 to-transparent" />
               <div className="absolute top-0 right-0 w-3 h-3 bg-primary/60" style={{ clipPath: "polygon(0 0, 100% 0, 100% 100%)" }} />
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-3 max-md:mb-2">
                 <div className="flex items-center gap-2">
                   <Zap className="w-4 h-4 text-primary" />
                   <span className="font-display text-xs font-bold uppercase tracking-widest text-foreground">{t.hub.dayProgress}</span>
@@ -378,13 +378,13 @@ export default function HubPage() {
                 </div>
                 <span className="font-mono text-sm font-bold text-primary">+{dayXP} XP</span>
               </div>
-              <div className="relative w-full h-3 bg-muted rounded-full overflow-hidden mb-3">
+              <div className="relative w-full h-3 bg-muted rounded-full overflow-hidden mb-3 max-md:h-2 max-md:mb-2">
                 <div
                   className="h-full bg-primary rounded-full transition-all duration-700"
                   style={{ width: `${dayProgress}%` }}
                 />
               </div>
-              <div className="flex gap-4 text-xs text-muted-foreground font-mono">
+              <div className="flex gap-4 text-xs text-muted-foreground font-mono max-md:gap-2 max-md:text-[10px]">
                 <span className="flex items-center gap-1">
                   <Flame className="w-3 h-3 text-orange-400" />
                   {t.sidebar.streak}: <span className="text-orange-400 font-bold ml-1">{state.streak.currentStreak} {t.hub.days}</span>
@@ -459,7 +459,7 @@ export default function HubPage() {
       </div>
 
       {/* ── Notes — pinned to the bottom, collapsible and compact ── */}
-      <div className="shrink-0 border-t border-card-border bg-background max-md:order-first max-md:border-t-0 max-md:border-b">
+      <div className="shrink-0 border-t border-card-border bg-background max-md:hidden">
         <div className="max-w-7xl mx-auto px-4 pb-3 pt-2 max-md:px-2 max-md:py-1.5 max-md:bg-transparent">
         <div className="p-3 bg-card border border-card-border flex flex-col gap-2 relative overflow-hidden max-md:p-2 max-md:bg-transparent max-md:border-0 max-md:shadow-none">
           <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-primary via-primary/50 to-transparent" />
