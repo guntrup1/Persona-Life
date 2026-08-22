@@ -853,7 +853,7 @@ function scheduleServerSync(state: AppState) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ xp: state.xp, streak: state.streak }),
+        body: JSON.stringify({ xp: state.xp.totalXP, streak: state.streak.currentStreak }),
       });
       const ok = res.ok;
       syncListeners.forEach(cb => cb(ok));
@@ -1278,7 +1278,7 @@ export function useStore() {
       apiCall('PATCH', `/api/tasks/${id}`, { completed: isCompleted, completedAt, updatedAt: now });
       // We should also sync stats because streak might have updated
       const state = getSnapshot();
-      apiCall('POST', '/api/user/stats', { xp: state.xp, streak: state.streak });
+      apiCall('POST', '/api/user/stats', { xp: state.xp.totalXP, streak: state.streak.currentStreak });
     }, []),
 
     deleteTask: useCallback((id: string) => {
