@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import mongoose from "mongoose";
 import { sanitizeBlobUrls } from "./url-safety";
+import { sendTelegramMessage } from "./telegram";
 
 // ── Brevo email helper ──
 async function sendEmail(to: string, subject: string, html: string) {
@@ -599,6 +600,32 @@ export function registerAuthRoutes(app: Express) {
     } catch (err: any) {
       console.error("Save settings error:", err);
       return res.status(500).json({ message: "Ошибка сервера", error: err?.message || String(err) });
+    }
+  });
+
+  // ── Error report → owner's Telegram (support bot) ──
+  app.post("/api/report-error", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { errorId, title, description, url, userAgent, stack, timestamp } = req.body || {};
+      const user = await mongoose.model("User").findById(req.session.userId).select("email").lean();
+      const chatId = process.env.SUPPORT_CHAT_ID;
+      const lines = [
+        "🚨 Отчёт об ошибке — Persona Life",
+        `🆔 Номер: ${errorId || "—"}`,
+        `📅 Дата: ${timestamp || new Date().toISOString()}`,
+        `👤 Пользователь: ${user?.email || req.session.userId || "—"}`,
+        `🌐 URL: ${url || "—"}`,
+        `🖥 UA: ${userAgent || "—"}`,
+        "",
+        `📌 Заголовок: ${title || "—"}`,
+        `📝 Описание: ${description || "—"}`,
+      ];
+      if (stack) lines.push("", "🧵 Стек:", String(stack).slice(0, 2000));
+      const delivered = await sendTelegramMessage(chatId, lines.join("\n"));
+      return res.json({ ok: true, delivered });
+    } catch (err) {
+      console.error("Report error failed:", err);
+      return res.status(500).json({ message: "Ошибка сервера" });
     }
   });
 

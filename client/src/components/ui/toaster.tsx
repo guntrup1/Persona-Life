@@ -1,4 +1,6 @@
 import { useToast } from "@/hooks/use-toast"
+import { reportError } from "@/lib/error-report"
+import { Button } from "@/components/ui/button"
 import {
   Toast,
   ToastClose,
@@ -14,6 +16,7 @@ export function Toaster() {
   return (
     <ToastProvider>
       {toasts.map(function ({ id, title, description, action, ...props }) {
+        const isError = props.variant === "destructive"
         return (
           <Toast key={id} {...props}>
             <div className="grid gap-1">
@@ -22,7 +25,20 @@ export function Toaster() {
                 <ToastDescription>{description}</ToastDescription>
               )}
             </div>
-            {action}
+            <div className="flex items-center gap-2">
+              {isError && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0"
+                  data-testid="button-report-error"
+                  onClick={() => reportError({ title: coerce(title), description: coerce(description) })}
+                >
+                  Сообщить
+                </Button>
+              )}
+              {action}
+            </div>
             <ToastClose />
           </Toast>
         )
@@ -30,4 +46,8 @@ export function Toaster() {
       <ToastViewport />
     </ToastProvider>
   )
+}
+
+function coerce(v: unknown): string {
+  return typeof v === "string" ? v : v == null ? "" : String(v)
 }

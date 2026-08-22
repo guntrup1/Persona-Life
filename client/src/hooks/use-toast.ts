@@ -143,6 +143,7 @@ type Toast = Omit<ToasterToast, "id">
 
 function toast({ ...props }: Toast) {
   const id = genId()
+  const duration = props.variant === "destructive" ? 15000 : TOAST_DURATION
 
   const update = (props: ToasterToast) =>
     dispatch({
@@ -171,7 +172,7 @@ function toast({ ...props }: Toast) {
   })
 
   // Auto-dismiss: toast slides out to the right after TOAST_DURATION
-  const timer = setTimeout(() => dispatch({ type: "DISMISS_TOAST", toastId: id }), TOAST_DURATION)
+  const timer = setTimeout(() => dispatch({ type: "DISMISS_TOAST", toastId: id }), duration)
   autoDismissTimers.set(id, timer)
 
   return {

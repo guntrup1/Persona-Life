@@ -32,11 +32,15 @@ const DEFAULT_SESSIONS: TradingSession[] = [
   { name: "Франкфурт", start: 8, end: 9, enabled: true },
   { name: "Лондон", start: 9, end: 14, enabled: true },
   { name: "Нью-Йорк", start: 14, end: 17, enabled: true },
+  { name: "США (индексы)", start: 15.5, end: 22, enabled: true },
 ];
 
-const UTC_OFFSETS = Array.from({ length: 27 }, (_, i) => i - 12);
-const HOURS = Array.from({ length: 24 }, (_, i) => i);
-const H = (h: number) => `${String(h).padStart(2, "0")}:00`;
+const HOURS = Array.from({ length: 48 }, (_, i) => i / 2);
+const H = (h: number) => {
+  const hh = Math.floor(h);
+  const mm = Math.round((h - hh) * 60);
+  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+};
 
 function Row({ label, icon, startVal, endVal, onStart, onEnd }: {
   label: string;

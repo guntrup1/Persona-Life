@@ -37,7 +37,7 @@ export type TaskDifficulty = "low" | "medium" | "high" | "custom";
 export type TaskType = "routine" | "today" | "goal";
 export type GoalType = "year" | "month" | "week";
 export type TimerMode = "pomodoro" | "deep-work" | "custom";
-export type TradeAsset = "GER40" | "EUR" | "XAU" | "GBP";
+export type TradeAsset = "GER40" | "EUR" | "XAU" | "GBP" | "US30" | "US100" | "US500" | "none";
 export type NoteTag = "мысль" | "идея" | "ошибка";
 export type BiasDirection = "bullish" | "bearish" | "neutral";
 

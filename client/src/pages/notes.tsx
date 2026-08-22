@@ -18,7 +18,7 @@ import { RemoteImage } from "@/components/remote-image";
 import { ZoomableImage } from "@/components/zoomable-image";
 import { FileText, Plus, Trash2, Clock, CandlestickChart, ArrowUpRight, ArrowDownRight, MoveRight, Camera, X, Pencil, Puzzle, CheckCircle, Circle } from "lucide-react";
 
-const ASSETS: TradeAsset[] = ["GER40", "EUR", "XAU", "GBP"];
+const ASSETS: TradeAsset[] = ["GER40", "EUR", "XAU", "GBP", "US30", "US100", "US500", "none"];
 const TIMEFRAMES = ["M1", "M5", "M15", "M30", "H1", "H4", "D1"];
 const getTags = (t: any): { value: NoteTag; label: string; color: string }[] => [
   { value: "мысль", label: t.hub.thought, color: "text-blue-400 border-blue-500/30" },
@@ -218,8 +218,8 @@ function AddBiasDialog({ onAdd, editBias }: { onAdd: (b: any) => any; editBias?:
 function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd: (n: any) => void; editNote?: any; testId?: string }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState(editNote?.title || "");
-  const [asset, setAsset] = useState<TradeAsset>(editNote?.asset || "GER40");
-  const [timeframe, setTimeframe] = useState(editNote?.timeframe || "H1");
+  const [asset, setAsset] = useState<TradeAsset>(editNote?.asset || "none");
+  const [timeframe, setTimeframe] = useState<string>(editNote?.timeframe || "none");
   const [tag, setTag] = useState<NoteTag>(editNote?.tag || "мысль");
   const [text, setText] = useState(editNote?.text || "");
   const [time, setTime] = useState(editNote?.time || new Date().toTimeString().slice(0, 5));
@@ -309,7 +309,8 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {ASSETS.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                  <SelectItem value="none">{t.notes.noAsset}</SelectItem>
+                  {ASSETS.map(a => a !== "none" ? <SelectItem key={a} value={a}>{a}</SelectItem> : null)}
                 </SelectContent>
               </Select>
             </div>
@@ -320,6 +321,7 @@ function AddNoteDialog({ onAdd, editNote, testId = "button-add-note" }: { onAdd:
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="none">{t.notes.noTf}</SelectItem>
                   {TIMEFRAMES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -560,26 +562,34 @@ export default function NotesPage() {
                     </div>
                   </div>
 
-                  {(bias.screenshots?.length ? bias.screenshots : (bias.screenshotUrl ? [{ tf: "1D", url: bias.screenshotUrl }] : [])).map((s, i) => (
-                    <Dialog key={i}>
-                      <DialogTrigger asChild>
-                        <div className="relative mt-2 cursor-pointer group/thumb">
-                          {s.tf && (
-                            <span className="absolute top-1.5 left-1.5 z-10 text-[9px] font-bold px-1.5 py-0.5 rounded bg-black/70 text-white/90 border border-white/10">
-                              {s.tf}
-                            </span>
-                          )}
-                          <RemoteImage bordered src={s.url} alt={`Bias screenshot ${s.tf}`} variant="thumb" />
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
-                            <Camera className="w-6 h-6 text-white" />
-                          </div>
-                        </div>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-5xl p-0 overflow-hidden border-none bg-transparent">
-                        <ZoomableImage src={s.url} alt={`Bias screenshot ${s.tf}`} />
-                      </DialogContent>
-                    </Dialog>
-                  ))}
+                  {(() => {
+                    const shots = bias.screenshots?.length ? bias.screenshots : (bias.screenshotUrl ? [{ tf: "1D", url: bias.screenshotUrl }] : []);
+                    if (!shots.length) return null;
+                    return (
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mt-2">
+                        {shots.map((s, i) => (
+                          <Dialog key={i}>
+                            <DialogTrigger asChild>
+                              <div className="relative aspect-video cursor-pointer group/thumb overflow-hidden rounded-md border border-border">
+                                {s.tf && (
+                                  <span className="absolute top-1 left-1 z-10 text-[9px] font-bold px-1.5 py-0.5 rounded bg-black/70 text-white/90 border border-white/10">
+                                    {s.tf}
+                                  </span>
+                                )}
+                                <RemoteImage bordered={false} src={s.url} alt={`Bias screenshot ${s.tf}`} variant="thumb" />
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover/thumb:opacity-100 transition-opacity pointer-events-none">
+                                  <Camera className="w-5 h-5 text-white" />
+                                </div>
+                              </div>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-5xl p-0 overflow-hidden border-none bg-transparent">
+                              <ZoomableImage src={s.url} alt={`Bias screenshot ${s.tf}`} />
+                            </DialogContent>
+                          </Dialog>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </Card>
               ))}
             </div>
@@ -649,17 +659,17 @@ export default function NotesPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-2">
                         <Badge variant="outline" className="text-xs font-mono font-bold text-primary border-primary/30">
-                          {note.asset}
+                          {note.asset && note.asset !== "none" ? note.asset : "—"}
                         </Badge>
                         <Badge variant="outline" className="text-xs font-mono text-muted-foreground">
-                          {note.timeframe}
+                          {note.timeframe && note.timeframe !== "none" ? note.timeframe : "—"}
                         </Badge>
                         <Badge variant="outline" className={`text-xs ${tag.color}`}>
                           {tag.label}
                         </Badge>
                         <div className="flex items-center gap-1 text-xs text-muted-foreground ml-auto">
                           <Clock className="w-3 h-3" />
-                          <span className="font-mono">{note.time}</span>
+                           <span className="font-mono">{note.time || "—"}</span>
                           <span className="font-mono">·</span>
                           <span className="font-mono">
                             {new Date(note.date).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', { day: "2-digit", month: "short" })}
@@ -670,26 +680,34 @@ export default function NotesPage() {
                         <h3 className="text-sm font-bold text-foreground mb-1">{note.title}</h3>
                       )}
                       <p className="text-sm text-foreground leading-relaxed">{note.text}</p>
-                      {(note.screenshots?.length ? note.screenshots : (note.screenshotUrl ? [{ tf: "1D", url: note.screenshotUrl }] : [])).map((s, i) => (
-                        <Dialog key={i}>
-                          <DialogTrigger asChild>
-                            <div className="relative mt-3 w-48 cursor-pointer group/thumb">
-                              {s.tf && (
-                                <span className="absolute top-1.5 left-1.5 z-10 text-[9px] font-bold px-1.5 py-0.5 rounded bg-black/70 text-white/90 border border-white/10">
-                                  {s.tf}
-                                </span>
-                              )}
-                              <RemoteImage bordered src={s.url} alt={`Note screenshot ${s.tf}`} variant="thumb" />
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
-                                <Camera className="w-5 h-5 text-white" />
-                              </div>
-                            </div>
-                          </DialogTrigger>
-                          <DialogContent className="max-w-5xl p-0 overflow-hidden border-none bg-transparent">
-                            <ZoomableImage src={s.url} alt={`Note screenshot ${s.tf}`} />
-                          </DialogContent>
-                        </Dialog>
-                      ))}
+                      {(() => {
+                        const shots = note.screenshots?.length ? note.screenshots : (note.screenshotUrl ? [{ tf: "1D", url: note.screenshotUrl }] : []);
+                        if (!shots.length) return null;
+                        return (
+                          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mt-3">
+                            {shots.map((s, i) => (
+                              <Dialog key={i}>
+                                <DialogTrigger asChild>
+                                  <div className="relative aspect-video cursor-pointer group/thumb overflow-hidden rounded-md border border-border">
+                                    {s.tf && (
+                                      <span className="absolute top-1 left-1 z-10 text-[9px] font-bold px-1.5 py-0.5 rounded bg-black/70 text-white/90 border border-white/10">
+                                        {s.tf}
+                                      </span>
+                                    )}
+                                    <RemoteImage bordered={false} src={s.url} alt={`Note screenshot ${s.tf}`} variant="thumb" />
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover/thumb:opacity-100 transition-opacity pointer-events-none">
+                                      <Camera className="w-5 h-5 text-white" />
+                                    </div>
+                                  </div>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-5xl p-0 overflow-hidden border-none bg-transparent">
+                                  <ZoomableImage src={s.url} alt={`Note screenshot ${s.tf}`} />
+                                </DialogContent>
+                              </Dialog>
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </div>
                     <div className="flex items-center gap-1">
                       <AddNoteDialog
@@ -796,14 +814,14 @@ function TradingIdeasSection() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
                   <Badge variant="outline" className="text-xs font-mono font-bold text-primary border-primary/30">
-                    {idea.asset}
+                    {idea.asset && idea.asset !== "none" ? idea.asset : "—"}
                   </Badge>
                   <Badge variant="outline" className="text-xs font-mono text-muted-foreground">
-                    {idea.timeframe}
+                    {idea.timeframe && idea.timeframe !== "none" ? idea.timeframe : "—"}
                   </Badge>
                   <span className="text-[10px] text-muted-foreground font-mono ml-auto flex items-center gap-1">
                     <Clock className="w-3 h-3" />
-                    {idea.time} · {new Date(idea.date).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', { day: "2-digit", month: "short" })}
+                    {idea.time || "—"} · {new Date(idea.date).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', { day: "2-digit", month: "short" })}
                   </span>
                 </div>
                 {idea.title && (
