@@ -42,6 +42,8 @@ const H = (h: number) => {
   return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
 };
 
+const UTC_OFFSETS = Array.from({ length: 27 }, (_, i) => i - 12);
+
 function Row({ label, icon, startVal, endVal, onStart, onEnd }: {
   label: string;
   icon?: ReactNode;
