@@ -10,9 +10,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Sparkles, Brain, Loader2, ArrowRight, Save, Copy, Trash2, RefreshCw, Send, MessageCircle,
-  Calendar, Paperclip, X, History, Lightbulb, ListChecks, ArrowUp, ChevronDown, HelpCircle
+  Calendar, Paperclip, X, History, Lightbulb, ListChecks, ArrowUp, ChevronDown
 } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useStore, getTodayDate, formatUserClock } from "@/lib/store";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
@@ -698,65 +697,8 @@ export default function BrainstormPage() {
             <Sparkles className="w-4 h-4 text-red-400" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-display font-semibold tracking-tight leading-none mb-1">Personedge</h1>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-5 w-5 text-white/50 hover:text-white mb-1">
-                    <HelpCircle className="w-3.5 h-3.5" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="bg-[#1C1C1E] border-white/10 text-white sm:max-w-[500px]">
-                  <DialogHeader>
-                    <DialogTitle className="text-xl">Как работает Personedge?</DialogTitle>
-                    <DialogDescription className="text-white/60">
-                      Подробное руководство по использованию ИИ-наставника.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <ScrollArea className="max-h-[60vh] pr-4">
-                    <div className="space-y-4 text-sm text-white/80 leading-relaxed">
-                      <p>
-                        <strong>Personedge</strong> — это ваш личный аналитический ассистент, который не просто отвечает на вопросы, а собирает и анализирует весь контекст вашей жизни.
-                      </p>
-                      
-                      <div>
-                        <h4 className="font-semibold text-red-400 mb-1">1. Сбор контекста (Заметки)</h4>
-                        <p>
-                          Все ваши голосовые сообщения, которые вы отправляете в Telegram-бот в режиме "Анализ / Заметки", автоматически обрабатываются ИИ. Бот выделяет главное, определяет сферу (Трейдинг, Идеи, Здоровье и т.д.) и сохраняет это в базу. Эти заметки становятся "памятью" вашего наставника.
-                        </p>
-                      </div>
-
-                      <div>
-                        <h4 className="font-semibold text-red-400 mb-1">2. Использование контекста</h4>
-                        <p>
-                          В этой вкладке вы можете выбрать конкретные заметки (через скрепку 📎) или просто задать вопрос. Наставник проанализирует ваш запрос <strong>с учетом выбранных заметок</strong>. Например:
-                        </p>
-                        <ul className="list-disc pl-5 mt-1 space-y-1 text-white/70">
-                          <li>Выделите 5 заметок за неделю и попросите: <em>"Составь план действий на выходные на основе моих мыслей"</em>.</li>
-                          <li>Выберите торговые сделки и напишите: <em>"Найди мои главные ошибки в трейдинге за эти дни"</em>.</li>
-                        </ul>
-                      </div>
-
-                      <div>
-                        <h4 className="font-semibold text-red-400 mb-1">3. Авто-анализ</h4>
-                        <p>
-                          Если вы просто нажмете на скрепку, выберете заметки и нажмете "Анализировать" (не вводя текст запроса), наставник сделает <strong>автоматическую выжимку</strong>: найдет ключевые инсайты, противоречия и предложит план действий.
-                        </p>
-                      </div>
-
-                      <div>
-                        <h4 className="font-semibold text-red-400 mb-1">4. Взаимодействие с результатами</h4>
-                        <p>
-                          Всё, что сгенерирует ИИ, можно легко перенести в вашу систему:
-                          идеи — в копилку идей, инсайты — в базу знаний, а задачи одним кликом добавляются в план на день!
-                        </p>
-                      </div>
-                    </div>
-                  </ScrollArea>
-                </DialogContent>
-              </Dialog>
-            </div>
-            <p className="text-[10px] text-white/50 uppercase tracking-widest font-semibold">Наставник</p>
+            <h1 className="text-lg font-display font-semibold tracking-tight leading-none mb-1">Personedge</h1>
+            <p className="text-[10px] text-white/50 uppercase tracking-widest font-semibold">Наставник · помнит контекст</p>
           </div>
         </div>
 

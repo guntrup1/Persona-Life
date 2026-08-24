@@ -656,15 +656,19 @@ export default function GoalsPage() {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<GoalType | "archive">("week");
   const [archiveFilter, setArchiveFilter] = useState<GoalType | "all">("all");
+  const [archiveSubTab, setArchiveSubTab] = useState<"completed" | "failed">("completed");
 
-  const activeGoals = state.goals.filter(g => g.status !== "failed");
+  const activeGoals = state.goals.filter(g => g.status !== "failed" && !g.completed);
+  const completedGoals = state.goals.filter(g => g.completed);
   const failedGoals = state.goals.filter(g => g.status === "failed");
 
   const yearGoals = activeGoals.filter(g => g.type === "year");
   const monthGoals = activeGoals.filter(g => g.type === "month");
   const weekGoals = activeGoals.filter(g => g.type === "week");
 
-  const filteredFailedGoals = failedGoals.filter(g => {
+  const archiveGoals = archiveSubTab === "completed" ? completedGoals : failedGoals;
+
+  const filteredArchiveGoals = archiveGoals.filter(g => {
     if (archiveFilter === "all") return true;
     return g.type === archiveFilter;
   });
@@ -698,8 +702,8 @@ export default function GoalsPage() {
               {t.goals.weekTab} ({weekGoals.length})
             </TabsTrigger>
             <TabsTrigger value="archive" className="font-display text-xs uppercase gap-1" data-testid="tab-archive-goals">
-              <Archive className="w-3.5 h-3.5 text-amber-400" />
-              Невыполненные ({failedGoals.length})
+              <Archive className="w-3.5 h-3.5 text-primary" />
+              Архив ({completedGoals.length + failedGoals.length})
             </TabsTrigger>
           </TabsList>
 
@@ -769,8 +773,33 @@ export default function GoalsPage() {
             )}
           </TabsContent>
 
-          {/* Failed Goals Archive Section */}
+          {/* Goals Archive Section */}
           <TabsContent value="archive" className="space-y-4 mt-4">
+            
+            {/* Archive Sub-Tabs */}
+            <div className="flex bg-card p-1 rounded-lg border border-card-border mb-4 w-full">
+              <button
+                onClick={() => setArchiveSubTab("completed")}
+                className={`flex-1 py-2 text-sm font-display uppercase tracking-wider rounded transition-all ${
+                  archiveSubTab === "completed"
+                    ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                    : "text-muted-foreground hover:bg-white/5"
+                }`}
+              >
+                Выполненные ({completedGoals.length})
+              </button>
+              <button
+                onClick={() => setArchiveSubTab("failed")}
+                className={`flex-1 py-2 text-sm font-display uppercase tracking-wider rounded transition-all ${
+                  archiveSubTab === "failed"
+                    ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                    : "text-muted-foreground hover:bg-white/5"
+                }`}
+              >
+                Невыполненные ({failedGoals.length})
+              </button>
+            </div>
+
             {/* Type Filter Sub-Tabs */}
             <div className="flex items-center justify-between flex-wrap gap-2 bg-card p-2 rounded-lg border border-card-border">
               <div className="text-xs font-display font-semibold uppercase text-muted-foreground">Фильтр по типу:</div>
@@ -781,7 +810,7 @@ export default function GoalsPage() {
                     onClick={() => setArchiveFilter(type)}
                     className={`px-3 py-1 rounded text-xs font-display transition-all ${
                       archiveFilter === type
-                        ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold"
+                        ? "bg-primary/20 text-primary border border-primary/40 font-bold"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
@@ -791,48 +820,68 @@ export default function GoalsPage() {
               </div>
             </div>
 
-            {filteredFailedGoals.length === 0 ? (
+            {filteredArchiveGoals.length === 0 ? (
               <Card className="p-8 text-center border-card-border space-y-2">
-                <AlertCircle className="w-8 h-8 text-amber-500 mx-auto opacity-50" />
-                <p className="font-display text-sm text-muted-foreground">Нет невыполненных целей по выбранному фильтру</p>
+                <Archive className="w-8 h-8 text-muted-foreground mx-auto opacity-50" />
+                <p className="font-display text-sm text-muted-foreground">Нет целей по выбранному фильтру</p>
               </Card>
             ) : (
-              filteredFailedGoals.map(goal => (
-                <Card key={goal.id} className="p-4 border-amber-500/30 bg-amber-950/10 space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant="destructive" className="text-[10px] uppercase font-bold gap-1">
-                          <AlertTriangle className="w-3 h-3" /> Просрочено
-                        </Badge>
-                        <Badge variant="outline" className="text-[10px] uppercase">
-                          {goal.type === "year" ? "Год" : goal.type === "month" ? "Месяц" : "Неделя"}
-                        </Badge>
-                        <h3 className="font-display text-base font-bold text-foreground">{goal.title}</h3>
+              filteredArchiveGoals.map(goal => {
+                const isCompleted = goal.completed;
+                return (
+                  <Card key={goal.id} className={`p-4 space-y-3 ${isCompleted ? 'border-green-500/30 bg-green-950/10' : 'border-amber-500/30 bg-amber-950/10'}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {isCompleted ? (
+                            <Badge variant="outline" className="text-[10px] uppercase font-bold gap-1 border-green-500 text-green-500 bg-green-500/10">
+                              <CheckCircle className="w-3 h-3" /> Выполнена
+                            </Badge>
+                          ) : (
+                            <Badge variant="destructive" className="text-[10px] uppercase font-bold gap-1">
+                              <AlertTriangle className="w-3 h-3" /> Просрочено
+                            </Badge>
+                          )}
+                          <Badge variant="outline" className="text-[10px] uppercase">
+                            {goal.type === "year" ? "Год" : goal.type === "month" ? "Месяц" : "Неделя"}
+                          </Badge>
+                          <h3 className={`font-display text-base font-bold ${isCompleted ? 'text-green-50' : 'text-foreground'}`}>{goal.title}</h3>
+                        </div>
+
+                        {goal.description && (
+                          <p className="text-xs text-muted-foreground">{goal.description}</p>
+                        )}
+
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground font-mono pt-1">
+                          <span>Срок действовал: <strong className="text-foreground">{goal.startDate || "Н/Д"} — {goal.endDate || "Н/Д"}</strong></span>
+                        </div>
                       </div>
 
-                      {goal.description && (
-                        <p className="text-xs text-muted-foreground">{goal.description}</p>
-                      )}
-
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground font-mono pt-1">
-                        <span>Срок действовал: <strong className="text-foreground">{goal.startDate || "Н/Д"} — {goal.endDate || "Н/Д"}</strong></span>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {!isCompleted && <RestoreGoalDialog goal={goal} />}
+                        {isCompleted && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => actions.toggleGoal(goal.id)} 
+                            className="text-xs h-8 gap-1 text-green-400 hover:text-green-300 hover:bg-green-500/10"
+                            title="Отметить как невыполненную (вернуть в активные)"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" /> Вернуть
+                          </Button>
+                        )}
+                        <button
+                          onClick={() => actions.deleteGoal(goal.id)}
+                          className="p-1.5 text-muted-foreground hover:text-red-400 transition-colors"
+                          title="Удалить навсегда"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <RestoreGoalDialog goal={goal} />
-                      <button
-                        onClick={() => actions.deleteGoal(goal.id)}
-                        className="p-1.5 text-muted-foreground hover:text-red-400 transition-colors"
-                        title="Удалить навсегда"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </Card>
-              ))
+                  </Card>
+                );
+              })
             )}
           </TabsContent>
         </Tabs>

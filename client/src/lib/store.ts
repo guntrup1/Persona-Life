@@ -105,6 +105,7 @@ export interface RoutineTemplate {
   enabled: boolean;
   goalId?: string;
   days?: number[];
+  sortOrder?: number;
 }
 
 export interface TodayTask {
@@ -115,6 +116,7 @@ export interface TodayTask {
   difficulty?: TaskDifficulty;
   xp: number;
   completed: boolean;
+  sortOrder?: number;
   date: string;
   type: TaskType;
   routineId?: string;
@@ -1166,13 +1168,16 @@ export function useStore() {
     }, []),
 
     reorderRoutineTemplates: useCallback((oldIndex: number, newIndex: number) => {
+      let updatedTemplates: RoutineTemplate[] = [];
       mutate(s => {
         const templates = [...s.routineTemplates];
         const [removed] = templates.splice(oldIndex, 1);
         templates.splice(newIndex, 0, removed);
-        // ... (sorting logic remains the same)
+        
+        updatedTemplates = templates.map((t, idx) => ({ ...t, sortOrder: idx }));
+        
         const orderMap = new Map<string, number>();
-        templates.forEach((t, i) => orderMap.set(t.id, i));
+        updatedTemplates.forEach((t, i) => orderMap.set(t.id, i));
         const today = getTodayDate();
         const routineTasks = s.todayTasks.filter(t => t.type === "routine" && t.date === today);
         const otherTasks = s.todayTasks.filter(t => !(t.type === "routine" && t.date === today));
@@ -1190,19 +1195,24 @@ export function useStore() {
             newTodayTasks.push(task);
           }
         }
-        return { ...s, routineTemplates: templates, todayTasks: newTodayTasks };
+        return { ...s, routineTemplates: updatedTemplates, todayTasks: newTodayTasks };
       });
-      // We'd ideally sync the whole array order, but for now we'll just ignore reorder syncing 
-      // or send the full array if we had an endpoint. Since we don't, we skip server sync for reorder 
-      // (or we would need to PATCH every routine with an order index).
+      updatedTemplates.forEach(t => {
+        apiCall('PATCH', `/api/routines/${t.id}`, { sortOrder: t.sortOrder });
+      });
     }, []),
 
     reorderTodayTasks: useCallback((oldIndex: number, newIndex: number) => {
+      let updatedTasks: TodayTask[] = [];
       mutate(s => {
         const tasks = [...s.todayTasks];
         const [removed] = tasks.splice(oldIndex, 1);
         tasks.splice(newIndex, 0, removed);
-        return { ...s, todayTasks: tasks };
+        updatedTasks = tasks.map((t, idx) => ({ ...t, sortOrder: idx }));
+        return { ...s, todayTasks: updatedTasks };
+      });
+      updatedTasks.forEach(t => {
+        apiCall('PATCH', `/api/tasks/${t.id}`, { sortOrder: t.sortOrder });
       });
     }, []),
 

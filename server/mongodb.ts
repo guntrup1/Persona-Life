@@ -142,6 +142,7 @@ const taskSchema = new mongoose.Schema({
   difficulty: { type: String },
   xp: { type: Number, default: 0 },
   completed: { type: Boolean, default: false },
+  sortOrder: { type: Number, default: 0 },
   date: { type: String, required: true, index: true }, // YYYY-MM-DD
   type: { type: String, required: true },
   routineId: { type: String },
@@ -237,6 +238,7 @@ const routineTemplateSchema = new mongoose.Schema({
   description: { type: String },
   category: { type: String, required: true },
   xp: { type: Number, default: 0 },
+  sortOrder: { type: Number, default: 0 },
   enabled: { type: Boolean, default: true },
   goalId: { type: String },
   days: { type: [Number], default: [] },

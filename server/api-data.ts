@@ -28,6 +28,7 @@ const taskSchema = z.object({
   completedAt: z.string().optional(),
   googleCalendarEventId: z.string().optional(),
   addToGoogleCalendar: z.boolean().optional(),
+  sortOrder: z.number().optional(),
 });
 
 const goalSchema = z.object({
@@ -73,6 +74,7 @@ const routineTemplateSchema = z.object({
   enabled: z.boolean().default(true),
   goalId: z.string().optional(),
   days: z.array(z.number()).default([]),
+  sortOrder: z.number().optional(),
 });
 
 // ── PATCH schemas — validate partial updates so garbage can't overwrite fields ──
@@ -98,6 +100,7 @@ const taskPatchSchema = z.object({
   wasRescheduled: z.boolean().optional(),
   googleCalendarEventId: z.string().nullable().optional(),
   addToGoogleCalendar: z.boolean().optional(),
+  sortOrder: z.number().optional(),
 }).strip();
 
 const goalPatchSchema = z.object({
@@ -130,6 +133,7 @@ const routinePatchSchema = z.object({
   enabled: z.boolean().optional(),
   goalId: z.string().nullable().optional(),
   days: z.array(z.number()).optional(),
+  sortOrder: z.number().optional(),
 }).strip();
 
 const dayNotePatchSchema = z.object({
@@ -245,9 +249,9 @@ export function registerDataRoutes(app: Express) {
       }
 
       // 2. Fetch active data
-      const tasks = await Task.find({ userId }).lean();
+      const tasks = await Task.find({ userId }).sort({ sortOrder: 1 }).lean();
       const goals = await Goal.find({ userId }).lean();
-      const routines = await RoutineTemplate.find({ userId }).lean();
+      const routines = await RoutineTemplate.find({ userId }).sort({ sortOrder: 1 }).lean();
       const focusSessions = await FocusSession.find({ userId }).lean(); // Maybe filter last 30 days
       const biases = await DailyBias.find({ userId }).lean();
       

@@ -575,7 +575,7 @@ export function registerAuthRoutes(app: Express) {
       const settings = await mongoose.model("UserSettings").findOneAndUpdate(
         { userId: req.session.userId },
         { $setOnInsert: { userId: req.session.userId } },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
       ).select("-geminiApiKey -googleRefreshToken");
       return res.json({ settings });
     } catch (err) {
@@ -592,7 +592,7 @@ export function registerAuthRoutes(app: Express) {
       const settings = await mongoose.model("UserSettings").findOneAndUpdate(
         { userId: req.session.userId },
         update,
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
       ).select("-geminiApiKey -googleRefreshToken");
       if (googleReminderMinutes !== undefined) {
         await mongoose.model("User").findByIdAndUpdate(req.session.userId, { googleReminderMinutes });
