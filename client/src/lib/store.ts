@@ -879,9 +879,9 @@ function mergeArraysById<T extends { id: string }>(local: T[], server: T[], dele
   for (const item of server) map.set(item.id, item);
   for (const item of local) {
     const existing = map.get(item.id);
-    if (existing) {
-      const serverTime = (existing as any).updatedAt || (existing as any).completedAt || (existing as any).createdAt || "";
-      const localTime = (item as any).updatedAt || (item as any).completedAt || (item as any).createdAt || "";
+    if (existing && 'completed' in item && 'completed' in existing) {
+      const serverTime = (existing as any).updatedAt || (existing as any).completedAt || "";
+      const localTime = (item as any).updatedAt || (item as any).completedAt || "";
       const winner = localTime >= serverTime ? item : existing;
       map.set(winner.id, winner);
     } else {
@@ -910,9 +910,9 @@ function mergeArraysByKey<T extends { id: string }>(local: T[], server: T[], key
       byId.delete(existing!.id);
     }
 
-    if (existing) {
-      const serverTime = (existing as any).updatedAt || (existing as any).completedAt || (existing as any).createdAt || "";
-      const localTime = (item as any).updatedAt || (item as any).completedAt || (item as any).createdAt || "";
+    if (existing && 'completed' in item && 'completed' in existing) {
+      const serverTime = (existing as any).updatedAt || (existing as any).completedAt || "";
+      const localTime = (item as any).updatedAt || (item as any).completedAt || "";
       const winner = localTime >= serverTime ? item : existing;
       byId.set(winner.id, winner);
       byKey.set(key, winner);
@@ -938,7 +938,7 @@ function mergeStates(local: AppState, server: AppState): AppState {
   const merged = {
     ...DEFAULT_STATE,
     ...server,
-    simulations: mergeArraysById(local.simulations || [], safeSims || [], deletedIds),
+    simulations: safeSims,
     routineTemplates: mergeArraysById(local.routineTemplates || [], server.routineTemplates || [], deletedIds),
     todayTasks: mergeArraysByKey(
       local.todayTasks || [], server.todayTasks || [],
@@ -1452,12 +1452,12 @@ export function useStore() {
     }, []),
 
     addTradingNote: useCallback((note: Omit<TradingNote, "id" | "createdAt">) => {
-      const newNote = { ...note, id: crypto.randomUUID(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+      const newNote = { ...note, id: crypto.randomUUID(), createdAt: new Date().toISOString() };
       mutate(s => ({ ...s, tradingNotes: [...s.tradingNotes, newNote] }));
     }, []),
 
     updateTradingNote: useCallback((id: string, updates: Partial<TradingNote>) => {
-      mutate(s => ({ ...s, tradingNotes: s.tradingNotes.map(n => n.id === id ? { ...n, ...updates, updatedAt: new Date().toISOString() } : n) }));
+      mutate(s => ({ ...s, tradingNotes: s.tradingNotes.map(n => n.id === id ? { ...n, ...updates } : n) }));
     }, []),
 
     deleteTradingNote: useCallback((id: string) => {
@@ -1468,17 +1468,17 @@ export function useStore() {
     addDailyBias: useCallback((bias: Omit<DailyBias, "id" | "createdAt">): Promise<boolean> => {
       const existing = globalState.dailyBiases.find(b => b.date === bias.date && b.asset === bias.asset);
       if (existing) {
-        const updated = { ...existing, ...bias, createdAt: existing.createdAt, updatedAt: new Date().toISOString() };
+        const updated = { ...existing, ...bias, createdAt: existing.createdAt };
         mutate(s => ({ ...s, dailyBiases: s.dailyBiases.map(b => b.id === existing.id ? updated : b) }));
         return apiCall('PATCH', `/api/bias/${existing.id}`, updated);
       }
-      const newBias = { ...bias, id: crypto.randomUUID(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+      const newBias = { ...bias, id: crypto.randomUUID(), createdAt: new Date().toISOString() };
       mutate(s => ({ ...s, dailyBiases: [...s.dailyBiases, newBias] }));
       return apiCall('POST', '/api/bias', newBias);
     }, []),
 
     updateDailyBias: useCallback((id: string, updates: Partial<DailyBias>): Promise<boolean> => {
-      mutate(s => ({ ...s, dailyBiases: s.dailyBiases.map(b => b.id === id ? { ...b, ...updates, updatedAt: new Date().toISOString() } : b) }));
+      mutate(s => ({ ...s, dailyBiases: s.dailyBiases.map(b => b.id === id ? { ...b, ...updates } : b) }));
       return apiCall('PATCH', `/api/bias/${id}`, updates);
     }, []),
 

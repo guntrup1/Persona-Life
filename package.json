@@ -64,7 +64,6 @@
     "helmet": "^8.0.0",
     "html2canvas": "^1.4.1",
     "input-otp": "^1.4.2",
-    "lru-cache": "^11.5.2",
     "lucide-react": "^0.453.0",
     "memorystore": "^1.6.7",
     "mongoose": "^9.2.4",

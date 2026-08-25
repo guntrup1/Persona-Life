@@ -13,7 +13,6 @@ import mongoose from "mongoose";
 import { startBot } from "./bot";
 
 const app = express();
-app.set("trust proxy", 1);
 const httpServer = createServer(app);
 // ── Helmet — безопасные HTTP заголовки ──
 app.use(helmet({
@@ -151,6 +150,7 @@ app.use((req, res, next) => {
 
 (async () => {
   await connectMongoDB();
+  app.set("trust proxy", 1);
   setupAuth(app);
   await registerRoutes(httpServer, app);
 
