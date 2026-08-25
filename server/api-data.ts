@@ -150,7 +150,7 @@ const dayNotePatchSchema = z.object({
 const biasSchema = z.object({
   id: z.string(),
   date: z.string(),
-  asset: z.enum(["GER40", "EUR", "XAU", "GBP"]),
+  asset: z.enum(["GER40", "EUR", "XAU", "GBP", "US30", "US100", "US500", "none"]),
   direction: z.enum(["bullish", "bearish", "neutral"]),
   pros: z.string().nullable().optional(),
   cons: z.string().nullable().optional(),
@@ -160,12 +160,41 @@ const biasSchema = z.object({
 
 const biasPatchSchema = z.object({
   date: z.string().optional(),
-  asset: z.enum(["GER40", "EUR", "XAU", "GBP"]).optional(),
+  asset: z.enum(["GER40", "EUR", "XAU", "GBP", "US30", "US100", "US500", "none"]).optional(),
   direction: z.enum(["bullish", "bearish", "neutral"]).optional(),
   pros: z.string().nullable().optional(),
   cons: z.string().nullable().optional(),
   screenshotUrl: z.string().nullable().optional(),
   screenshots: z.array(z.object({ tf: z.string(), url: z.string() })).nullable().optional(),
+}).strip();
+
+const tradingNoteSchema = z.object({
+  id: z.string(),
+  title: z.string().optional(),
+  time: z.string().optional(),
+  asset: z.string().min(1),
+  timeframe: z.string().optional(),
+  tag: z.string().min(1),
+  text: z.string().min(1),
+  screenshotUrl: z.string().optional(),
+  screenshots: z.array(z.object({ tf: z.string(), url: z.string() })).optional(),
+  date: z.string().min(1),
+  isTradingIdea: z.boolean().optional(),
+  tradingIdeaDone: z.boolean().optional(),
+}).strip();
+
+const tradingNotePatchSchema = z.object({
+  title: z.string().nullable().optional(),
+  time: z.string().nullable().optional(),
+  asset: z.string().optional(),
+  timeframe: z.string().nullable().optional(),
+  tag: z.string().optional(),
+  text: z.string().optional(),
+  screenshotUrl: z.string().nullable().optional(),
+  screenshots: z.array(z.object({ tf: z.string(), url: z.string() })).nullable().optional(),
+  date: z.string().optional(),
+  isTradingIdea: z.boolean().optional(),
+  tradingIdeaDone: z.boolean().optional(),
 }).strip();
 
 export function registerDataRoutes(app: Express) {
@@ -629,6 +658,40 @@ export function registerDataRoutes(app: Express) {
     try {
       await TradingNote.findOneAndDelete({ userId: req.session.userId, noteId: req.params.id });
       await recordDeletion(req.session.userId, req.params.id);
+      res.json({ ok: true });
+    } catch {
+      res.status(400).json({ ok: false });
+    }
+  });
+
+  app.post("/api/trading-notes", requireAuth, async (req: any, res) => {
+    try {
+      const data = tradingNoteSchema.parse(req.body);
+      await TradingNote.findOneAndUpdate(
+        { userId: req.session.userId, noteId: data.id },
+        { ...data, noteId: data.id, userId: req.session.userId },
+        { upsert: true }
+      );
+      await bumpRevision(req.session.userId);
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error("[api-data] trading-notes error:", err);
+      const msg = err instanceof z.ZodError ? (err.issues[0]?.message || "Ошибка валидации") : "Ошибка запроса";
+      res.status(400).json({ ok: false, message: msg });
+    }
+  });
+
+  app.patch("/api/trading-notes/:id", requireAuth, async (req: any, res) => {
+    try {
+      const parsed = tradingNotePatchSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ ok: false, message: parsed.error.errors[0].message });
+      }
+      await TradingNote.findOneAndUpdate(
+        { userId: req.session.userId, noteId: req.params.id },
+        parsed.data
+      );
+      await bumpRevision(req.session.userId);
       res.json({ ok: true });
     } catch {
       res.status(400).json({ ok: false });

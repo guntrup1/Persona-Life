@@ -1455,10 +1455,12 @@ export function useStore() {
     addTradingNote: useCallback((note: Omit<TradingNote, "id" | "createdAt">) => {
       const newNote = { ...note, id: crypto.randomUUID(), createdAt: new Date().toISOString() };
       mutate(s => ({ ...s, tradingNotes: [...s.tradingNotes, newNote] }));
+      apiCall('POST', '/api/trading-notes', newNote);
     }, []),
 
     updateTradingNote: useCallback((id: string, updates: Partial<TradingNote>) => {
       mutate(s => ({ ...s, tradingNotes: s.tradingNotes.map(n => n.id === id ? { ...n, ...updates } : n) }));
+      apiCall('PATCH', `/api/trading-notes/${id}`, updates);
     }, []),
 
     deleteTradingNote: useCallback((id: string) => {

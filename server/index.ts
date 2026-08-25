@@ -37,7 +37,7 @@ app.use(helmet({
 // ── Rate limiting ──
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 минут
-  max: 200, // макс 200 запросов с одного IP
+  max: 2000, // макс 2000 запросов с одного IP (SPA постоянно пингует /api/sync/init)
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: "Слишком много запросов, попробуй позже" },
@@ -75,7 +75,9 @@ const verifyLimiter = rateLimit({
   message: { message: "Слишком много запросов, попробуй позже" },
 });
 
-app.use(globalLimiter);
+// Global limiter applies only to API routes — static assets (JS/CSS bundles)
+// from a single page reload must not count against the budget.
+app.use("/api", globalLimiter);
 
 // ── Ограничение размера тела запроса ──
 app.use("/api/auth/login", authLimiter);
