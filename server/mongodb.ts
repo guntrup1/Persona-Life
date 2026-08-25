@@ -36,7 +36,7 @@ const userSchema = new mongoose.Schema({
   isVerified: { type: Boolean, default: false },
   verifyToken: { type: String, default: null, index: true},
   verifyTokenExpires: { type: Date, default: null },
-  telegramId: { type: String, index: { unique: true, partialFilterExpression: { telegramId: { $ne: null } } } },
+  telegramId: { type: String, sparse: true, unique: true },
   telegramLinkToken: { type: String, default: null },
   telegramLinkExpires: { type: Date, default: null },
   geminiApiKey: { type: String, default: null },

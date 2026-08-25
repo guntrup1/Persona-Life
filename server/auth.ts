@@ -102,24 +102,22 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   // Anti-CSRF protection for mutating requests
   if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
     const origin = req.get("origin") || req.get("referer");
-    const host = req.get("host"); // includes port if present
 
     if (origin) {
       try {
         const originUrl = new URL(origin);
-        const originHost = originUrl.host; // e.g. "localhost:3000" or "persona-life.onrender.com"
+        const originHostname = originUrl.hostname; 
         
-        const allowedOrigins = [
-          process.env.APP_URL ? new URL(process.env.APP_URL).host : "",
-          process.env.VITE_FRONTEND_URL ? new URL(process.env.VITE_FRONTEND_URL).host : "",
+        const allowedHostnames = [
+          process.env.APP_URL ? new URL(process.env.APP_URL).hostname : "",
+          process.env.VITE_FRONTEND_URL ? new URL(process.env.VITE_FRONTEND_URL).hostname : "",
           "persona-life-mw90.onrender.com",
-          "localhost:5000",
-          "localhost:3000",
-          host // dynamically allow requests from the same host the server is running on
+          "localhost",
+          req.hostname // dynamically allow requests from the same host the client accessed
         ].filter(Boolean);
 
-        if (!allowedOrigins.includes(originHost)) {
-          console.warn(`[security] CSRF blocked: Origin host ${originHost} not allowed. Host: ${host}`);
+        if (!allowedHostnames.includes(originHostname)) {
+          console.warn(`[security] CSRF blocked: Origin host ${originHostname} not allowed. Hostname: ${req.hostname}`);
           return res.status(403).json({ message: "CSRF check failed: Invalid Origin" });
         }
       } catch (e) {
@@ -281,13 +279,19 @@ export function registerAuthRoutes(app: Express) {
         req.session.email = user.email;
         loginAttempts.delete(email);
 
+        // Don't send UserData blob on login — after migration it's nearly empty
+        // and would overwrite local state via forceServer. Let /api/sync/init handle data loading.
         const userData = await mongoose.model("UserData").findOne({ userId: user._id });
-        let data = userData?.data || null;
         if (!userData) {
           await mongoose.model("UserData").create({ userId: user._id, data: {} });
-          data = {};
         }
-        return res.json({ id: user._id, email: user.email, data });
+
+        // Force session save to MongoStore before responding,
+        // so that subsequent requests (sync/init) find the session immediately
+        req.session.save((saveErr) => {
+          if (saveErr) console.error("Session save error:", saveErr);
+          return res.json({ id: user._id, email: user.email });
+        });
       });
     } catch (err) {
       console.error("Login error:", err);
@@ -543,6 +547,8 @@ export function registerAuthRoutes(app: Express) {
       const backup = await mongoose.model("UserDataBackup").findOne({ _id: req.params.backupId, userId: req.session.userId });
       if (!backup) return res.status(404).json({ message: "Бэкап не найден" });
       await saveWithBackup(req.session.userId!, backup.data);
+      // Reset migrated flag so collections merge with this backup blob on next /api/sync/init
+      await mongoose.model("UserData").findOneAndUpdate({ userId: req.session.userId }, { $set: { migrated: false } });
       return res.json({ ok: true, data: backup.data });
     } catch (err) {
       console.error("Restore error:", err);

@@ -49,15 +49,8 @@ export function AuthProvider({ children, onLogin }: { children: ReactNode; onLog
   useEffect(() => {
     fetchMe().then(async (u) => {
       if (u) {
-        try {
-          const res = await fetch("/api/user/data", { credentials: "include" });
-          if (res.ok) {
-            const json = await res.json();
-            if (json.data && typeof json.data === "object" && Object.keys(json.data).length > 2) {
-              onLogin(json.data);
-            }
-          }
-        } catch {}
+        // Data is now loaded via /api/sync/init (called by initServerSync),
+        // not from the UserData blob which is nearly empty after migration.
       }
       setUser(u);
       setLoading(false);
