@@ -67,7 +67,12 @@ export default function VerifyEmailPage() {
     const token = new URLSearchParams(window.location.search).get("token");
     if (!token) { setStatus("error"); return; }
 
-    fetch(`/api/auth/verify-email?token=${token}`, { credentials: "include" })
+    fetch(`/api/auth/verify-email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+      credentials: "include"
+    })
       .then(async res => {
         const data = await res.json().catch(() => ({}));
         if (res.ok) {

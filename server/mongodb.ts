@@ -93,7 +93,7 @@ export const BrainstormSession = mongoose.model("BrainstormSession", BrainstormS
 const resetTokenSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   token: { type: String, required: true, unique: true },
-  expiresAt: { type: Date, required: true },
+  expiresAt: { type: Date, required: true, index: { expires: 0 } },
 });
 
 export const ResetToken = mongoose.model("ResetToken", resetTokenSchema);

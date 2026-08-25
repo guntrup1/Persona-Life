@@ -22,7 +22,8 @@ export function registerTelegramRoutes(app: Express) {
       }
 
       // Generate one-time token (expires in 10 minutes)
-      const token = crypto.randomBytes(16).toString("hex");
+      const rawToken = crypto.randomBytes(16).toString("hex");
+      const token = crypto.createHash("sha256").update(rawToken).digest("hex");
       const expires = new Date(Date.now() + 10 * 60 * 1000);
 
       await User.findByIdAndUpdate(userId, {
@@ -31,7 +32,7 @@ export function registerTelegramRoutes(app: Express) {
       });
 
       const botUsername = "Personedge_bot";
-      const link = `https://t.me/${botUsername}?start=${token}`;
+      const link = `https://t.me/${botUsername}?start=${rawToken}`;
 
       return res.json({ ok: true, link, expiresAt: expires.toISOString() });
     } catch (err) {

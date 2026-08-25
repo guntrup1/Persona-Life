@@ -22,4 +22,6 @@ ENV PORT=10000
 
 EXPOSE 10000
 
+USER node
+
 CMD ["node", "dist/index.cjs"]

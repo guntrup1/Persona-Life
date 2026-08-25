@@ -6,11 +6,14 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import mongoose from "mongoose";
 import { sanitizeBlobUrls } from "./url-safety";
+import { LRUCache } from "lru-cache";
 import { sendTelegramMessage } from "./telegram";
 import { bumpRevision } from "./revision";
 
 // ── Brevo email helper ──
 async function sendEmail(to: string, subject: string, html: string) {
+  const senderEmail = process.env.BREVO_SENDER_EMAIL;
+  if (!senderEmail) throw new Error("BREVO_SENDER_EMAIL is required");
   const response = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: {
@@ -18,7 +21,7 @@ async function sendEmail(to: string, subject: string, html: string) {
       "api-key": process.env.BREVO_API_KEY!,
     },
     body: JSON.stringify({
-      sender: { name: "Trade Persona", email: process.env.BREVO_SENDER_EMAIL || "hermandmytro62@gmail.com" },
+      sender: { name: "Trade Persona", email: senderEmail },
       to: [{ email: to }],
       subject,
       htmlContent: html,
@@ -98,6 +101,17 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (!req.session?.userId) {
     return res.status(401).json({ message: "Не авторизован" });
   }
+
+  // Anti-CSRF protection for mutating requests
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
+    const origin = req.headers.origin || req.headers.referer;
+    const allowedOrigin = process.env.APP_URL || "https://persona-life-mw90.onrender.com";
+    if (origin && !origin.startsWith(allowedOrigin)) {
+      console.warn(`[security] CSRF blocked: Origin ${origin} does not match ${allowedOrigin}`);
+      return res.status(403).json({ message: "CSRF check failed: Invalid Origin" });
+    }
+  }
+
   next();
 }
 
@@ -114,12 +128,31 @@ export function registerAuthRoutes(app: Express) {
     try {
       const existing = await mongoose.model("User").findOne({ email: email.toLowerCase() });
       if (existing) {
-        return res.status(409).json({ message: "Пользователь с таким email уже существует" });
+        // Send a warning email to the existing user instead of leaking the account existence
+        const isEn = lang === "en";
+        const subject = isEn ? "Login Attempt — Persona Life" : "Попытка регистрации — Persona Life";
+        const text = isEn 
+          ? "Someone tried to register an account with this email. If it was you, please log in or reset your password. If not, you can safely ignore this email."
+          : "Кто-то попытался зарегистрировать аккаунт на этот email. Если это были вы, пожалуйста, выполните вход или сбросьте пароль. Если нет, можете проигнорировать это письмо.";
+        
+        try {
+          await sendEmail(email.toLowerCase(), subject, `<div style="font-family:sans-serif;color:#0a0a0a;padding:24px;"><p>${text}</p></div>`);
+        } catch (e) {
+          console.error("Warning email send error:", e);
+        }
+        
+        // Return identical response to actual registration to prevent enumeration
+        return res.json({
+          ok: true,
+          message: "Аккаунт создан! Проверь почту и подтверди email. (Если письма нет во Входящих — проверь папку СПАМ).",
+          needsVerification: true,
+        });
       }
 
       const hash = await bcrypt.hash(password, 12);
       const crypto = require("crypto");
-      const verifyToken = crypto.randomBytes(32).toString("hex");
+      const rawVerifyToken = crypto.randomBytes(32).toString("hex");
+      const verifyToken = crypto.createHash("sha256").update(rawVerifyToken).digest("hex");
       const verifyTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
       const user = await mongoose.model("User").create({
@@ -133,7 +166,7 @@ export function registerAuthRoutes(app: Express) {
       await mongoose.model("UserData").create({ userId: user._id, data: {} });
 
       // Отправляем письмо верификации через Brevo
-      const verifyUrl = `${process.env.APP_URL || "https://persona-life.onrender.com"}/verify-email?token=${verifyToken}`;
+      const verifyUrl = `${process.env.APP_URL || "https://persona-life.onrender.com"}/verify-email?token=${rawVerifyToken}`;
       try {
         const isEn = lang === "en";
         const subject = isEn ? "Verify email — Persona Life" : "Подтверди email — Persona Life";
@@ -179,10 +212,16 @@ export function registerAuthRoutes(app: Express) {
     }
   });
 
-  // ── Per-account login lockout (in-memory) ──
-  const loginAttempts = new Map<string, { count: number; until: number }>();
+  // ── Per-account login lockout (in-memory LRU) ──
   const MAX_LOGIN_ATTEMPTS = 5;
   const LOCKOUT_MS = 15 * 60 * 1000;
+  const loginAttempts = new LRUCache<string, { count: number; until: number }>({
+    max: 5000,
+    ttl: LOCKOUT_MS,
+  });
+
+  // Pre-calculated hash to prevent timing attacks on missing users
+  const DUMMY_HASH = "$2a$12$e8YkYgDq5iP1j4qgP3zJ1.4U6x8Z8B7Q2x.yQo/uG4C8uE6lW1tKi";
 
   app.post("/api/auth/login", async (req, res) => {
     const parsed = loginSchema.safeParse(req.body);
@@ -200,12 +239,11 @@ export function registerAuthRoutes(app: Express) {
 
     try {
       const user = await mongoose.model("User").findOne({ email: email.toLowerCase() });
-      if (!user) {
-        return res.status(401).json({ message: "Неверный email или пароль" });
-      }
+      
+      const hashToCompare = user ? user.password_hash : DUMMY_HASH;
+      const valid = await bcrypt.compare(password, hashToCompare);
 
-      const valid = await bcrypt.compare(password, user.password_hash);
-      if (!valid) {
+      if (!user || !valid) {
         const attempt = loginAttempts.get(email) || { count: 0, until: 0 };
         attempt.count += 1;
         if (attempt.count >= MAX_LOGIN_ATTEMPTS) {
@@ -508,13 +546,14 @@ export function registerAuthRoutes(app: Express) {
       if (!user) return res.json({ ok: true });
 
       const crypto = require("crypto");
-      const token = crypto.randomBytes(32).toString("hex");
+      const rawToken = crypto.randomBytes(32).toString("hex");
+      const hashedToken = crypto.createHash("sha256").update(rawToken).digest("hex");
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
       await mongoose.model("ResetToken").deleteMany({ userId: user._id });
-      await mongoose.model("ResetToken").create({ userId: user._id, token, expiresAt });
+      await mongoose.model("ResetToken").create({ userId: user._id, token: hashedToken, expiresAt });
 
-      const resetUrl = `${process.env.APP_URL || "https://persona-life.onrender.com"}/reset-password?token=${token}`;
+      const resetUrl = `${process.env.APP_URL || "https://persona-life.onrender.com"}/reset-password?token=${rawToken}`;
 
       const isEn = lang === "en";
       const subject = isEn ? "Password Reset — Persona Life" : "Сброс пароля — Persona Life";
@@ -556,12 +595,22 @@ export function registerAuthRoutes(app: Express) {
     const { token, password } = parsed.data;
 
     try {
-      const resetToken = await mongoose.model("ResetToken").findOne({ token, expiresAt: { $gt: new Date() } });
+      const crypto = require("crypto");
+      const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+      const resetToken = await mongoose.model("ResetToken").findOne({ token: hashedToken, expiresAt: { $gt: new Date() } });
       if (!resetToken) return res.status(400).json({ message: "Ссылка недействительна или истекла" });
 
       const hash = await bcrypt.hash(password, 12);
       await mongoose.model("User").findByIdAndUpdate(resetToken.userId, { password_hash: hash });
       await mongoose.model("ResetToken").deleteMany({ userId: resetToken.userId });
+
+      // Invalidate all existing sessions for this user
+      try {
+        const sessionCollection = mongoose.connection.collection("sessions");
+        await sessionCollection.deleteMany({ "session.userId": resetToken.userId.toString() });
+      } catch (err) {
+        console.error("Failed to delete sessions:", err);
+      }
 
       return res.json({ ok: true });
     } catch (err) {
@@ -601,7 +650,7 @@ export function registerAuthRoutes(app: Express) {
       return res.json({ settings });
     } catch (err: any) {
       console.error("Save settings error:", err);
-      return res.status(500).json({ message: "Ошибка сервера", error: err?.message || String(err) });
+      return res.status(500).json({ message: "Ошибка сервера" });
     }
   });
 
@@ -632,14 +681,19 @@ export function registerAuthRoutes(app: Express) {
   });
 
   // Верификация email
-app.get("/api/auth/verify-email", async (req, res) => {
-    const { token } = req.query;
+  app.post("/api/auth/verify-email", async (req, res) => {
+    const { token } = req.body;
     if (!token || typeof token !== "string") {
       return res.status(400).json({ message: "Неверный токен" });
     }
     try {
-      // Сначала ищем пользователя по токену без проверки срока
-      const user = await mongoose.model("User").findOne({ verifyToken: token });
+      const crypto = require("crypto");
+      const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+      
+      // Ищем по хэшу (новый способ) или по сырому токену (обратная совместимость)
+      const user = await mongoose.model("User").findOne({ 
+        $or: [{ verifyToken: token }, { verifyToken: hashedToken }] 
+      });
 
       if (!user) {
         return res.status(400).json({ message: "Ссылка недействительна или уже использована" });
@@ -677,11 +731,12 @@ app.get("/api/auth/verify-email", async (req, res) => {
       if (!user) return res.json({ ok: true });
 
       const crypto = require("crypto");
-      const verifyToken = crypto.randomBytes(32).toString("hex");
+      const rawVerifyToken = crypto.randomBytes(32).toString("hex");
+      const verifyToken = crypto.createHash("sha256").update(rawVerifyToken).digest("hex");
       const verifyTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // было 7 дней
       await mongoose.model("User").findByIdAndUpdate(user._id, { verifyToken, verifyTokenExpires });
 
-      const verifyUrl = `${process.env.APP_URL || "https://persona-life.onrender.com"}/verify-email?token=${verifyToken}`;
+      const verifyUrl = `${process.env.APP_URL || "https://persona-life.onrender.com"}/verify-email?token=${rawVerifyToken}`;
       const isEn = lang === "en";
       const subject = isEn ? "Verify email — Persona Life" : "Подтвердить email — Persona Life";
       const title = isEn ? "PERSONA LIFE" : "PERSONA LIFE";

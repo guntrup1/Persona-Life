@@ -6,6 +6,7 @@ import { bumpRevision } from "./revision";
 import { findDuplicateTask, findDuplicateGoal, findDuplicateDayNote, findDuplicateTradingNote } from "./dedupe";
 import { DailyBias } from "./mongodb";
 import crypto from "crypto";
+import { requireAuth } from "./auth";
 
 export function registerAudioRoutes(app: Express) {
 
@@ -93,8 +94,9 @@ export function registerAudioRoutes(app: Express) {
 
       // Find user with valid unexpired link token
       const UserModel = mongoose.model("User");
+      const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
       const user = await UserModel.findOne({
-        telegramLinkToken: token,
+        $or: [{ telegramLinkToken: token }, { telegramLinkToken: hashedToken }],
         telegramLinkExpires: { $gt: new Date() },
       });
 
@@ -187,9 +189,8 @@ export function registerAudioRoutes(app: Express) {
   });
 
   // ── GET /api/processed-audios — Frontend fetches voice notes ──
-  app.get("/api/processed-audios", async (req: any, res: any) => {
+  app.get("/api/processed-audios", requireAuth, async (req: any, res: any) => {
     try {
-      if (!req.session?.userId) return res.status(401).json({ error: "Unauthorized" });
       const query: any = { userId: req.session.userId };
       if (req.query.mode) {
         query.mode = req.query.mode;
@@ -207,9 +208,8 @@ export function registerAudioRoutes(app: Express) {
   });
 
   // ── DELETE /api/processed-audios/all — Clear all voice notes for user ──
-  app.delete("/api/processed-audios/all", async (req: any, res: any) => {
+  app.delete("/api/processed-audios/all", requireAuth, async (req: any, res: any) => {
     try {
-      if (!req.session?.userId) return res.status(401).json({ error: "Unauthorized" });
       const ProcessedAudioModel = mongoose.model("ProcessedAudio");
       await ProcessedAudioModel.deleteMany({ userId: req.session.userId });
       return res.json({ ok: true });
@@ -220,9 +220,8 @@ export function registerAudioRoutes(app: Express) {
   });
 
   // ── DELETE /api/processed-audios/:id — Delete a single voice note ──
-  app.delete("/api/processed-audios/:id", async (req: any, res: any) => {
+  app.delete("/api/processed-audios/:id", requireAuth, async (req: any, res: any) => {
     try {
-      if (!req.session?.userId) return res.status(401).json({ error: "Unauthorized" });
       const ProcessedAudioModel = mongoose.model("ProcessedAudio");
       const deleted = await ProcessedAudioModel.findOneAndDelete({ _id: req.params.id, userId: req.session.userId });
       if (!deleted) return res.status(404).json({ error: "Not found" });
