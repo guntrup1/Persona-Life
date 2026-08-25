@@ -938,7 +938,7 @@ function mergeStates(local: AppState, server: AppState): AppState {
   const merged = {
     ...DEFAULT_STATE,
     ...server,
-    simulations: safeSims,
+    simulations: mergeArraysById(local.simulations || [], safeSims || [], deletedIds),
     routineTemplates: mergeArraysById(local.routineTemplates || [], server.routineTemplates || [], deletedIds),
     todayTasks: mergeArraysByKey(
       local.todayTasks || [], server.todayTasks || [],
