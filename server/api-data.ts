@@ -181,67 +181,156 @@ export function registerDataRoutes(app: Express) {
       if (oldUserData && !oldUserData.migrated && oldUserData.data && Object.keys(oldUserData.data).length > 0) {
         console.log(`[MIGRATION] Starting migration for user ${userId}`);
         const d = oldUserData.data as any;
-        
-        // Migrate Tasks
-        if (Array.isArray(d.todayTasks)) {
-          for (const t of d.todayTasks) {
-            await Task.findOneAndUpdate({ userId, taskId: t.id }, { ...t, taskId: t.id, userId }, { upsert: true });
+        const failures: string[] = [];
+
+        // Helpers: coerce legacy blob values to the strict schema types/fields.
+        const num = (v: any, def = 0) => { const n = Number(v); return Number.isFinite(n) ? n : def; };
+        const str = (v: any, def = "") => (v == null ? def : String(v));
+        const today = new Date().toISOString().slice(0, 10);
+
+        // Migrate one array of legacy items into a strict collection. A single
+        // bad record must NEVER abort the whole migration (that previously
+        // threw and returned HTTP 500, hiding ALL data). Skip + log instead.
+        const migrateArray = async (
+          items: any[] | undefined,
+          Model: any,
+          idField: string,
+          san: (x: any) => any
+        ) => {
+          if (!Array.isArray(items)) return;
+          for (const x of items) {
+            try {
+              const doc = san(x) || {};
+              const id = x?.id ?? doc?.[idField];
+              if (id == null) { failures.push(`${Model.modelName}:no-id`); continue; }
+              await Model.findOneAndUpdate(
+                { userId, [idField]: id },
+                { ...doc, [idField]: id, userId },
+                { upsert: true }
+              );
+            } catch (e: any) {
+              failures.push(`${Model.modelName}:${x?.id}:${e?.message}`);
+              console.warn(`[MIGRATION] skip ${Model.modelName} ${x?.id}:`, e?.message);
+            }
           }
-        }
-        // Migrate Goals
-        if (Array.isArray(d.goals)) {
-          for (const g of d.goals) {
-            await Goal.findOneAndUpdate({ userId, goalId: g.id }, { ...g, goalId: g.id, userId }, { upsert: true });
-          }
-        }
-        // Migrate DayNotes
-        if (Array.isArray(d.dayNotes)) {
-          for (const n of d.dayNotes) {
-            await DayNote.findOneAndUpdate({ userId, noteId: n.id }, { ...n, noteId: n.id, userId }, { upsert: true });
-          }
-        }
-        // Migrate TradingNotes
-        if (Array.isArray(d.tradingNotes)) {
-          for (const n of d.tradingNotes) {
-            await TradingNote.findOneAndUpdate({ userId, noteId: n.id }, { ...n, noteId: n.id, userId }, { upsert: true });
-          }
-        }
-        // Migrate FocusSessions
-        if (Array.isArray(d.focusSessions)) {
-          for (const f of d.focusSessions) {
-            await FocusSession.findOneAndUpdate({ userId, sessionId: f.id }, { ...f, sessionId: f.id, userId }, { upsert: true });
-          }
-        }
-        // Migrate DailyBiases
-        if (Array.isArray(d.dailyBiases)) {
-          for (const b of d.dailyBiases) {
-            await DailyBias.findOneAndUpdate({ userId, biasId: b.id }, { ...b, biasId: b.id, userId }, { upsert: true });
-          }
-        }
-        // Migrate Routines
-        if (Array.isArray(d.routineTemplates)) {
-          for (const r of d.routineTemplates) {
-            await RoutineTemplate.findOneAndUpdate({ userId, templateId: r.id }, { ...r, templateId: r.id, userId }, { upsert: true });
-          }
-        }
-        // Migrate Simulations
-        if (Array.isArray(d.simulations)) {
-          for (const s of d.simulations) {
-            await Simulation.findOneAndUpdate({ userId, simId: s.id }, { ...s, simId: s.id, userId }, { upsert: true });
-          }
-        }
-        
-        // Preserve botVoiceHistory and xp/streak — only clear the migrated data, keep bot metadata
+        };
+
+        await migrateArray(d.todayTasks || d.tasks, Task, "taskId", (t: any) => ({
+          name: str(t.name || t.title, "Без названия"),
+          description: str(t.description || t.text),
+          category: str(t.category, "other"),
+          difficulty: str(t.difficulty),
+          xp: num(t.xp),
+          completed: !!t.completed || !!t.done,
+          sortOrder: num(t.sortOrder),
+          date: str(t.date, today),
+          type: str(t.type, "task"),
+          routineId: str(t.routineId),
+          goalId: str(t.goalId),
+          weekGoalId: str(t.weekGoalId),
+          startTime: str(t.startTime),
+          endTime: str(t.endTime),
+          noDeadline: !!t.noDeadline,
+          completedAt: str(t.completedAt),
+        }));
+        await migrateArray(d.goals, Goal, "goalId", (g: any) => ({
+          type: str(g.type, "personal"),
+          title: str(g.title, "Без названия"),
+          category: str(g.category, "other"),
+          parentId: str(g.parentId),
+          completed: !!g.completed,
+          xp: num(g.xp),
+          linkedTaskIds: Array.isArray(g.linkedTaskIds) ? g.linkedTaskIds.map(String) : [],
+          taskWeights: (g.taskWeights && typeof g.taskWeights === "object") ? g.taskWeights : {},
+          year: g.year == null ? undefined : num(g.year),
+          month: g.month == null ? undefined : num(g.month),
+          week: g.week == null ? undefined : num(g.week),
+          description: str(g.description),
+          plan: Array.isArray(g.plan) ? g.plan : [],
+          timeLimitType: str(g.timeLimitType),
+          startDate: str(g.startDate),
+          endDate: str(g.endDate),
+          status: str(g.status, "active"),
+        }));
+        await migrateArray(d.dayNotes, DayNote, "noteId", (n: any) => ({
+          date: str(n.date, today),
+          title: str(n.title, "Заметка"),
+          content: str(n.content || n.note || n.text, ""),
+          noteType: str(n.noteType, "note"),
+          ideaCategory: str(n.ideaCategory),
+          link: str(n.link),
+          ideaDone: !!n.ideaDone,
+        }));
+        await migrateArray(d.tradingNotes, TradingNote, "noteId", (n: any) => ({
+          title: str(n.title, "Идея"),
+          time: str(n.time),
+          asset: str(n.asset, "none"),
+          timeframe: str(n.timeframe),
+          tag: str(n.tag, "general"),
+          text: str(n.text, ""),
+          date: str(n.date, today),
+          isTradingIdea: !!n.isTradingIdea,
+          tradingIdeaDone: !!n.tradingIdeaDone,
+          screenshotUrl: str(n.screenshotUrl),
+        }));
+        await migrateArray(d.focusSessions, FocusSession, "sessionId", (f: any) => ({
+          duration: num(f.duration),
+          mode: str(f.mode, "focus"),
+          xp: num(f.xp),
+          date: str(f.date, today),
+          completedAt: str(f.completedAt, new Date().toISOString()),
+          note: str(f.note),
+        }));
+        await migrateArray(d.dailyBiases, DailyBias, "biasId", (b: any) => ({
+          date: str(b.date, today),
+          asset: str(b.asset, "none"),
+          direction: str(b.direction, "neutral"),
+          pros: str(b.pros),
+          cons: str(b.cons),
+          screenshotUrl: str(b.screenshotUrl),
+        }));
+        await migrateArray(d.routineTemplates, RoutineTemplate, "templateId", (r: any) => ({
+          name: str(r.name, "Рутина"),
+          description: str(r.description),
+          category: str(r.category, "other"),
+          xp: num(r.xp),
+          sortOrder: num(r.sortOrder),
+          enabled: r.enabled !== false,
+          goalId: str(r.goalId),
+          days: Array.isArray(r.days) ? r.days.map((x: any) => num(x)) : [],
+        }));
+        await migrateArray(d.simulations, Simulation, "simId", (s: any) => ({
+          name: str(s.name, "Симуляция"),
+          mode: str(s.mode, "long"),
+          startingBalance: num(s.startingBalance),
+          riskType: str(s.riskType, "fixed"),
+          commission: num(s.commission),
+          maxTradesPerDay: s.maxTradesPerDay == null ? undefined : num(s.maxTradesPerDay),
+          maxWinsPerDay: s.maxWinsPerDay == null ? undefined : num(s.maxWinsPerDay),
+          notes: str(s.notes),
+          assets: s.assets ?? {},
+          results: s.results ?? {},
+        }));
+
+        // Only wipe the legacy blob once EVERY item migrated successfully,
+        // so a single bad record can never silently destroy data. On any
+        // failure we keep the blob as a safety net and simply mark migrated
+        // so we stop retrying the same broken pass.
         const botHistory = d.botVoiceHistory || [];
         const savedXP = d.xp || {};
         const savedStreak = d.streak || {};
-        await UserData.findOneAndUpdate({ userId }, { 
-          $set: { 
-            data: { botVoiceHistory: botHistory, xp: savedXP, streak: savedStreak },
-            migrated: true,
-          }
-        });
-        console.log(`[MIGRATION] Completed for user ${userId}`);
+        if (failures.length === 0) {
+          await UserData.findOneAndUpdate({ userId }, {
+            $set: {
+              data: { botVoiceHistory: botHistory, xp: savedXP, streak: savedStreak },
+              migrated: true,
+            }
+          });
+          console.log(`[MIGRATION] Completed for user ${userId}`);
+        } else {
+          await UserData.findOneAndUpdate({ userId }, { $set: { migrated: true } });
+          console.warn(`[MIGRATION] Partial for ${userId}: ${failures.length} failures (blob kept as fallback)`, failures.slice(0, 5));
+        }
       } else if (oldUserData && !oldUserData.migrated) {
         // Blob exists but has nothing to migrate — mark migrated so the
         // branch above never re-runs on every poll.
