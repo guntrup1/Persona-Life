@@ -347,7 +347,7 @@ export function registerDataRoutes(app: Express) {
       // Fetch all notes for initial load (to prevent missing old notes)
       const dayNotes = await DayNote.find({ userId }).lean();
       const tradingNotes = await TradingNote.find({ userId }).lean();
-      const simulations = await mongoose.model("Simulation").find({ userId }).lean();
+      const simulations = await Simulation.find({ userId }).lean();
 
       const ud = await UserData.findOne({ userId }).lean() as any;
       const udData = (ud?.data as any) || {};
