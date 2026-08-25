@@ -1,21 +1,27 @@
 import { useState } from "react";
 import { useStore } from "@/lib/store";
-import { Check, Plus, X } from "lucide-react";
+import { Plus, X, Check } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+
+type Mark = "plus" | "minus";
 
 export function BiasChecklistView({ biasId, date }: { biasId: string; date: string }) {
   const { state, actions } = useStore();
   const [draft, setDraft] = useState("");
 
   const checklist = state.biasChecklists.find((c) => c.id === biasId);
-  const doneArr = checklist?.done?.[date] ?? [];
+  const dayMarks = (checklist?.marks?.[date] || {}) as Record<string, Mark>;
 
   const submit = () => {
     const text = draft.trim();
     if (!text) return;
     actions.addBiasChecklistItem(biasId, text);
     setDraft("");
+  };
+
+  const setMark = (itemId: string, status: Mark) => {
+    actions.setBiasChecklistMark(biasId, itemId, date, status);
   };
 
   return (
@@ -28,18 +34,30 @@ export function BiasChecklistView({ biasId, date }: { biasId: string; date: stri
       {checklist?.items?.length ? (
         <ul className="space-y-1">
           {checklist.items.map((item) => {
-            const done = doneArr.includes(item.id);
+            const status = dayMarks[item.id];
             return (
               <li key={item.id} className="group flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => actions.toggleBiasChecklistItem(biasId, item.id, date)}
-                  className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${done ? "bg-primary border-primary text-primary-foreground" : "border-border hover:border-primary"}`}
-                  aria-label={done ? "Отметить не выполненным" : "Отметить выполненным"}
-                >
-                  {done && <Check className="w-3 h-3" />}
-                </button>
-                <span className={`flex-1 text-sm ${done ? "line-through text-muted-foreground" : ""}`}>{item.text}</span>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setMark(item.id, "plus")}
+                    aria-label="Соблюдал условие"
+                    className={`flex h-5 w-5 items-center justify-center rounded border text-[13px] font-bold leading-none transition-colors ${status === "plus" ? "bg-green-500 border-green-500 text-white" : "border-green-500/50 text-green-500 hover:bg-green-500/10"}`}
+                  >
+                    +
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMark(item.id, "minus")}
+                    aria-label="Не соблюдал условие"
+                    className={`flex h-5 w-5 items-center justify-center rounded border text-[13px] font-bold leading-none transition-colors ${status === "minus" ? "bg-red-500 border-red-500 text-white" : "border-red-500/50 text-red-500 hover:bg-red-500/10"}`}
+                  >
+                    −
+                  </button>
+                </div>
+                <span className={`flex-1 text-sm ${status === "minus" ? "line-through text-muted-foreground" : ""} ${status === "plus" ? "text-green-400" : ""}`}>
+                  {item.text}
+                </span>
                 <button
                   type="button"
                   onClick={() => actions.removeBiasChecklistItem(biasId, item.id)}

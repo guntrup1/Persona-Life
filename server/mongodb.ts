@@ -266,8 +266,8 @@ const biasChecklistSchema = new mongoose.Schema({
     type: [{ id: String, text: String }],
     default: [],
   },
-  // Per-day completion: date (YYYY-MM-DD) -> array of done item ids
-  done: { type: mongoose.Schema.Types.Mixed, default: {} },
+  // Per-day marking: date (YYYY-MM-DD) -> { itemId: "plus" | "minus" }
+  marks: { type: mongoose.Schema.Types.Mixed, default: {} },
 }, { timestamps: true });
 
 export const Task = mongoose.model("Task", taskSchema);

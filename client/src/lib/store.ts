@@ -205,7 +205,7 @@ export interface ChecklistItem {
 export interface BiasChecklist {
   id: string; // equals the linked biasId
   items: ChecklistItem[];
-  done: Record<string, string[]>; // date (YYYY-MM-DD) -> done item ids
+  marks: Record<string, Record<string, "plus" | "minus">>; // date (YYYY-MM-DD) -> { itemId: "plus"|"minus" }
 }
 
 export type ScreenshotEntry = { tf: string; url: string };
@@ -1511,39 +1511,43 @@ export function useStore() {
     }, []),
 
     addBiasChecklistItem: useCallback((biasId: string, text: string) => {
-      const cur = globalState.biasChecklists.find(c => c.id === biasId) || { id: biasId, items: [] as ChecklistItem[], done: {} as Record<string, string[]> };
+      const cur = globalState.biasChecklists.find(c => c.id === biasId) || { id: biasId, items: [] as ChecklistItem[], marks: {} as Record<string, Record<string, "plus" | "minus">> };
       const next: BiasChecklist = { ...cur, items: [...cur.items, { id: crypto.randomUUID(), text }] };
       mutate(s => ({ ...s, biasChecklists: mergeArraysById(s.biasChecklists, [next]) }));
-      apiCall('POST', '/api/bias-checklists', { biasId: next.id, items: next.items, done: next.done });
+      apiCall('POST', '/api/bias-checklists', { biasId: next.id, items: next.items, marks: next.marks });
     }, []),
 
     removeBiasChecklistItem: useCallback((biasId: string, itemId: string) => {
       const cur = globalState.biasChecklists.find(c => c.id === biasId);
       if (!cur) return;
-      const done = { ...cur.done };
-      for (const k of Object.keys(done)) done[k] = done[k].filter(id => id !== itemId);
-      const next: BiasChecklist = { ...cur, items: cur.items.filter(i => i.id !== itemId), done };
+      const marks = { ...cur.marks };
+      for (const k of Object.keys(marks)) {
+        if (marks[k]) delete marks[k][itemId];
+        if (marks[k] && Object.keys(marks[k]).length === 0) delete marks[k];
+      }
+      const next: BiasChecklist = { ...cur, items: cur.items.filter(i => i.id !== itemId), marks };
       mutate(s => ({ ...s, biasChecklists: mergeArraysById(s.biasChecklists, [next]) }));
-      apiCall('POST', '/api/bias-checklists', { biasId: next.id, items: next.items, done: next.done });
+      apiCall('POST', '/api/bias-checklists', { biasId: next.id, items: next.items, marks: next.marks });
     }, []),
 
     setBiasChecklistItems: useCallback((biasId: string, items: ChecklistItem[]) => {
-      const cur = globalState.biasChecklists.find(c => c.id === biasId) || { id: biasId, items: [] as ChecklistItem[], done: {} as Record<string, string[]> };
+      const cur = globalState.biasChecklists.find(c => c.id === biasId) || { id: biasId, items: [] as ChecklistItem[], marks: {} as Record<string, Record<string, "plus" | "minus">> };
       const next: BiasChecklist = { ...cur, items };
       mutate(s => ({ ...s, biasChecklists: mergeArraysById(s.biasChecklists, [next]) }));
-      apiCall('POST', '/api/bias-checklists', { biasId: next.id, items: next.items, done: next.done });
+      apiCall('POST', '/api/bias-checklists', { biasId: next.id, items: next.items, marks: next.marks });
     }, []),
 
-    toggleBiasChecklistItem: useCallback((biasId: string, itemId: string, date: string) => {
-      const cur = globalState.biasChecklists.find(c => c.id === biasId) || { id: biasId, items: [] as ChecklistItem[], done: {} as Record<string, string[]> };
-      const done = { ...cur.done };
-      const arr = done[date] ? [...done[date]] : [];
-      const idx = arr.indexOf(itemId);
-      if (idx >= 0) arr.splice(idx, 1); else arr.push(itemId);
-      done[date] = arr;
-      const next: BiasChecklist = { ...cur, done };
+    setBiasChecklistMark: useCallback((biasId: string, itemId: string, date: string, status: "plus" | "minus") => {
+      const cur = globalState.biasChecklists.find(c => c.id === biasId) || { id: biasId, items: [] as ChecklistItem[], marks: {} as Record<string, Record<string, "plus" | "minus">> };
+      const marks = { ...cur.marks };
+      const dayMarks = { ...(marks[date] || {}) } as Record<string, "plus" | "minus">;
+      if (dayMarks[itemId] === status) delete dayMarks[itemId];
+      else dayMarks[itemId] = status;
+      if (Object.keys(dayMarks).length === 0) delete marks[date];
+      else marks[date] = dayMarks;
+      const next: BiasChecklist = { ...cur, marks };
       mutate(s => ({ ...s, biasChecklists: mergeArraysById(s.biasChecklists, [next]) }));
-      apiCall('POST', '/api/bias-checklists', { biasId: next.id, items: next.items, done: next.done });
+      apiCall('POST', '/api/bias-checklists', { biasId: next.id, items: next.items, marks: next.marks });
     }, []),
 
     rescheduleTask: useCallback((id: string, newDate: string) => {

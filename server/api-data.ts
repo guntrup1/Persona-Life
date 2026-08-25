@@ -200,7 +200,7 @@ const tradingNotePatchSchema = z.object({
 const biasChecklistSchema = z.object({
   biasId: z.string().min(1),
   items: z.array(z.object({ id: z.string(), text: z.string().min(1) })).default([]),
-  done: z.record(z.string(), z.array(z.string())).optional(),
+  marks: z.record(z.string(), z.record(z.string(), z.enum(["plus", "minus"]))).optional(),
 }).strip();
 
 export function registerDataRoutes(app: Express) {
@@ -412,7 +412,7 @@ export function registerDataRoutes(app: Express) {
           dayNotes: mapBack(dayNotes, 'noteId'),
           tradingNotes: mergeArrays(mapBack(tradingNotes, 'noteId'), safeArray(udData.tradingNotes)),
           simulations: mergeArrays(mapBack(simulations, 'simId'), safeArray(udData.simulations)),
-          biasChecklists: (biasChecklists as any[]).map((c: any) => ({ id: c.biasId, biasId: c.biasId, items: c.items || [], done: c.done || {} })),
+          biasChecklists: (biasChecklists as any[]).map((c: any) => ({ id: c.biasId, biasId: c.biasId, items: c.items || [], marks: c.marks || {} })),
           botVoiceHistory: safeArray(udData.botVoiceHistory),
           streak: udData.streak,
           xp: udData.xp,
@@ -764,7 +764,7 @@ export function registerDataRoutes(app: Express) {
       const data = biasChecklistSchema.parse(req.body);
       await BiasChecklist.findOneAndUpdate(
         { userId: req.session.userId, biasId: data.biasId },
-        { biasId: data.biasId, userId: req.session.userId, items: data.items, done: data.done || {} },
+        { biasId: data.biasId, userId: req.session.userId, items: data.items, marks: data.marks || {} },
         { upsert: true }
       );
       await bumpRevision(req.session.userId);
