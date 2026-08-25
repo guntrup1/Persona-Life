@@ -98,6 +98,37 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (!req.session?.userId) {
     return res.status(401).json({ message: "Не авторизован" });
   }
+
+  // Anti-CSRF protection for mutating requests
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
+    const origin = req.get("origin") || req.get("referer");
+    const host = req.get("host"); // includes port if present
+
+    if (origin) {
+      try {
+        const originUrl = new URL(origin);
+        const originHost = originUrl.host; // e.g. "localhost:3000" or "persona-life.onrender.com"
+        
+        const allowedOrigins = [
+          process.env.APP_URL ? new URL(process.env.APP_URL).host : "",
+          process.env.VITE_FRONTEND_URL ? new URL(process.env.VITE_FRONTEND_URL).host : "",
+          "persona-life-mw90.onrender.com",
+          "localhost:5000",
+          "localhost:3000",
+          host // dynamically allow requests from the same host the server is running on
+        ].filter(Boolean);
+
+        if (!allowedOrigins.includes(originHost)) {
+          console.warn(`[security] CSRF blocked: Origin host ${originHost} not allowed. Host: ${host}`);
+          return res.status(403).json({ message: "CSRF check failed: Invalid Origin" });
+        }
+      } catch (e) {
+        console.warn(`[security] CSRF blocked: Invalid origin URL ${origin}`);
+        return res.status(403).json({ message: "CSRF check failed: Invalid Origin Format" });
+      }
+    }
+  }
+
   next();
 }
 
@@ -112,21 +143,31 @@ export function registerAuthRoutes(app: Express) {
     const { email, password, lang } = parsed.data;
 
     try {
-      const existing = await mongoose.model("User").findOne({ email: email.toLowerCase() });
-      if (existing) {
-        return res.status(409).json({ message: "Пользователь с таким email уже существует" });
+      const existingUser = await mongoose.model("User").findOne({ email: email.toLowerCase() });
+      if (existingUser) {
+        // Anti-enumeration: Don't reveal the email exists, just pretend we sent the verification
+        console.warn(`[auth] Attempt to register existing email: ${email}`);
+        
+        // Optionally send an email saying "someone tried to register with your email"
+        // but we'll just silently return success to the attacker.
+        return res.json({
+          ok: true,
+          message: "Аккаунт создан! Проверь почту и подтверди email. (Если письма нет во Входящих — проверь папку СПАМ).",
+          needsVerification: true,
+        });
       }
 
       const hash = await bcrypt.hash(password, 12);
       const crypto = require("crypto");
       const verifyToken = crypto.randomBytes(32).toString("hex");
+      const hashedVerifyToken = crypto.createHash("sha256").update(verifyToken).digest("hex");
       const verifyTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
       const user = await mongoose.model("User").create({
         email: email.toLowerCase(),
         password_hash: hash,
         isVerified: false,
-        verifyToken,
+        verifyToken: hashedVerifyToken,
         verifyTokenExpires,
       });
 
@@ -199,8 +240,16 @@ export function registerAuthRoutes(app: Express) {
     if (locked && locked.until <= Date.now()) loginAttempts.delete(email);
 
     try {
+      const DUMMY_HASH = "$2a$12$W9.JkP7lE0H1w/M3.Z6y/O1nI1y4U5h8q0M7L9q1u6l0q8x2H9fOq"; // random valid bcrypt hash format
       const user = await mongoose.model("User").findOne({ email: email.toLowerCase() });
+      
       if (!user) {
+        // Anti-enumeration: simulate password check time
+        await bcrypt.compare(password, DUMMY_HASH);
+        const attempt = loginAttempts.get(email) || { count: 0, until: 0 };
+        attempt.count += 1;
+        if (attempt.count >= MAX_LOGIN_ATTEMPTS) attempt.until = Date.now() + 15 * 60 * 1000;
+        loginAttempts.set(email, attempt);
         return res.status(401).json({ message: "Неверный email или пароль" });
       }
 
@@ -233,8 +282,11 @@ export function registerAuthRoutes(app: Express) {
         loginAttempts.delete(email);
 
         const userData = await mongoose.model("UserData").findOne({ userId: user._id });
-        const data = userData?.data || null;
-
+        let data = userData?.data || null;
+        if (!userData) {
+          await mongoose.model("UserData").create({ userId: user._id, data: {} });
+          data = {};
+        }
         return res.json({ id: user._id, email: user.email, data });
       });
     } catch (err) {
@@ -510,9 +562,10 @@ export function registerAuthRoutes(app: Express) {
       const crypto = require("crypto");
       const token = crypto.randomBytes(32).toString("hex");
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+      const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
 
       await mongoose.model("ResetToken").deleteMany({ userId: user._id });
-      await mongoose.model("ResetToken").create({ userId: user._id, token, expiresAt });
+      await mongoose.model("ResetToken").create({ userId: user._id, token: hashedToken, expiresAt });
 
       const resetUrl = `${process.env.APP_URL || "https://persona-life.onrender.com"}/reset-password?token=${token}`;
 
@@ -556,7 +609,9 @@ export function registerAuthRoutes(app: Express) {
     const { token, password } = parsed.data;
 
     try {
-      const resetToken = await mongoose.model("ResetToken").findOne({ token, expiresAt: { $gt: new Date() } });
+      const crypto = require("crypto");
+      const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+      const resetToken = await mongoose.model("ResetToken").findOne({ token: hashedToken, expiresAt: { $gt: new Date() } });
       if (!resetToken) return res.status(400).json({ message: "Ссылка недействительна или истекла" });
 
       const hash = await bcrypt.hash(password, 12);
@@ -601,7 +656,7 @@ export function registerAuthRoutes(app: Express) {
       return res.json({ settings });
     } catch (err: any) {
       console.error("Save settings error:", err);
-      return res.status(500).json({ message: "Ошибка сервера", error: err?.message || String(err) });
+      return res.status(500).json({ message: "Ошибка сервера" });
     }
   });
 
@@ -638,8 +693,9 @@ app.get("/api/auth/verify-email", async (req, res) => {
       return res.status(400).json({ message: "Неверный токен" });
     }
     try {
-      // Сначала ищем пользователя по токену без проверки срока
-      const user = await mongoose.model("User").findOne({ verifyToken: token });
+      const crypto = require("crypto");
+      const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+      const user = await mongoose.model("User").findOne({ verifyToken: hashedToken });
 
       if (!user) {
         return res.status(400).json({ message: "Ссылка недействительна или уже использована" });
@@ -678,8 +734,9 @@ app.get("/api/auth/verify-email", async (req, res) => {
 
       const crypto = require("crypto");
       const verifyToken = crypto.randomBytes(32).toString("hex");
-      const verifyTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // было 7 дней
-      await mongoose.model("User").findByIdAndUpdate(user._id, { verifyToken, verifyTokenExpires });
+      const hashedVerifyToken = crypto.createHash("sha256").update(verifyToken).digest("hex");
+      const verifyTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+      await mongoose.model("User").findByIdAndUpdate(user._id, { verifyToken: hashedVerifyToken, verifyTokenExpires });
 
       const verifyUrl = `${process.env.APP_URL || "https://persona-life.onrender.com"}/verify-email?token=${verifyToken}`;
       const isEn = lang === "en";

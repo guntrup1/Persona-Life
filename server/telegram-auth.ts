@@ -23,10 +23,11 @@ export function registerTelegramRoutes(app: Express) {
 
       // Generate one-time token (expires in 10 minutes)
       const token = crypto.randomBytes(16).toString("hex");
+      const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
       const expires = new Date(Date.now() + 10 * 60 * 1000);
 
       await User.findByIdAndUpdate(userId, {
-        telegramLinkToken: token,
+        telegramLinkToken: hashedToken,
         telegramLinkExpires: expires,
       });
 

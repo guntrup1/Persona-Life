@@ -152,8 +152,8 @@ const biasSchema = z.object({
   date: z.string(),
   asset: z.enum(["GER40", "EUR", "XAU", "GBP"]),
   direction: z.enum(["bullish", "bearish", "neutral"]),
-  pros: z.string().optional(),
-  cons: z.string().optional(),
+  pros: z.string().nullable().optional(),
+  cons: z.string().nullable().optional(),
   screenshotUrl: z.string().optional(),
   screenshots: z.array(z.object({ tf: z.string(), url: z.string() })).optional(),
 });
@@ -258,15 +258,23 @@ export function registerDataRoutes(app: Express) {
       // Fetch all notes for initial load (to prevent missing old notes)
       const dayNotes = await DayNote.find({ userId }).lean();
       const tradingNotes = await TradingNote.find({ userId }).lean();
+      const simulations = await mongoose.model("Simulation").find({ userId }).lean();
 
       const ud = await UserData.findOne({ userId }).lean() as any;
       const udData = (ud?.data as any) || {};
 
-      // Transform _id and mapped ids back to frontend format
       const mapBack = (items: any[], idField: string) => items.map(i => {
         const { _id, userId: _uid, createdAt, updatedAt, __v, [idField]: mappedId, ...rest } = i;
-        return { id: mappedId, createdAt: createdAt?.toISOString?.(), updatedAt: updatedAt?.toISOString?.(), ...rest };
+        return { id: mappedId, createdAt: createdAt?.toISOString?.() || createdAt, updatedAt: updatedAt?.toISOString?.() || updatedAt, ...rest };
       });
+
+      const safeArray = (arr: any) => Array.isArray(arr) ? arr : [];
+      const mergeArrays = (arr1: any[], arr2: any[]) => {
+        const map = new Map();
+        for (const item of arr1) if (item?.id) map.set(item.id, item);
+        for (const item of arr2) if (item?.id) map.set(item.id, item);
+        return Array.from(map.values());
+      };
 
       return res.json({
         ok: true,
@@ -274,13 +282,15 @@ export function registerDataRoutes(app: Express) {
           todayTasks: mapBack(tasks, 'taskId'),
           goals: mapBack(goals, 'goalId'),
           routineTemplates: mapBack(routines, 'templateId'),
-          focusSessions: mapBack(focusSessions, 'sessionId'),
+          focusSessions: mergeArrays(mapBack(focusSessions, 'sessionId'), safeArray(udData.focusSessions)),
           dailyBiases: mapBack(biases, 'biasId'),
           dayNotes: mapBack(dayNotes, 'noteId'),
-          tradingNotes: mapBack(tradingNotes, 'noteId'),
+          tradingNotes: mergeArrays(mapBack(tradingNotes, 'noteId'), safeArray(udData.tradingNotes)),
+          simulations: mergeArrays(mapBack(simulations, 'simId'), safeArray(udData.simulations)),
+          botVoiceHistory: safeArray(udData.botVoiceHistory),
           streak: udData.streak,
           xp: udData.xp,
-          _deletedIds: (ud?.deletedIds as string[] | undefined) || [],
+          _deletedIds: safeArray(ud?.deletedIds),
         }
       });
     } catch (err) {

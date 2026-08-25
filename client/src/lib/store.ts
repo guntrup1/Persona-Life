@@ -879,10 +879,11 @@ function mergeArraysById<T extends { id: string }>(local: T[], server: T[], dele
   for (const item of server) map.set(item.id, item);
   for (const item of local) {
     const existing = map.get(item.id);
-    if (existing && 'completed' in item && 'completed' in existing) {
-      const serverTime = (existing as any).updatedAt || (existing as any).completedAt || "";
-      const localTime = (item as any).updatedAt || (item as any).completedAt || "";
-      const winner = localTime >= serverTime ? item : existing;
+    if (existing) {
+      // Safely compare update timestamps. If missing, prefer the local one.
+      const serverTime = (existing as any).updatedAt || (existing as any).completedAt || (existing as any).createdAt || "";
+      const localTime = (item as any).updatedAt || (item as any).completedAt || (item as any).createdAt || "";
+      const winner = (localTime && serverTime && localTime < serverTime) ? existing : item;
       map.set(winner.id, winner);
     } else {
       map.set(item.id, item);
@@ -910,10 +911,10 @@ function mergeArraysByKey<T extends { id: string }>(local: T[], server: T[], key
       byId.delete(existing!.id);
     }
 
-    if (existing && 'completed' in item && 'completed' in existing) {
-      const serverTime = (existing as any).updatedAt || (existing as any).completedAt || "";
-      const localTime = (item as any).updatedAt || (item as any).completedAt || "";
-      const winner = localTime >= serverTime ? item : existing;
+    if (existing) {
+      const serverTime = (existing as any).updatedAt || (existing as any).completedAt || (existing as any).createdAt || "";
+      const localTime = (item as any).updatedAt || (item as any).completedAt || (item as any).createdAt || "";
+      const winner = (localTime && serverTime && localTime < serverTime) ? existing : item;
       byId.set(winner.id, winner);
       byKey.set(key, winner);
     } else {
@@ -938,7 +939,7 @@ function mergeStates(local: AppState, server: AppState): AppState {
   const merged = {
     ...DEFAULT_STATE,
     ...server,
-    simulations: safeSims,
+    simulations: mergeArraysById(local.simulations || [], safeSims || [], deletedIds),
     routineTemplates: mergeArraysById(local.routineTemplates || [], server.routineTemplates || [], deletedIds),
     todayTasks: mergeArraysByKey(
       local.todayTasks || [], server.todayTasks || [],

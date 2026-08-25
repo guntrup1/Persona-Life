@@ -1268,8 +1268,10 @@ export function createBot(): Telegraf | null {
 
     if (linkToken) {
       try {
+        const crypto = require("crypto");
+        const hashedToken = crypto.createHash("sha256").update(linkToken).digest("hex");
         const user = await mongoose.model("User").findOne({
-          telegramLinkToken: linkToken,
+          telegramLinkToken: hashedToken,
           telegramLinkExpires: { $gt: new Date() },
         });
 
