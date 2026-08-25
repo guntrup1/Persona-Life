@@ -16,6 +16,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { MonteCarloSimulator } from "@/components/MonteCarloSimulator";
 import { RemoteImage } from "@/components/remote-image";
 import { ZoomableImage } from "@/components/zoomable-image";
+import { BiasChecklistView } from "@/components/BiasChecklistView";
 import { FileText, Plus, Trash2, Clock, CandlestickChart, ArrowUpRight, ArrowDownRight, MoveRight, Camera, X, Pencil, Puzzle, CheckCircle, Circle } from "lucide-react";
 
 const ASSETS: TradeAsset[] = ["GER40", "EUR", "XAU", "GBP", "US30", "US100", "US500", "none"];
@@ -590,6 +591,7 @@ export default function NotesPage() {
                       </div>
                     );
                   })()}
+                  <BiasChecklistView biasId={bias.id} date={bias.date} />
                 </Card>
               ))}
             </div>

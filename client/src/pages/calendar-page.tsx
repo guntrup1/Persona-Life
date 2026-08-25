@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { ChevronLeft, ChevronRight, Plus, Hourglass, CheckCircle, Circle, ArrowUpCircle, ArrowDownCircle, MinusCircle, FileText, CandlestickChart, Edit2, CalendarDays, Brain } from "lucide-react";
 import { getTodayDate, formatUserClock } from "@/lib/store";
+import { BiasChecklistView } from "@/components/BiasChecklistView";
 import { RemoteImage } from "@/components/remote-image";
 import { Link } from "wouter";
 
@@ -832,6 +833,7 @@ function DayDetails({ selectedDate, brainstormSessions = [] }: { selectedDate: s
                     <RemoteImage bordered src={s.url} alt={`Bias screenshot ${s.tf}`} variant="auto" />
                   </div>
                 ))}
+                <BiasChecklistView biasId={bias.id} date={selectedDate} />
               </div>
             ))}
           </div>

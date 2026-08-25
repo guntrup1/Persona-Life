@@ -5,7 +5,7 @@ import { bumpRevision, recordDeletion } from "./revision";
 import { findDuplicateTask, findDuplicateGoal, findDuplicateDayNote } from "./dedupe";
 import {
   Task, Goal, DayNote, TradingNote, DailyBias,
-  FocusSession, RoutineTemplate, Simulation, UserData, UserDataBackup
+  FocusSession, RoutineTemplate, Simulation, UserData, UserDataBackup, BiasChecklist
 } from "./mongodb";
 
 // Zod schemas for validation
@@ -197,6 +197,12 @@ const tradingNotePatchSchema = z.object({
   tradingIdeaDone: z.boolean().optional(),
 }).strip();
 
+const biasChecklistSchema = z.object({
+  biasId: z.string().min(1),
+  items: z.array(z.object({ id: z.string(), text: z.string().min(1) })).default([]),
+  done: z.record(z.string(), z.array(z.string())).optional(),
+}).strip();
+
 export function registerDataRoutes(app: Express) {
   
   // NOTE: the old /api/rescue-data endpoint (DB-wide restore from every user's
@@ -377,6 +383,7 @@ export function registerDataRoutes(app: Express) {
       const dayNotes = await DayNote.find({ userId }).lean();
       const tradingNotes = await TradingNote.find({ userId }).lean();
       const simulations = await Simulation.find({ userId }).lean();
+      const biasChecklists = await BiasChecklist.find({ userId }).lean();
 
       const ud = await UserData.findOne({ userId }).lean() as any;
       const udData = (ud?.data as any) || {};
@@ -405,6 +412,7 @@ export function registerDataRoutes(app: Express) {
           dayNotes: mapBack(dayNotes, 'noteId'),
           tradingNotes: mergeArrays(mapBack(tradingNotes, 'noteId'), safeArray(udData.tradingNotes)),
           simulations: mergeArrays(mapBack(simulations, 'simId'), safeArray(udData.simulations)),
+          biasChecklists: (biasChecklists as any[]).map((c: any) => ({ id: c.biasId, biasId: c.biasId, items: c.items || [], done: c.done || {} })),
           botVoiceHistory: safeArray(udData.botVoiceHistory),
           streak: udData.streak,
           xp: udData.xp,
@@ -734,6 +742,43 @@ export function registerDataRoutes(app: Express) {
     try {
       await DailyBias.findOneAndDelete({ userId: req.session.userId, biasId: req.params.id });
       await recordDeletion(req.session.userId, req.params.id);
+      res.json({ ok: true });
+    } catch {
+      res.status(400).json({ ok: false });
+    }
+  });
+
+  // --- BIAS CHECKLISTS (per-bias, customizable, per-day completion) ---
+  app.get("/api/bias-checklists", requireAuth, async (req: any, res) => {
+    try {
+      const list = await BiasChecklist.find({ userId: req.session.userId }).lean();
+      res.json({ ok: true, data: list });
+    } catch (err) {
+      console.error("[api-data] bias-checklists get error:", err);
+      res.status(500).json({ ok: false });
+    }
+  });
+
+  app.post("/api/bias-checklists", requireAuth, async (req: any, res) => {
+    try {
+      const data = biasChecklistSchema.parse(req.body);
+      await BiasChecklist.findOneAndUpdate(
+        { userId: req.session.userId, biasId: data.biasId },
+        { biasId: data.biasId, userId: req.session.userId, items: data.items, done: data.done || {} },
+        { upsert: true }
+      );
+      await bumpRevision(req.session.userId);
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error("[api-data] bias-checklists error:", err);
+      const msg = err instanceof z.ZodError ? (err.issues[0]?.message || "Ошибка валидации") : "Ошибка запроса";
+      res.status(400).json({ ok: false, message: msg });
+    }
+  });
+
+  app.delete("/api/bias-checklists/:biasId", requireAuth, async (req: any, res) => {
+    try {
+      await BiasChecklist.findOneAndDelete({ userId: req.session.userId, biasId: req.params.biasId });
       res.json({ ok: true });
     } catch {
       res.status(400).json({ ok: false });

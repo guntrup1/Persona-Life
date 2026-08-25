@@ -121,7 +121,7 @@ function ClockWidget() {
 // ─── Collapsible block ────────────────────────────────────────────────────────
 
 const CollapsibleBlock = memo(function CollapsibleBlock({
-  title, icon, children, defaultOpen = true, badge, stretch = false,
+  title, icon, children, defaultOpen = true, badge, stretch = false, collapsible = true,
 }: {
   title: string;
   icon: React.ReactNode;
@@ -129,8 +129,10 @@ const CollapsibleBlock = memo(function CollapsibleBlock({
   defaultOpen?: boolean;
   badge?: React.ReactNode;
   stretch?: boolean;
+  collapsible?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const isOpen = collapsible ? open : true;
 
   return (
     <div className={`border border-card-border bg-card relative overflow-hidden ${stretch ? "flex flex-col min-h-0" : ""}`}>
@@ -139,9 +141,9 @@ const CollapsibleBlock = memo(function CollapsibleBlock({
         style={{ clipPath: "polygon(0 0, 100% 0, 100% 100%)" }} />
       <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-primary/80 via-primary/20 to-transparent" />
 
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-primary/5 transition-colors shrink-0"
+      <div
+        onClick={collapsible ? () => setOpen(o => !o) : undefined}
+        className={`w-full flex items-center justify-between px-4 py-3 shrink-0 ${collapsible ? "hover:bg-primary/5 transition-colors cursor-pointer" : ""}`}
         data-testid={`collapse-toggle-${title}`}
       >
         <div className="flex items-center gap-2">
@@ -149,10 +151,12 @@ const CollapsibleBlock = memo(function CollapsibleBlock({
           <span className="font-display text-xs font-bold uppercase tracking-widest text-foreground">{title}</span>
           {badge}
         </div>
-        <ChevronDown className={`w-4 h-4 text-primary transition-transform duration-300 ${open ? "rotate-180" : ""}`} />
-      </button>
+        {collapsible && (
+          <ChevronDown className={`w-4 h-4 text-primary transition-transform duration-300 ${open ? "rotate-180" : ""}`} />
+        )}
+      </div>
       {stretch ? (
-        open && (
+        isOpen && (
           <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4 pt-1" data-testid={`collapse-content-${title}`}>
             {children}
           </div>
@@ -160,8 +164,8 @@ const CollapsibleBlock = memo(function CollapsibleBlock({
       ) : (
         <div
           className="overflow-hidden"
-          style={{ maxHeight: open ? "2000px" : "0px", transition: "max-height 0.3s ease" }}
-          aria-hidden={!open}
+          style={{ maxHeight: isOpen ? "2000px" : "0px", transition: "max-height 0.3s ease" }}
+          aria-hidden={!isOpen}
           data-testid={`collapse-content-${title}`}
         >
           <div className="px-4 pb-4 pt-1">
@@ -399,6 +403,7 @@ export default function HubPage() {
               icon={<Zap className="w-4 h-4 text-primary" />}
               badge={totalToday > 0 && <Badge variant="secondary" className="font-mono text-[10px] h-4 px-1.5 rounded-full">{completedToday}/{totalToday}</Badge>}
               stretch
+              collapsible={false}
             >
               <div className="space-y-2 mb-3">
                 <div className="flex items-center gap-2 flex-wrap">

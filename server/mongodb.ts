@@ -259,6 +259,17 @@ const simulationSchema = new mongoose.Schema({
   results: { type: mongoose.Schema.Types.Mixed, required: true },
 }, { timestamps: true });
 
+const biasChecklistSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
+  biasId: { type: String, required: true, unique: true },
+  items: {
+    type: [{ id: String, text: String }],
+    default: [],
+  },
+  // Per-day completion: date (YYYY-MM-DD) -> array of done item ids
+  done: { type: mongoose.Schema.Types.Mixed, default: {} },
+}, { timestamps: true });
+
 export const Task = mongoose.model("Task", taskSchema);
 export const Goal = mongoose.model("Goal", goalSchema);
 export const DayNote = mongoose.model("DayNote", dayNoteSchema);
@@ -267,6 +278,7 @@ export const DailyBias = mongoose.model("DailyBias", dailyBiasSchema);
 export const FocusSession = mongoose.model("FocusSession", focusSessionSchema);
 export const RoutineTemplate = mongoose.model("RoutineTemplate", routineTemplateSchema);
 export const Simulation = mongoose.model("Simulation", simulationSchema);
+export const BiasChecklist = mongoose.model("BiasChecklist", biasChecklistSchema);
 
 const processedAudioSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
