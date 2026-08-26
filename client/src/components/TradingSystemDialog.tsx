@@ -39,14 +39,17 @@ export function TradingSystemDialog({
   asset,
   open,
   onOpenChange,
+  readOnly,
 }: {
   systemId?: string;
   asset?: TradeAsset;
   open: boolean;
   onOpenChange: (o: boolean) => void;
+  readOnly?: boolean;
 }) {
   const { state, actions } = useStore();
   const existing = systemId ? state.tradingSystems.find((t) => t.id === systemId) : undefined;
+  const isView = !!readOnly;
 
   const [assetSel, setAssetSel] = useState<TradeAsset>(existing?.asset ?? asset ?? "GER40");
   const [name, setName] = useState(existing?.name ?? "");
@@ -108,15 +111,17 @@ export function TradingSystemDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <BookOpen className="h-4 w-4" />
-            {existing ? "Торговая система" : "Новая торговая система"}
+            {isView ? "Торговая система (просмотр)" : existing ? "Торговая система" : "Новая торговая система"}
             <Badge variant="outline" className="ml-1">{assetSel}</Badge>
           </DialogTitle>
           <DialogDescription>
-            Опишите систему для актива. Чек-лист будет подставляться в ежедневные биасы этого актива.
+            {isView
+              ? "Просмотр привязанной системы. Редактирование доступно из общей книжки систем."
+              : "Опишите систему для актива. Чек-лист будет подставляться в ежедневные биасы этого актива."}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-5 py-2">
+        <div className={`space-y-5 py-2 ${isView ? "pointer-events-none select-none opacity-90" : ""}`}>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>Актив</Label>
@@ -240,16 +245,22 @@ export function TradingSystemDialog({
         </div>
 
         <DialogFooter className="mt-4 flex items-center justify-between">
-          {existing ? (
+          {isView ? (
+            <span />
+          ) : existing ? (
             <Button type="button" variant="ghost" className="text-destructive"
               onClick={() => { actions.deleteTradingSystem(existing.id); onOpenChange(false); }}>
               <Trash2 className="h-3.5 w-3.5" />Удалить
             </Button>
           ) : (<span />)}
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Отмена</Button>
-            <Button type="button" onClick={save}>Сохранить</Button>
-          </div>
+          {isView ? (
+            <Button type="button" onClick={() => onOpenChange(false)}>Закрыть</Button>
+          ) : (
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Отмена</Button>
+              <Button type="button" onClick={save}>Сохранить</Button>
+            </div>
+          )}
         </DialogFooter>
       </MotionDialogContent>
       </DialogContent>

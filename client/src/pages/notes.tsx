@@ -481,7 +481,7 @@ export default function NotesPage() {
   const [filterTag, setFilterTag] = useState<NoteTag | "all">("all");
   const [filterPeriod, setFilterPeriod] = useState<"today" | "week" | "month" | "all">("all");
   const [panelOpen, setPanelOpen] = useState(false);
-  const [editor, setEditor] = useState<{ systemId?: string; asset?: TradeAsset } | null>(null);
+  const [editor, setEditor] = useState<{ systemId?: string; asset?: TradeAsset; readOnly?: boolean } | null>(null);
 
   const today = getTodayDate();
 
@@ -581,15 +581,17 @@ export default function NotesPage() {
                       {directionBadge(bias.direction)}
                     </div>
                     <div className="flex items-center gap-1">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => setEditor({ asset: bias.asset })}
-                        aria-label="Торговая система"
-                      >
-                        <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
-                      </Button>
+                      {bias.systemId && state.tradingSystems.find((t) => t.id === bias.systemId) && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => setEditor({ systemId: bias.systemId, readOnly: true })}
+                          aria-label="Просмотр торговой системы"
+                        >
+                          <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
+                        </Button>
+                      )}
                       <AddBiasDialog
                         onAdd={(updates) => actions.updateDailyBias(bias.id, updates)}
                         editBias={bias}
@@ -813,6 +815,7 @@ export default function NotesPage() {
             key={editor.systemId || editor.asset || "new"}
             systemId={editor.systemId}
             asset={editor.asset}
+            readOnly={editor.readOnly}
             open={!!editor}
             onOpenChange={(o) => { if (!o) setEditor(null); }}
           />
