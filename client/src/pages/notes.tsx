@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useI18n } from "@/lib/i18n";
-import { useStore, type TradeAsset, type NoteTag, type BiasDirection, type ScreenshotEntry, getTodayDate } from "@/lib/store";
+import { useStore, ASSETS, type TradeAsset, type NoteTag, type BiasDirection, type ScreenshotEntry, getTodayDate } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,9 +17,10 @@ import { MonteCarloSimulator } from "@/components/MonteCarloSimulator";
 import { RemoteImage } from "@/components/remote-image";
 import { ZoomableImage } from "@/components/zoomable-image";
 import { BiasChecklistView } from "@/components/BiasChecklistView";
-import { FileText, Plus, Trash2, Clock, CandlestickChart, ArrowUpRight, ArrowDownRight, MoveRight, Camera, X, Pencil, Puzzle, CheckCircle, Circle } from "lucide-react";
+import { TradingSystemsPanel } from "@/components/TradingSystemsPanel";
+import { TradingSystemDialog } from "@/components/TradingSystemDialog";
+import { FileText, Plus, Trash2, Clock, CandlestickChart, ArrowUpRight, ArrowDownRight, MoveRight, Camera, X, Pencil, Puzzle, CheckCircle, Circle, BookOpen } from "lucide-react";
 
-const ASSETS: TradeAsset[] = ["GER40", "EUR", "XAU", "GBP", "US30", "US100", "US500", "none"];
 const TIMEFRAMES = ["M1", "M5", "M15", "M30", "H1", "H4", "D1"];
 const getTags = (t: any): { value: NoteTag; label: string; color: string }[] => [
   { value: "мысль", label: t.hub.thought, color: "text-blue-400 border-blue-500/30" },
@@ -447,6 +448,8 @@ export default function NotesPage() {
   const [filterAsset, setFilterAsset] = useState<TradeAsset | "all">("all");
   const [filterTag, setFilterTag] = useState<NoteTag | "all">("all");
   const [filterPeriod, setFilterPeriod] = useState<"today" | "week" | "month" | "all">("all");
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [editor, setEditor] = useState<{ systemId?: string; asset?: TradeAsset } | null>(null);
 
   const today = getTodayDate();
 
@@ -517,7 +520,12 @@ export default function NotesPage() {
               <CandlestickChart className="w-5 h-5 text-primary" />
               {t.notes.dailyBias.toUpperCase()}
             </h2>
-            <AddBiasDialog onAdd={actions.addDailyBias} />
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={() => setPanelOpen(true)}>
+                <BookOpen className="w-3.5 h-3.5" />Системы
+              </Button>
+              <AddBiasDialog onAdd={actions.addDailyBias} />
+            </div>
           </div>
 
           {todayBiases.length === 0 ? (
@@ -536,6 +544,15 @@ export default function NotesPage() {
                       {directionBadge(bias.direction)}
                     </div>
                     <div className="flex items-center gap-1">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => setEditor({ asset: bias.asset })}
+                        aria-label="Торговая система"
+                      >
+                        <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
+                      </Button>
                       <AddBiasDialog
                         onAdd={(updates) => actions.updateDailyBias(bias.id, updates)}
                         editBias={bias}
@@ -748,6 +765,21 @@ export default function NotesPage() {
             <MonteCarloSimulator />
           </TabsContent>
         </Tabs>
+
+        <TradingSystemsPanel
+          open={panelOpen}
+          onOpenChange={setPanelOpen}
+          onEdit={(e) => { setPanelOpen(false); setEditor(e); }}
+        />
+        {editor && (
+          <TradingSystemDialog
+            key={editor.systemId || editor.asset || "new"}
+            systemId={editor.systemId}
+            asset={editor.asset}
+            open={!!editor}
+            onOpenChange={(o) => { if (!o) setEditor(null); }}
+          />
+        )}
       </div>
     </div>
   );

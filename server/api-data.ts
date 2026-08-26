@@ -5,7 +5,7 @@ import { bumpRevision, recordDeletion } from "./revision";
 import { findDuplicateTask, findDuplicateGoal, findDuplicateDayNote } from "./dedupe";
 import {
   Task, Goal, DayNote, TradingNote, DailyBias,
-  FocusSession, RoutineTemplate, Simulation, UserData, UserDataBackup, BiasChecklist
+  FocusSession, RoutineTemplate,   Simulation, UserData, UserDataBackup, BiasChecklist, TradingSystem
 } from "./mongodb";
 
 // Zod schemas for validation
@@ -203,6 +203,28 @@ const biasChecklistSchema = z.object({
   marks: z.record(z.string(), z.record(z.string(), z.enum(["plus", "minus"]))).optional(),
 }).strip();
 
+const tradingSystemSchema = z.object({
+  systemId: z.string().min(1),
+  asset: z.enum(["GER40", "EUR", "XAU", "GBP", "US30", "US100", "US500", "none"]),
+  name: z.string().optional(),
+  type: z.enum(["intraday", "swing"]).optional(),
+  sessions: z.array(z.object({
+    id: z.string(),
+    label: z.string(),
+    start: z.string().optional(),
+    end: z.string().optional(),
+    enabled: z.boolean().optional(),
+  })).optional(),
+  backtestLink: z.string().optional(),
+  timeframeDescriptions: z.array(z.object({
+    id: z.string(),
+    tf: z.string(),
+    description: z.string().optional(),
+    link: z.string().optional(),
+  })).optional(),
+  checklistItems: z.array(z.object({ id: z.string(), text: z.string().min(1) })).optional(),
+}).strip();
+
 export function registerDataRoutes(app: Express) {
   
   // NOTE: the old /api/rescue-data endpoint (DB-wide restore from every user's
@@ -384,6 +406,7 @@ export function registerDataRoutes(app: Express) {
       const tradingNotes = await TradingNote.find({ userId }).lean();
       const simulations = await Simulation.find({ userId }).lean();
       const biasChecklists = await BiasChecklist.find({ userId }).lean();
+      const tradingSystems = await TradingSystem.find({ userId }).lean();
 
       const ud = await UserData.findOne({ userId }).lean() as any;
       const udData = (ud?.data as any) || {};
@@ -413,6 +436,7 @@ export function registerDataRoutes(app: Express) {
           tradingNotes: mergeArrays(mapBack(tradingNotes, 'noteId'), safeArray(udData.tradingNotes)),
           simulations: mergeArrays(mapBack(simulations, 'simId'), safeArray(udData.simulations)),
           biasChecklists: (biasChecklists as any[]).map((c: any) => ({ id: c.biasId, biasId: c.biasId, items: c.items || [], marks: c.marks || {} })),
+          tradingSystems: mapBack(tradingSystems, 'systemId'),
           botVoiceHistory: safeArray(udData.botVoiceHistory),
           streak: udData.streak,
           xp: udData.xp,
@@ -779,6 +803,72 @@ export function registerDataRoutes(app: Express) {
   app.delete("/api/bias-checklists/:biasId", requireAuth, async (req: any, res) => {
     try {
       await BiasChecklist.findOneAndDelete({ userId: req.session.userId, biasId: req.params.biasId });
+      res.json({ ok: true });
+    } catch {
+      res.status(400).json({ ok: false });
+    }
+  });
+
+  // --- TRADING SYSTEMS (per-asset strategy + checklist template) ---
+  app.get("/api/trading-systems", requireAuth, async (req: any, res) => {
+    try {
+      const list = await TradingSystem.find({ userId: req.session.userId }).lean();
+      res.json({ ok: true, data: list });
+    } catch (err) {
+      console.error("[api-data] trading-systems get error:", err);
+      res.status(500).json({ ok: false });
+    }
+  });
+
+  app.post("/api/trading-systems", requireAuth, async (req: any, res) => {
+    try {
+      const data = tradingSystemSchema.parse(req.body);
+      await TradingSystem.findOneAndUpdate(
+        { userId: req.session.userId, systemId: data.systemId },
+        {
+          systemId: data.systemId,
+          userId: req.session.userId,
+          asset: data.asset,
+          name: data.name || "",
+          type: data.type || "intraday",
+          sessions: data.sessions || [],
+          backtestLink: data.backtestLink || "",
+          timeframeDescriptions: data.timeframeDescriptions || [],
+          checklistItems: data.checklistItems || [],
+        },
+        { upsert: true }
+      );
+      await bumpRevision(req.session.userId);
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error("[api-data] trading-systems error:", err);
+      const msg = err instanceof z.ZodError ? (err.issues[0]?.message || "Ошибка валидации") : "Ошибка запроса";
+      res.status(400).json({ ok: false, message: msg });
+    }
+  });
+
+  app.patch("/api/trading-systems/:systemId", requireAuth, async (req: any, res) => {
+    try {
+      const data = tradingSystemSchema.partial().parse(req.body);
+      await TradingSystem.findOneAndUpdate(
+        { userId: req.session.userId, systemId: req.params.systemId },
+        { $set: data as any },
+        { upsert: true }
+      );
+      await bumpRevision(req.session.userId);
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error("[api-data] trading-systems patch error:", err);
+      const msg = err instanceof z.ZodError ? (err.issues[0]?.message || "Ошибка валидации") : "Ошибка запроса";
+      res.status(400).json({ ok: false, message: msg });
+    }
+  });
+
+  app.delete("/api/trading-systems/:systemId", requireAuth, async (req: any, res) => {
+    try {
+      await TradingSystem.findOneAndDelete({ userId: req.session.userId, systemId: req.params.systemId });
+      await recordDeletion(req.session.userId, req.params.systemId);
+      await bumpRevision(req.session.userId);
       res.json({ ok: true });
     } catch {
       res.status(400).json({ ok: false });

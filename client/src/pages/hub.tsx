@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, memo } from "react";
+import { motion } from "framer-motion";
 import { useStore, getUserTime, loadUserSettings, getMarketSession, getCharacterState, getTodayDate, LIFE_AREA_COLORS, getGoalProgress, getLevelFromXP, type NoteType } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -593,11 +594,20 @@ function SortableHubTask({ task, onToggle }: { task: any, onToggle: (id: string)
       <div {...attributes} {...listeners} className="cursor-grab hover:text-primary text-muted-foreground opacity-50 flex-shrink-0 touch-none">
         <GripVertical className="w-4 h-4" />
       </div>
-      <button className="flex-shrink-0" onClick={() => onToggle(task.id)} data-testid={`task-toggle-${task.id}`}>
+      <motion.button
+        whileTap={{ scale: 0.85 }}
+        className="flex-shrink-0"
+        onClick={() => onToggle(task.id)}
+        data-testid={`task-toggle-${task.id}`}
+      >
         {task.completed
-          ? <CheckCircle className="w-5 h-5 text-primary" />
-          : <Circle className="w-5 h-5 text-muted-foreground" />}
-      </button>
+          ? <motion.span key="done" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 400, damping: 18 }}>
+              <CheckCircle className="w-5 h-5 text-primary" />
+            </motion.span>
+          : <motion.span key="todo" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 400, damping: 18 }}>
+              <Circle className="w-5 h-5 text-muted-foreground" />
+            </motion.span>}
+      </motion.button>
       <div className="flex-1 min-w-0">
         <div className={`font-display text-sm ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
           {task.name}

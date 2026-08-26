@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import { useStore, LIFE_AREAS, LIFE_AREA_COLORS, xpForDifficulty, getTodayDate, type LifeArea, type TaskDifficulty, type TodayTask, type RoutineTemplate } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -985,17 +986,22 @@ function TaskRow({ task, onToggle, onDelete, onEdit, onReschedule, dragHandlePro
             <GripVertical className="w-4 h-4" />
           </div>
         )}
-        <button 
-          className="flex-shrink-0" 
+        <motion.button
+          whileTap={{ scale: 0.85 }}
+          className="flex-shrink-0"
           onClick={() => onToggle(task.id)}
           data-testid={`task-toggle-${task.id}`}
         >
           {task.completed ? (
-            <CheckCircle className="w-5 h-5 text-primary" />
+            <motion.span key="done" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 400, damping: 18 }}>
+              <CheckCircle className="w-5 h-5 text-primary" />
+            </motion.span>
           ) : (
-            <Circle className={`w-5 h-5 ${isHighPriority ? "text-orange-400" : "text-muted-foreground"}`} />
+            <motion.span key="todo" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 400, damping: 18 }}>
+              <Circle className={`w-5 h-5 ${isHighPriority ? "text-orange-400" : "text-muted-foreground"}`} />
+            </motion.span>
           )}
-        </button>
+        </motion.button>
         <div className="flex-1 min-w-0">
           <div className={`font-display text-sm ${task.completed ? "line-through text-muted-foreground" : isHighPriority ? "text-orange-300" : "text-foreground"}`}>
             {isHighPriority && <span className="text-orange-400 mr-1.5 text-xs">⚡</span>}

@@ -38,6 +38,7 @@ export type TaskType = "routine" | "today" | "goal";
 export type GoalType = "year" | "month" | "week";
 export type TimerMode = "pomodoro" | "deep-work" | "custom";
 export type TradeAsset = "GER40" | "EUR" | "XAU" | "GBP" | "US30" | "US100" | "US500" | "none";
+export const ASSETS: TradeAsset[] = ["GER40", "EUR", "XAU", "GBP", "US30", "US100", "US500", "none"];
 export type NoteTag = "мысль" | "идея" | "ошибка";
 export type BiasDirection = "bullish" | "bearish" | "neutral";
 
@@ -208,6 +209,32 @@ export interface BiasChecklist {
   marks: Record<string, Record<string, "plus" | "minus">>; // date (YYYY-MM-DD) -> { itemId: "plus"|"minus" }
 }
 
+export interface TradeSession {
+  id: string;
+  label: string;
+  start: string; // "HH:MM" or ""
+  end: string; // "HH:MM" or ""
+  enabled: boolean;
+}
+
+export interface TimeframeDescription {
+  id: string;
+  tf: string;
+  description: string;
+  link: string;
+}
+
+export interface TradingSystem {
+  id: string; // equals systemId
+  asset: TradeAsset;
+  name: string;
+  type: "intraday" | "swing";
+  sessions: TradeSession[];
+  backtestLink: string;
+  timeframeDescriptions: TimeframeDescription[];
+  checklistItems: ChecklistItem[];
+}
+
 export type ScreenshotEntry = { tf: string; url: string };
 
 export type NoteType = "note" | "idea";
@@ -256,6 +283,7 @@ export interface AppState {
   tradingNotes: TradingNote[];
   dailyBiases: DailyBias[];
   biasChecklists: BiasChecklist[];
+  tradingSystems: TradingSystem[];
   dayNotes: DayNote[];
   streak: StreakData;
   xp: XPData;
@@ -290,6 +318,7 @@ const DEFAULT_STATE: AppState = {
   tradingNotes: [],
   dailyBiases: [],
   biasChecklists: [],
+  tradingSystems: [],
   dayNotes: [],
   streak: { currentStreak: 0, lastCompletedDate: null, longestStreak: 0 },
   xp: DEFAULT_XP,
@@ -968,6 +997,7 @@ function mergeStates(local: AppState, server: AppState): AppState {
       deletedIds
     ),
     biasChecklists: mergeArraysById(local.biasChecklists || [], server.biasChecklists || [], deletedIds),
+    tradingSystems: mergeArraysById(local.tradingSystems || [], server.tradingSystems || [], deletedIds),
     dayNotes: mergeArraysById(local.dayNotes || [], server.dayNotes || [], deletedIds),
     routineLoadedDates: [...new Set([...(local.routineLoadedDates || []), ...(server.routineLoadedDates || [])])],
     streak: (local.streak?.currentStreak ?? 0) >= (server.streak?.currentStreak ?? 0)
@@ -1490,7 +1520,21 @@ export function useStore() {
         return apiCall('PATCH', `/api/bias/${existing.id}`, updated);
       }
       const newBias = { ...bias, id: crypto.randomUUID(), createdAt: new Date().toISOString() };
-      mutate(s => ({ ...s, dailyBiases: [...s.dailyBiases, newBias] }));
+      const linkedSystem = globalState.tradingSystems.find(t => t.asset === newBias.asset);
+      const seededItems = (linkedSystem?.checklistItems || []).map(i => ({ id: i.id, text: i.text }));
+      mutate(s => {
+        const next = { ...s, dailyBiases: [...s.dailyBiases, newBias] };
+        if (seededItems.length) {
+          next.biasChecklists = mergeArraysById(
+            s.biasChecklists,
+            [{ id: newBias.id, items: seededItems, marks: {} }]
+          );
+        }
+        return next;
+      });
+      if (seededItems.length) {
+        apiCall('POST', '/api/bias-checklists', { biasId: newBias.id, items: seededItems, marks: {} });
+      }
       return apiCall('POST', '/api/bias', newBias);
     }, []),
 
@@ -1548,6 +1592,27 @@ export function useStore() {
       const next: BiasChecklist = { ...cur, marks };
       mutate(s => ({ ...s, biasChecklists: mergeArraysById(s.biasChecklists, [next]) }));
       apiCall('POST', '/api/bias-checklists', { biasId: next.id, items: next.items, marks: next.marks });
+    }, []),
+
+    addTradingSystem: useCallback((sys: Omit<TradingSystem, "id"> & { id?: string }) => {
+      const id = sys.id || crypto.randomUUID();
+      const newSys: TradingSystem = { ...sys, id } as TradingSystem;
+      mutate(s => ({ ...s, tradingSystems: [...s.tradingSystems, newSys] }));
+      apiCall('POST', '/api/trading-systems', newSys);
+    }, []),
+
+    updateTradingSystem: useCallback((id: string, updates: Partial<TradingSystem>) => {
+      mutate(s => ({ ...s, tradingSystems: s.tradingSystems.map(t => t.id === id ? { ...t, ...updates } : t) }));
+      apiCall('PATCH', `/api/trading-systems/${id}`, updates);
+    }, []),
+
+    deleteTradingSystem: useCallback((id: string): Promise<boolean> => {
+      mutate(s => ({
+        ...s,
+        tradingSystems: s.tradingSystems.filter(t => t.id !== id),
+        _deletedIds: [...(s._deletedIds || []), id].slice(-200),
+      }));
+      return apiCall('DELETE', `/api/trading-systems/${id}`);
     }, []),
 
     rescheduleTask: useCallback((id: string, newDate: string) => {

@@ -1,91 +1,66 @@
-import { useState } from "react";
 import { useStore } from "@/lib/store";
-import { Plus, X, Check } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-
-type Mark = "plus" | "minus";
+import { Check, Plus, Minus } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { motion } from "framer-motion";
 
 export function BiasChecklistView({ biasId, date }: { biasId: string; date: string }) {
   const { state, actions } = useStore();
-  const [draft, setDraft] = useState("");
-
   const checklist = state.biasChecklists.find((c) => c.id === biasId);
-  const dayMarks = (checklist?.marks?.[date] || {}) as Record<string, Mark>;
-
-  const submit = () => {
-    const text = draft.trim();
-    if (!text) return;
-    actions.addBiasChecklistItem(biasId, text);
-    setDraft("");
-  };
-
-  const setMark = (itemId: string, status: Mark) => {
-    actions.setBiasChecklistMark(biasId, itemId, date, status);
-  };
+  const dayMarks = checklist?.marks?.[date] || {};
+  const isEmpty = !checklist || checklist.items.length === 0;
 
   return (
-    <div className="mt-3 pt-3 border-t border-border/60 space-y-2">
-      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-        <Check className="w-3.5 h-3.5 text-primary" />
-        Чек-лист
+    <div className="mt-2 rounded-md border border-border bg-card/50 p-2">
+      <div className="mb-1.5 flex items-center gap-2">
+        <Check className="h-3.5 w-3.5 text-muted-foreground" />
+        <span className="text-xs font-medium text-muted-foreground">Чек-лист выполнения</span>
       </div>
-
-      {checklist?.items?.length ? (
-        <ul className="space-y-1">
-          {checklist.items.map((item) => {
+      {isEmpty ? (
+        <p className="px-1 text-xs text-muted-foreground">
+          Чек-лист пуст. Добавьте пункты в торговой системе актива.
+        </p>
+      ) : (
+        <ul className="space-y-1.5">
+          {checklist!.items.map((item) => {
             const status = dayMarks[item.id];
             return (
-              <li key={item.id} className="group flex items-center gap-2">
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
+              <li key={item.id} className="flex items-center justify-between gap-2">
+                <span className="text-sm text-foreground">{item.text}</span>
+                <div className="flex items-center gap-1.5">
+                  <motion.button
                     type="button"
-                    onClick={() => setMark(item.id, "plus")}
-                    aria-label="Соблюдал условие"
-                    className={`flex h-5 w-5 items-center justify-center rounded border text-[13px] font-bold leading-none transition-colors ${status === "plus" ? "bg-green-500 border-green-500 text-white" : "border-green-500/50 text-green-500 hover:bg-green-500/10"}`}
+                    whileTap={{ scale: 0.8 }}
+                    onClick={() => actions.setBiasChecklistMark(biasId, item.id, date, "plus")}
+                    className={`flex h-7 w-7 items-center justify-center rounded-full border transition-colors ${
+                      status === "plus"
+                        ? "border-green-500/60 bg-green-500/20 text-green-400"
+                        : "border-border text-muted-foreground hover:bg-muted"
+                    }`}
+                    aria-label="Соблюдал"
                   >
-                    +
-                  </button>
-                  <button
+                    <Plus className="h-3.5 w-3.5" />
+                  </motion.button>
+                  <motion.button
                     type="button"
-                    onClick={() => setMark(item.id, "minus")}
-                    aria-label="Не соблюдал условие"
-                    className={`flex h-5 w-5 items-center justify-center rounded border text-[13px] font-bold leading-none transition-colors ${status === "minus" ? "bg-red-500 border-red-500 text-white" : "border-red-500/50 text-red-500 hover:bg-red-500/10"}`}
+                    whileTap={{ scale: 0.8 }}
+                    onClick={() => actions.setBiasChecklistMark(biasId, item.id, date, "minus")}
+                    className={`flex h-7 w-7 items-center justify-center rounded-full border transition-colors ${
+                      status === "minus"
+                        ? "border-red-500/60 bg-red-500/20 text-red-400"
+                        : "border-border text-muted-foreground hover:bg-muted"
+                    }`}
+                    aria-label="Нарушал"
                   >
-                    −
-                  </button>
+                    <Minus className="h-3.5 w-3.5" />
+                  </motion.button>
+                  {status === "plus" && <Badge className="bg-green-500/20 text-green-400">+</Badge>}
+                  {status === "minus" && <Badge className="bg-red-500/20 text-red-400">−</Badge>}
                 </div>
-                <span className={`flex-1 text-sm ${status === "minus" ? "line-through text-muted-foreground" : ""} ${status === "plus" ? "text-green-400" : ""}`}>
-                  {item.text}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => actions.removeBiasChecklistItem(biasId, item.id)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                  aria-label="Удалить пункт"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
               </li>
             );
           })}
         </ul>
-      ) : (
-        <p className="text-xs text-muted-foreground">Пока нет пунктов. Добавьте первый.</p>
       )}
-
-      <div className="flex items-center gap-2">
-        <Input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-          placeholder="Добавить пункт…"
-          className="h-8 text-sm"
-        />
-        <Button size="sm" variant="outline" className="h-8 shrink-0" onClick={submit}>
-          <Plus className="w-3.5 h-3.5" />
-        </Button>
-      </div>
     </div>
   );
 }

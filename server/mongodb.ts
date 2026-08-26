@@ -280,6 +280,34 @@ export const RoutineTemplate = mongoose.model("RoutineTemplate", routineTemplate
 export const Simulation = mongoose.model("Simulation", simulationSchema);
 export const BiasChecklist = mongoose.model("BiasChecklist", biasChecklistSchema);
 
+const tradeSessionSchema = new mongoose.Schema({
+  id: { type: String, required: true },
+  label: { type: String, required: true },
+  start: { type: String, default: "" },
+  end: { type: String, default: "" },
+  enabled: { type: Boolean, default: true },
+}, { _id: false });
+
+const timeframeDescriptionSchema = new mongoose.Schema({
+  id: { type: String, required: true },
+  tf: { type: String, required: true },
+  description: { type: String, default: "" },
+  link: { type: String, default: "" },
+}, { _id: false });
+
+const tradingSystemSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
+  systemId: { type: String, required: true, unique: true },
+  asset: { type: String, required: true },
+  name: { type: String, default: "" },
+  type: { type: String, enum: ["intraday", "swing"], default: "intraday" },
+  sessions: { type: [tradeSessionSchema], default: [] },
+  backtestLink: { type: String, default: "" },
+  timeframeDescriptions: { type: [timeframeDescriptionSchema], default: [] },
+  checklistItems: { type: [{ id: String, text: String }], default: [] },
+}, { timestamps: true });
+export const TradingSystem = mongoose.model("TradingSystem", tradingSystemSchema);
+
 const processedAudioSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
   telegramMessageId: { type: String, required: true },
