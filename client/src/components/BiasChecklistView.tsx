@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useStore } from "@/lib/store";
 import { Check, Plus, Minus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +9,19 @@ export function BiasChecklistView({ biasId, date }: { biasId: string; date: stri
   const checklist = state.biasChecklists.find((c) => c.id === biasId);
   const dayMarks = checklist?.marks?.[date] || {};
   const isEmpty = !checklist || checklist.items.length === 0;
+
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (seededRef.current) return;
+    const bias = state.dailyBiases.find((b) => b.id === biasId);
+    if (!bias?.systemId) return;
+    const cl = state.biasChecklists.find((c) => c.id === biasId);
+    if (cl && cl.items.length) return;
+    const sys = state.tradingSystems.find((t) => t.id === bias.systemId);
+    if (!sys?.checklistItems?.length) return;
+    seededRef.current = true;
+    sys.checklistItems.forEach((it) => actions.addBiasChecklistItem(biasId, it.text));
+  }, [biasId, state.dailyBiases, state.biasChecklists, state.tradingSystems, actions]);
 
   return (
     <div className="mt-2 rounded-md border border-border bg-card/50 p-2">
