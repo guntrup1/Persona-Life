@@ -1529,8 +1529,8 @@ export function useStore() {
         const next = { ...s, dailyBiases: [...s.dailyBiases, newBias] };
         if (seededItems.length) {
           next.biasChecklists = mergeArraysById(
-            s.biasChecklists,
-            [{ id: newBias.id, items: seededItems, marks: {} }]
+            [{ id: newBias.id, items: seededItems, marks: {} }],
+            s.biasChecklists
           );
         }
         return next;
@@ -1556,7 +1556,7 @@ export function useStore() {
         const sys = globalState.tradingSystems.find(t => t.id === updates.systemId);
         const items = (sys?.checklistItems || []).map(i => ({ id: i.id, text: i.text }));
         if (items.length) {
-          mutate(s => ({ ...s, biasChecklists: mergeArraysById(s.biasChecklists, [{ id, items, marks: {} }]) }));
+          mutate(s => ({ ...s, biasChecklists: mergeArraysById([{ id, items, marks: {} }], s.biasChecklists) }));
           apiCall('POST', '/api/bias-checklists', { biasId: id, items, marks: {} });
         }
       }
@@ -1579,7 +1579,7 @@ export function useStore() {
     addBiasChecklistItem: useCallback((biasId: string, text: string) => {
       const cur = globalState.biasChecklists.find(c => c.id === biasId) || { id: biasId, items: [] as ChecklistItem[], marks: {} as Record<string, Record<string, "plus" | "minus">> };
       const next: BiasChecklist = { ...cur, items: [...cur.items, { id: crypto.randomUUID(), text }] };
-      mutate(s => ({ ...s, biasChecklists: mergeArraysById(s.biasChecklists, [next]) }));
+      mutate(s => ({ ...s, biasChecklists: mergeArraysById([next], s.biasChecklists) }));
       apiCall('POST', '/api/bias-checklists', { biasId: next.id, items: next.items, marks: next.marks });
     }, []),
 
@@ -1592,14 +1592,14 @@ export function useStore() {
         if (marks[k] && Object.keys(marks[k]).length === 0) delete marks[k];
       }
       const next: BiasChecklist = { ...cur, items: cur.items.filter(i => i.id !== itemId), marks };
-      mutate(s => ({ ...s, biasChecklists: mergeArraysById(s.biasChecklists, [next]) }));
+      mutate(s => ({ ...s, biasChecklists: mergeArraysById([next], s.biasChecklists) }));
       apiCall('POST', '/api/bias-checklists', { biasId: next.id, items: next.items, marks: next.marks });
     }, []),
 
     setBiasChecklistItems: useCallback((biasId: string, items: ChecklistItem[]) => {
       const cur = globalState.biasChecklists.find(c => c.id === biasId) || { id: biasId, items: [] as ChecklistItem[], marks: {} as Record<string, Record<string, "plus" | "minus">> };
       const next: BiasChecklist = { ...cur, items };
-      mutate(s => ({ ...s, biasChecklists: mergeArraysById(s.biasChecklists, [next]) }));
+      mutate(s => ({ ...s, biasChecklists: mergeArraysById([next], s.biasChecklists) }));
       apiCall('POST', '/api/bias-checklists', { biasId: next.id, items: next.items, marks: next.marks });
     }, []),
 
@@ -1612,7 +1612,7 @@ export function useStore() {
       if (Object.keys(dayMarks).length === 0) delete marks[date];
       else marks[date] = dayMarks;
       const next: BiasChecklist = { ...cur, marks };
-      mutate(s => ({ ...s, biasChecklists: mergeArraysById(s.biasChecklists, [next]) }));
+      mutate(s => ({ ...s, biasChecklists: mergeArraysById([next], s.biasChecklists) }));
       apiCall('POST', '/api/bias-checklists', { biasId: next.id, items: next.items, marks: next.marks });
     }, []),
 
@@ -1626,7 +1626,7 @@ export function useStore() {
         globalState.dailyBiases
           .filter(b => b.asset === newSys.asset && !globalState.biasChecklists.find(c => c.id === b.id))
           .forEach(b => {
-            mutate(s => ({ ...s, biasChecklists: mergeArraysById(s.biasChecklists, [{ id: b.id, items, marks: {} }]) }));
+            mutate(s => ({ ...s, biasChecklists: mergeArraysById([{ id: b.id, items, marks: {} }], s.biasChecklists) }));
             apiCall('POST', '/api/bias-checklists', { biasId: b.id, items, marks: {} });
           });
       }
