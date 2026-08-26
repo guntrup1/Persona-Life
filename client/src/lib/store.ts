@@ -1624,7 +1624,7 @@ export function useStore() {
       const items = (newSys.checklistItems || []).map(i => ({ id: i.id, text: i.text }));
       if (items.length) {
         globalState.dailyBiases
-          .filter(b => b.asset === newSys.asset && !globalState.biasChecklists.find(c => c.id === b.id))
+          .filter(b => b.systemId === newSys.id && !globalState.biasChecklists.find(c => c.id === b.id))
           .forEach(b => {
             mutate(s => ({ ...s, biasChecklists: mergeArraysById([{ id: b.id, items, marks: {} }], s.biasChecklists) }));
             apiCall('POST', '/api/bias-checklists', { biasId: b.id, items, marks: {} });

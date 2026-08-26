@@ -7,6 +7,8 @@ import { MotionList, MotionItem } from "@/components/motion";
 
 export function BiasChecklistView({ biasId, date }: { biasId: string; date: string }) {
   const { state, actions } = useStore();
+  const bias = state.dailyBiases.find((b) => b.id === biasId);
+  const system = bias?.systemId ? state.tradingSystems.find((t) => t.id === bias.systemId) : null;
   const checklist = state.biasChecklists.find((c) => c.id === biasId);
   const dayMarks = checklist?.marks?.[date] || {};
   const isEmpty = !checklist || checklist.items.length === 0;
@@ -14,20 +16,19 @@ export function BiasChecklistView({ biasId, date }: { biasId: string; date: stri
   const seededRef = useRef(false);
   useEffect(() => {
     if (seededRef.current) return;
-    const bias = state.dailyBiases.find((b) => b.id === biasId);
-    if (!bias) return;
+    if (!bias?.systemId) return;
+    const sys = state.tradingSystems.find((t) => t.id === bias.systemId);
+    if (!sys?.checklistItems?.length) return;
     const cl = state.biasChecklists.find((c) => c.id === biasId);
     if (cl && cl.items.length) return;
-    const sys =
-      (bias.systemId && state.tradingSystems.find((t) => t.id === bias.systemId)) ||
-      state.tradingSystems.find((t) => t.asset === bias.asset);
-    if (!sys?.checklistItems?.length) return;
     seededRef.current = true;
     actions.setBiasChecklistItems(
       biasId,
       sys.checklistItems.map((i) => ({ id: i.id, text: i.text }))
     );
   }, [biasId, state.dailyBiases, state.biasChecklists, state.tradingSystems, actions]);
+
+  if (!system) return null;
 
   const mark = (itemId: string, status: "plus" | "minus") =>
     actions.setBiasChecklistMark(biasId, itemId, date, status);
