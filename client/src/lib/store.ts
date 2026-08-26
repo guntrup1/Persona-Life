@@ -1543,8 +1543,18 @@ export function useStore() {
     }, []),
 
     updateDailyBias: useCallback((id: string, updates: Partial<DailyBias>): Promise<boolean> => {
-      mutate(s => ({ ...s, dailyBiases: s.dailyBiases.map(b => b.id === id ? { ...b, ...updates } : b) }));
-      return apiCall('PATCH', `/api/bias/${id}`, updates);
+      const bias = globalState.dailyBiases.find(b => b.id === id);
+      const nextUpdates = { ...updates };
+      if (updates.systemId && bias && !globalState.biasChecklists.find(c => c.id === id)) {
+        const sys = globalState.tradingSystems.find(t => t.id === updates.systemId);
+        const items = (sys?.checklistItems || []).map(i => ({ id: i.id, text: i.text }));
+        if (items.length) {
+          mutate(s => ({ ...s, biasChecklists: mergeArraysById(s.biasChecklists, [{ id, items, marks: {} }]) }));
+          apiCall('POST', '/api/bias-checklists', { biasId: id, items, marks: {} });
+        }
+      }
+      mutate(s => ({ ...s, dailyBiases: s.dailyBiases.map(b => b.id === id ? { ...b, ...nextUpdates } : b) }));
+      return apiCall('PATCH', `/api/bias/${id}`, nextUpdates);
     }, []),
 
     deleteDailyBias: useCallback((id: string): Promise<boolean> => {
