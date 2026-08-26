@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useStore, LIFE_AREAS, LIFE_AREA_COLORS, xpForDifficulty, getTodayDate, type LifeArea, type TaskDifficulty, type TodayTask, type RoutineTemplate } from "@/lib/store";
+import { StrikeText } from "@/components/StrikeText";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1003,9 +1004,9 @@ function TaskRow({ task, onToggle, onDelete, onEdit, onReschedule, dragHandlePro
           )}
         </motion.button>
         <div className="flex-1 min-w-0">
-          <div className={`font-display text-sm ${task.completed ? "line-through text-muted-foreground" : isHighPriority ? "text-orange-300" : "text-foreground"}`}>
+          <div className="font-display text-sm">
             {isHighPriority && <span className="text-orange-400 mr-1.5 text-xs">⚡</span>}
-            {task.name}
+            <StrikeText completed={task.completed}>{task.name}</StrikeText>
           </div>
           {task.description && (
             <div className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{task.description}</div>

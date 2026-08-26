@@ -15,10 +15,12 @@ export function BiasChecklistView({ biasId, date }: { biasId: string; date: stri
   useEffect(() => {
     if (seededRef.current) return;
     const bias = state.dailyBiases.find((b) => b.id === biasId);
-    if (!bias?.systemId) return;
+    if (!bias) return;
     const cl = state.biasChecklists.find((c) => c.id === biasId);
     if (cl && cl.items.length) return;
-    const sys = state.tradingSystems.find((t) => t.id === bias.systemId);
+    const sys =
+      (bias.systemId && state.tradingSystems.find((t) => t.id === bias.systemId)) ||
+      state.tradingSystems.find((t) => t.asset === bias.asset);
     if (!sys?.checklistItems?.length) return;
     seededRef.current = true;
     actions.setBiasChecklistItems(

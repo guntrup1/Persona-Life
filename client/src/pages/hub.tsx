@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore, getUserTime, loadUserSettings, getMarketSession, getCharacterState, getTodayDate, LIFE_AREA_COLORS, getGoalProgress, getLevelFromXP, type NoteType } from "@/lib/store";
+import { StrikeText } from "@/components/StrikeText";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -182,6 +184,7 @@ const CollapsibleBlock = memo(function CollapsibleBlock({
 export default function HubPage() {
   const { state, actions, todayTasks, completedToday, totalToday, todayNotes } = useStore();
   const { t, lang } = useI18n();
+  const isMobile = useIsMobile();
   const [xpNotif, setXpNotif] = useState<{ xp: number; visible: boolean }>({ xp: 0, visible: false });
   const [newNoteText, setNewNoteText] = useState("");
   const [newNoteTitle, setNewNoteTitle] = useState("");
@@ -402,7 +405,7 @@ export default function HubPage() {
               title={t.hub.todayTasks}
               icon={<Zap className="w-4 h-4 text-primary" />}
               badge={totalToday > 0 && <Badge variant="secondary" className="font-mono text-[10px] h-4 px-1.5 rounded-full">{completedToday}/{totalToday}</Badge>}
-              stretch
+              stretch={!isMobile}
               collapsible={false}
             >
               <div className="space-y-2 mb-3">
@@ -608,8 +611,8 @@ function SortableHubTask({ task, onToggle }: { task: any, onToggle: (id: string)
             </motion.span>}
       </motion.button>
       <div className="flex-1 min-w-0">
-        <div className={`font-display text-sm ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
-          {task.name}
+        <div className="font-display text-sm">
+          <StrikeText completed={task.completed}>{task.name}</StrikeText>
         </div>
         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
           <span className={`text-xs ${LIFE_AREA_COLORS[task.category as keyof typeof LIFE_AREA_COLORS]}`}>{task.category}</span>

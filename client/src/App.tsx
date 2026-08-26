@@ -36,7 +36,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   FileText, RefreshCw, AlertTriangle, Menu, X,
   Fingerprint, Zap, Milestone, Brain, Dna, CandlestickChart, Puzzle, Radio, Hourglass, SlidersHorizontal, LogOut,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, Lightbulb,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { FloatingTimerWidget } from "@/components/FloatingTimerWidget";
@@ -264,6 +264,7 @@ const mobileNavItems = [
   { id: "timer", url: "/timer", icon: Brain },
   { id: "stats", url: "/stats", icon: Dna },
   { id: "trading", url: "/notes", icon: CandlestickChart },
+  { id: "brainstorm", url: "/brainstorm", icon: Lightbulb },
   { id: "ideas", url: "/ideas", icon: Puzzle },
   { id: "news", url: "/news", icon: Radio },
   { id: "calendar", url: "/calendar", icon: Hourglass },

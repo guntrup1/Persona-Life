@@ -118,7 +118,7 @@ export function AppSidebar() {
           };
 
           const renderGroupItems = (items: typeof liveItems | typeof workItems | typeof otherItems) => (
-            <SidebarMenu className="space-y-0.5 animate-in fade-in-30 slide-in-from-top-1 duration-150">
+            <SidebarMenu className="space-y-0.5 animate-in fade-in-0 slide-in-from-top-2 duration-500">
               {items.map((item) => {
                 const isActive = location === item.url;
                 return (
