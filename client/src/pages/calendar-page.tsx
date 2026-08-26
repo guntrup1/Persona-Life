@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { ChevronLeft, ChevronRight, Plus, Hourglass, CheckCircle, Circle, ArrowUpCircle, ArrowDownCircle, MinusCircle, FileText, CandlestickChart, Edit2, CalendarDays, Brain } from "lucide-react";
-import { getTodayDate, formatUserClock } from "@/lib/store";
+import { getTodayDate, formatUserClock, getGoodDayAssets } from "@/lib/store";
 import { BiasChecklistView } from "@/components/BiasChecklistView";
 import { RemoteImage } from "@/components/remote-image";
 import { Link } from "wouter";
@@ -264,6 +264,7 @@ export default function CalendarPage() {
       const hasTradingNotes = state.tradingNotes.some(n => n.date === dateStr);
       const hasBiases = state.dailyBiases.some(b => b.date === dateStr);
       const hasBrainstorm = brainstormSessions.some((s: any) => new Date(s.createdAt).toISOString().slice(0, 10) === dateStr);
+      const goodAssets = getGoodDayAssets(dateStr, state.dailyBiases, state.biasChecklists);
 
       cells.push(
         <button
@@ -290,6 +291,15 @@ export default function CalendarPage() {
             )}
             {(hasNote || hasTradingNotes || hasBiases) && <div className="w-1 h-1 rounded-full bg-blue-400" />}
             {hasBrainstorm && <div className="w-1 h-1 rounded-full bg-purple-500" />}
+            {goodAssets.length > 0 && (
+              <div className="flex items-center gap-0.5 flex-wrap justify-center">
+                {goodAssets.map((a) => (
+                  <span key={a} className="rounded-sm bg-green-500/20 px-1 text-[8px] font-semibold leading-tight text-green-400" title={`Хороший день по ${a}`}>
+                    {a}✓
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </button>
       );
@@ -734,8 +744,28 @@ function DayDetails({ selectedDate, brainstormSessions = [] }: { selectedDate: s
     .filter(s => new Date(s.createdAt).toISOString().slice(0, 10) === selectedDate)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
+  const goodAssets = getGoodDayAssets(selectedDate, state.dailyBiases, state.biasChecklists);
+
   return (
     <div className="space-y-3">
+      {goodAssets.length > 0 && (
+        <Card className="p-4 border-card-border bg-green-500/5">
+          <div className="flex items-center gap-2 mb-2">
+            <CheckCircle className="w-4 h-4 text-green-400" />
+            <h3 className="font-display font-bold text-sm uppercase tracking-wider text-green-400">Хорошие дни</h3>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {goodAssets.map((a) => (
+              <span key={a} className="rounded-md bg-green-500/20 px-2 py-0.5 text-xs font-semibold text-green-400">
+                {a}✓
+              </span>
+            ))}
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-1.5">
+            Весь чек-лист по этим активам отмечен как «соблюдено».
+          </p>
+        </Card>
+      )}
       {brainstorms.length > 0 && (
         <Card className="p-4 border-card-border bg-purple-500/5">
           <div className="flex items-center gap-2 mb-3">

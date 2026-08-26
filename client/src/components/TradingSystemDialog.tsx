@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Plus, X, Clock, Trash2, BookOpen } from "lucide-react";
+import { Plus, X, Clock, Trash2, BookOpen, ExternalLink, Check } from "lucide-react";
+import { RemoteImage } from "./remote-image";
 import {
   Dialog,
   DialogContent,
@@ -24,7 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { EditableChecklist, ChecklistItemData } from "@/components/EditableChecklist";
 import { MotionDialogContent, MotionItem, MotionList } from "@/components/motion";
-import { useStore, ASSETS, TradeAsset, TradeSession, TimeframeDescription } from "@/lib/store";
+import { useStore, ASSETS, TradeAsset, TradeSession, TimeframeDescription, TradingSystem } from "@/lib/store";
 
 const SESSION_PRESETS: { label: string; start: string; end: string }[] = [
   { label: "Азия", start: "02:00", end: "09:00" },
@@ -121,7 +122,10 @@ export function TradingSystemDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className={`space-y-5 py-2 ${isView ? "pointer-events-none select-none opacity-90" : ""}`}>
+        {isView && existing ? (
+          <SystemView system={existing} />
+        ) : (
+          <div className="space-y-5 py-2">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>Актив</Label>
@@ -238,13 +242,14 @@ export function TradingSystemDialog({
 
           <Separator />
 
-          <div className="space-y-2">
-            <Label>Чек-лист (подставляется в биасы)</Label>
-            <EditableChecklist items={checklistItems} onChange={setChecklistItems} />
+            <div className="space-y-2">
+              <Label>Чек-лист (подставляется в биасы)</Label>
+              <EditableChecklist items={checklistItems} onChange={setChecklistItems} />
+            </div>
           </div>
-        </div>
+        )}
 
-        <DialogFooter className="mt-4 flex items-center justify-between">
+          <DialogFooter className="mt-4 flex items-center justify-between">
           {isView ? (
             <span />
           ) : existing ? (
@@ -265,5 +270,83 @@ export function TradingSystemDialog({
       </MotionDialogContent>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function isImageLink(link: string) {
+  return /\.(png|jpe?g|webp|gif)$/i.test(link.split("?")[0] || "");
+}
+
+function SystemView({ system }: { system: TradingSystem }) {
+  const enabledSessions = system.sessions?.filter((s) => s.enabled) || [];
+  return (
+    <div className="space-y-4 py-2 max-h-[72vh] overflow-auto">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-semibold text-primary">{system.asset}</span>
+        {system.name && <span className="text-sm font-medium text-foreground">{system.name}</span>}
+        <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
+          {system.type === "intraday" ? "Внутридневная" : "Свинг"}
+        </span>
+      </div>
+
+      {system.backtestLink && (
+        <a href={system.backtestLink} target="_blank" rel="noreferrer"
+           className="inline-flex items-center gap-1.5 text-sm text-primary underline">
+          <ExternalLink className="h-3.5 w-3.5" />Бэктест
+        </a>
+      )}
+
+      {enabledSessions.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">Торговые сессии</div>
+          <div className="flex flex-wrap gap-1.5">
+            {enabledSessions.map((s) => (
+              <span key={s.id} className="rounded-md bg-muted px-2 py-1 text-xs text-foreground">
+                {s.label}: {s.start}–{s.end}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {system.timeframeDescriptions?.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">Таймфреймы</div>
+          {system.timeframeDescriptions.map((tf) => (
+            <div key={tf.id} className="rounded-md border border-border p-2 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <span className="rounded bg-primary/15 px-1.5 py-0.5 text-xs font-semibold text-primary">{tf.tf}</span>
+                {tf.link && (
+                  <a href={tf.link} target="_blank" rel="noreferrer"
+                     className="inline-flex items-center gap-1 text-xs text-primary underline">
+                    <ExternalLink className="h-3 w-3" />Открыть
+                  </a>
+                )}
+              </div>
+              {tf.description && <p className="text-sm text-foreground">{tf.description}</p>}
+              {tf.link && isImageLink(tf.link) && (
+                <a href={tf.link} target="_blank" rel="noreferrer" className="block">
+                  <RemoteImage src={tf.link} alt={tf.tf} />
+                </a>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {system.checklistItems?.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">Чек-лист</div>
+          <ul className="space-y-1">
+            {system.checklistItems.map((it) => (
+              <li key={it.id} className="flex items-start gap-2 text-sm text-foreground">
+                <Check className="mt-0.5 h-3.5 w-3.5 text-primary shrink-0" />
+                <span>{it.text}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
   );
 }

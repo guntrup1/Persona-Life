@@ -1613,6 +1613,15 @@ export function useStore() {
       const newSys: TradingSystem = { ...sys, id } as TradingSystem;
       mutate(s => ({ ...s, tradingSystems: [...s.tradingSystems, newSys] }));
       apiCall('POST', '/api/trading-systems', newSys);
+      const items = (newSys.checklistItems || []).map(i => ({ id: i.id, text: i.text }));
+      if (items.length) {
+        globalState.dailyBiases
+          .filter(b => b.asset === newSys.asset && !globalState.biasChecklists.find(c => c.id === b.id))
+          .forEach(b => {
+            mutate(s => ({ ...s, biasChecklists: mergeArraysById(s.biasChecklists, [{ id: b.id, items, marks: {} }]) }));
+            apiCall('POST', '/api/bias-checklists', { biasId: b.id, items, marks: {} });
+          });
+      }
     }, []),
 
     updateTradingSystem: useCallback((id: string, updates: Partial<TradingSystem>) => {
@@ -1700,4 +1709,21 @@ export function useStore() {
   const todayBiases = state.dailyBiases.filter(b => b.date === todayDate);
 
   return { state, actions, todayTasks, completedToday, totalToday, isRoutineLoaded, todayNotes, todayNote, todayBiases };
+}
+
+// Assets whose bias checklist for `dateStr` is fully marked "plus" → a "good day" for that asset.
+export function getGoodDayAssets(
+  dateStr: string,
+  dailyBiases: DailyBias[],
+  biasChecklists: BiasChecklist[]
+): TradeAsset[] {
+  const res: TradeAsset[] = [];
+  for (const b of dailyBiases) {
+    if (b.date !== dateStr) continue;
+    const cl = biasChecklists.find(c => c.id === b.id);
+    if (!cl || !cl.items.length) continue;
+    const dm = cl.marks?.[dateStr] || {};
+    if (cl.items.every(it => dm[it.id] === "plus")) res.push(b.asset);
+  }
+  return res;
 }

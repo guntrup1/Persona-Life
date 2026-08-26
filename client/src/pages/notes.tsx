@@ -19,6 +19,7 @@ import { ZoomableImage } from "@/components/zoomable-image";
 import { BiasChecklistView } from "@/components/BiasChecklistView";
 import { TradingSystemsPanel } from "@/components/TradingSystemsPanel";
 import { TradingSystemDialog } from "@/components/TradingSystemDialog";
+import { TradingSystemMissingDialog } from "@/components/TradingSystemMissingDialog";
 import { FileText, Plus, Trash2, Clock, CandlestickChart, ArrowUpRight, ArrowDownRight, MoveRight, Camera, X, Pencil, Puzzle, CheckCircle, Circle, BookOpen } from "lucide-react";
 
 const TIMEFRAMES = ["M1", "M5", "M15", "M30", "H1", "H4", "D1"];
@@ -482,6 +483,7 @@ export default function NotesPage() {
   const [filterPeriod, setFilterPeriod] = useState<"today" | "week" | "month" | "all">("all");
   const [panelOpen, setPanelOpen] = useState(false);
   const [editor, setEditor] = useState<{ systemId?: string; asset?: TradeAsset; readOnly?: boolean } | null>(null);
+  const [missingAsset, setMissingAsset] = useState<TradeAsset | null>(null);
 
   const today = getTodayDate();
 
@@ -566,7 +568,11 @@ export default function NotesPage() {
             </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {todayBiases.map(bias => (
+              {todayBiases.map(bias => {
+                const cl = state.biasChecklists.find(c => c.id === bias.id);
+                const dm = (cl?.marks?.[bias.date]) || {};
+                const isGoodDay = !!cl && cl.items.length > 0 && cl.items.every(it => dm[it.id] === "plus");
+                return (
                 <Card key={bias.id} className="p-4 border-card-border space-y-3 hover-elevate group" data-testid={`bias-${bias.id}`}>
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">
@@ -578,20 +584,28 @@ export default function NotesPage() {
                           {state.tradingSystems.find((t) => t.id === bias.systemId)!.name || "система"}
                         </Badge>
                       )}
+                      {isGoodDay && (
+                        <Badge variant="secondary" className="text-xs bg-green-500/15 text-green-400 border-green-500/30">
+                          Хороший день ✓
+                        </Badge>
+                      )}
                       {directionBadge(bias.direction)}
                     </div>
                     <div className="flex items-center gap-1">
-                      {bias.systemId && state.tradingSystems.find((t) => t.id === bias.systemId) && (
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => setEditor({ systemId: bias.systemId, readOnly: true })}
-                          aria-label="Просмотр торговой системы"
-                        >
-                          <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
-                        </Button>
-                      )}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        onClick={() => {
+                          const sys = bias.systemId ? state.tradingSystems.find((t) => t.id === bias.systemId) : undefined;
+                          if (sys) setEditor({ systemId: sys.id, readOnly: true });
+                          else setMissingAsset(bias.asset);
+                        }}
+                        aria-label="Торговая система"
+                        title={bias.systemId ? "Просмотр системы" : "Система для актива ещё не создана"}
+                      >
+                        <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
+                      </Button>
                       <AddBiasDialog
                         onAdd={(updates) => actions.updateDailyBias(bias.id, updates)}
                         editBias={bias}
@@ -649,7 +663,8 @@ export default function NotesPage() {
                   })()}
                   <BiasChecklistView biasId={bias.id} date={bias.date} />
                 </Card>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>
@@ -820,6 +835,12 @@ export default function NotesPage() {
             onOpenChange={(o) => { if (!o) setEditor(null); }}
           />
         )}
+        <TradingSystemMissingDialog
+          open={!!missingAsset}
+          asset={missingAsset}
+          onOpenChange={(o) => { if (!o) setMissingAsset(null); }}
+          onGoToSystems={() => { setMissingAsset(null); setPanelOpen(true); }}
+        />
       </div>
     </div>
   );
