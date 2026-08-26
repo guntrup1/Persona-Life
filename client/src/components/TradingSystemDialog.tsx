@@ -276,7 +276,7 @@ export function TradingSystemDialog({
 function SystemView({ system }: { system: TradingSystem }) {
   const enabledSessions = system.sessions?.filter((s) => s.enabled) || [];
   return (
-    <div className="space-y-4 py-2 max-h-[72vh] overflow-auto">
+    <div className="space-y-4 py-2">
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-semibold text-primary">{system.asset}</span>
         {system.name && <span className="text-sm font-medium text-foreground">{system.name}</span>}
