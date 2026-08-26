@@ -218,6 +218,7 @@ const dailyBiasSchema = new mongoose.Schema({
   cons: { type: String },
   screenshotUrl: { type: String },
   screenshots: { type: [{ tf: String, url: String }], default: undefined },
+  systemId: { type: String },
 }, { timestamps: true });
 
 const focusSessionSchema = new mongoose.Schema({

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, memo } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useStore, getUserTime, loadUserSettings, getMarketSession, getCharacterState, getTodayDate, LIFE_AREA_COLORS, getGoalProgress, getLevelFromXP, type NoteType } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -156,24 +156,23 @@ const CollapsibleBlock = memo(function CollapsibleBlock({
           <ChevronDown className={`w-4 h-4 text-primary transition-transform duration-300 ${open ? "rotate-180" : ""}`} />
         )}
       </div>
-      {stretch ? (
-        isOpen && (
-          <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4 pt-1" data-testid={`collapse-content-${title}`}>
-            {children}
-          </div>
-        )
-      ) : (
-        <div
-          className="overflow-hidden"
-          style={{ maxHeight: isOpen ? "2000px" : "0px", transition: "max-height 0.3s ease" }}
-          aria-hidden={!isOpen}
-          data-testid={`collapse-content-${title}`}
-        >
-          <div className="px-4 pb-4 pt-1">
-            {children}
-          </div>
-        </div>
-      )}
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            key="content"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.32, ease: [0.4, 0, 0.2, 1] }}
+            className="overflow-hidden"
+            data-testid={`collapse-content-${title}`}
+          >
+            <div className={stretch ? "max-h-[55vh] overflow-y-auto px-4 pb-4 pt-1" : "px-4 pb-4 pt-1"}>
+              {children}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 });

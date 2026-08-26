@@ -195,6 +195,7 @@ export interface DailyBias {
   cons: string;
   screenshotUrl?: string;
   screenshots?: ScreenshotEntry[];
+  systemId?: string;
   createdAt: string;
 }
 
@@ -1520,7 +1521,10 @@ export function useStore() {
         return apiCall('PATCH', `/api/bias/${existing.id}`, updated);
       }
       const newBias = { ...bias, id: crypto.randomUUID(), createdAt: new Date().toISOString() };
-      const linkedSystem = globalState.tradingSystems.find(t => t.asset === newBias.asset);
+      const linkedSystem =
+        (bias.systemId && globalState.tradingSystems.find(t => t.id === bias.systemId)) ||
+        globalState.tradingSystems.find(t => t.asset === newBias.asset) ||
+        null;
       const seededItems = (linkedSystem?.checklistItems || []).map(i => ({ id: i.id, text: i.text }));
       mutate(s => {
         const next = { ...s, dailyBiases: [...s.dailyBiases, newBias] };

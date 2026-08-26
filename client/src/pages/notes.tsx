@@ -42,8 +42,10 @@ function AddBiasDialog({ onAdd, editBias }: { onAdd: (b: any) => any; editBias?:
   const [pros, setPros] = useState(editBias?.pros || "");
   const [cons, setCons] = useState(editBias?.cons || "");
   const [screenshots, setScreenshots] = useState<ScreenshotEntry[]>(() => entryList(editBias));
+  const [systemId, setSystemId] = useState<string>(editBias?.systemId || "");
   const { t, lang } = useI18n();
   const { toast } = useToast();
+  const { state } = useStore();
 
   useEffect(() => {
     if (editBias) {
@@ -51,6 +53,7 @@ function AddBiasDialog({ onAdd, editBias }: { onAdd: (b: any) => any; editBias?:
       setDirection(editBias.direction);
       setPros(editBias.pros);
       setCons(editBias.cons);
+      setSystemId(editBias?.systemId || "");
       setScreenshots(entryList(editBias));
     }
   }, [editBias]);
@@ -75,6 +78,7 @@ function AddBiasDialog({ onAdd, editBias }: { onAdd: (b: any) => any; editBias?:
       cons,
       screenshotUrl: undefined,
       screenshots: clean.length ? clean : undefined,
+      systemId: systemId || undefined,
     });
     if (ok) {
       toast({ title: editBias ? "✅ BIAS обновлён" : "✅ BIAS сохранён" });
@@ -135,6 +139,34 @@ function AddBiasDialog({ onAdd, editBias }: { onAdd: (b: any) => any; editBias?:
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Торговая система (необязательно)</Label>
+            <Select
+              value={systemId || "__none__"}
+              onValueChange={(v) => {
+                if (v === "__none__") { setSystemId(""); return; }
+                setSystemId(v);
+                const sys = state.tradingSystems.find((t) => t.id === v);
+                if (sys) setAsset(sys.asset);
+              }}
+            >
+              <SelectTrigger data-testid="select-bias-system">
+                <SelectValue placeholder="Без системы" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Без системы</SelectItem>
+                {state.tradingSystems.map((sys) => (
+                  <SelectItem key={sys.id} value={sys.id}>
+                    {sys.asset} · {sys.name || (sys.type === "intraday" ? "Внутридневная" : "Свинг")}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Чек-лист из выбранной системы подставится в этот биас.
+            </p>
           </div>
 
           <div className="space-y-1.5">
@@ -541,6 +573,11 @@ export default function NotesPage() {
                       <Badge variant="outline" className="text-sm font-bold border-primary/30 text-primary">
                         {bias.asset}
                       </Badge>
+                      {bias.systemId && state.tradingSystems.find((t) => t.id === bias.systemId) && (
+                        <Badge variant="secondary" className="text-xs">
+                          {state.tradingSystems.find((t) => t.id === bias.systemId)!.name || "система"}
+                        </Badge>
+                      )}
                       {directionBadge(bias.direction)}
                     </div>
                     <div className="flex items-center gap-1">

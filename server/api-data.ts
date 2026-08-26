@@ -156,6 +156,7 @@ const biasSchema = z.object({
   cons: z.string().nullable().optional(),
   screenshotUrl: z.string().optional(),
   screenshots: z.array(z.object({ tf: z.string(), url: z.string() })).optional(),
+  systemId: z.string().optional(),
 });
 
 const biasPatchSchema = z.object({
@@ -166,6 +167,7 @@ const biasPatchSchema = z.object({
   cons: z.string().nullable().optional(),
   screenshotUrl: z.string().nullable().optional(),
   screenshots: z.array(z.object({ tf: z.string(), url: z.string() })).nullable().optional(),
+  systemId: z.string().nullable().optional(),
 }).strip();
 
 const tradingNoteSchema = z.object({

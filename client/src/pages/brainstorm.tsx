@@ -8,6 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
+import { motion } from "framer-motion";
 import {
   Sparkles, Brain, Loader2, ArrowRight, Save, Copy, Trash2, RefreshCw, Send, MessageCircle,
   Calendar, Paperclip, X, History, Lightbulb, ListChecks, ArrowUp, ChevronDown
@@ -104,7 +105,12 @@ function RichResponseCard({
       </div>
 
       {/* AI Response Block */}
-      <div className="flex justify-start w-full group relative">
+      <motion.div
+        className="flex justify-start w-full group relative"
+        initial={{ opacity: 0, y: 16, filter: "blur(10px)" }}
+        animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+      >
         <div className="absolute -left-10 top-0 w-7 h-7 rounded-full overflow-hidden border border-white/10 shadow-lg shadow-red-500/20 hidden sm:flex">
           <img src="/favicon.png" alt="Personedge" className="w-full h-full object-cover" />
         </div>
@@ -273,8 +279,8 @@ function RichResponseCard({
           </div>
             </>
           )}
-        </Card>
-      </div>
+          </Card>
+      </motion.div>
     </div>
   );
 }
