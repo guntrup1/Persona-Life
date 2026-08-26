@@ -273,10 +273,6 @@ export function TradingSystemDialog({
   );
 }
 
-function isImageLink(link: string) {
-  return /\.(png|jpe?g|webp|gif)$/i.test(link.split("?")[0] || "");
-}
-
 function SystemView({ system }: { system: TradingSystem }) {
   const enabledSessions = system.sessions?.filter((s) => s.enabled) || [];
   return (
@@ -324,7 +320,7 @@ function SystemView({ system }: { system: TradingSystem }) {
                 )}
               </div>
               {tf.description && <p className="text-sm text-foreground">{tf.description}</p>}
-              {tf.link && isImageLink(tf.link) && (
+              {tf.link && (
                 <a href={tf.link} target="_blank" rel="noreferrer" className="block">
                   <RemoteImage src={tf.link} alt={tf.tf} />
                 </a>

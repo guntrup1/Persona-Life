@@ -483,7 +483,7 @@ export default function NotesPage() {
   const [filterPeriod, setFilterPeriod] = useState<"today" | "week" | "month" | "all">("all");
   const [panelOpen, setPanelOpen] = useState(false);
   const [editor, setEditor] = useState<{ systemId?: string; asset?: TradeAsset; readOnly?: boolean } | null>(null);
-  const [missingAsset, setMissingAsset] = useState<TradeAsset | null>(null);
+  const [missing, setMissing] = useState<{ biasId: string; asset: TradeAsset } | null>(null);
 
   const today = getTodayDate();
 
@@ -599,7 +599,7 @@ export default function NotesPage() {
                         onClick={() => {
                           const sys = bias.systemId ? state.tradingSystems.find((t) => t.id === bias.systemId) : undefined;
                           if (sys) setEditor({ systemId: sys.id, readOnly: true });
-                          else setMissingAsset(bias.asset);
+                          else setMissing({ biasId: bias.id, asset: bias.asset });
                         }}
                         aria-label="Торговая система"
                         title={bias.systemId ? "Просмотр системы" : "Система для актива ещё не создана"}
@@ -836,10 +836,19 @@ export default function NotesPage() {
           />
         )}
         <TradingSystemMissingDialog
-          open={!!missingAsset}
-          asset={missingAsset}
-          onOpenChange={(o) => { if (!o) setMissingAsset(null); }}
-          onGoToSystems={() => { setMissingAsset(null); setPanelOpen(true); }}
+          open={!!missing}
+          asset={missing?.asset || null}
+          systems={missing ? state.tradingSystems.filter((t) => t.asset === missing.asset) : []}
+          onOpenChange={(o) => { if (!o) setMissing(null); }}
+          onLink={(systemId) => {
+            if (missing) actions.updateDailyBias(missing.biasId, { systemId });
+            setMissing(null);
+          }}
+          onCreate={() => {
+            const a = missing?.asset;
+            setMissing(null);
+            setEditor({ asset: a });
+          }}
         />
       </div>
     </div>

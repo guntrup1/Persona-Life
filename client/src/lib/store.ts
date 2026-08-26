@@ -1521,10 +1521,9 @@ export function useStore() {
         return apiCall('PATCH', `/api/bias/${existing.id}`, updated);
       }
       const newBias = { ...bias, id: crypto.randomUUID(), createdAt: new Date().toISOString() };
-      const linkedSystem =
-        (bias.systemId && globalState.tradingSystems.find(t => t.id === bias.systemId)) ||
-        globalState.tradingSystems.find(t => t.asset === newBias.asset) ||
-        null;
+      const linkedSystem = bias.systemId
+        ? globalState.tradingSystems.find((t) => t.id === bias.systemId) || null
+        : null;
       const seededItems = (linkedSystem?.checklistItems || []).map(i => ({ id: i.id, text: i.text }));
       mutate(s => {
         const next = { ...s, dailyBiases: [...s.dailyBiases, newBias] };
@@ -1544,8 +1543,16 @@ export function useStore() {
 
     updateDailyBias: useCallback((id: string, updates: Partial<DailyBias>): Promise<boolean> => {
       const bias = globalState.dailyBiases.find(b => b.id === id);
-      const nextUpdates = { ...updates };
-      if (updates.systemId && bias && !globalState.biasChecklists.find(c => c.id === id)) {
+      const nextUpdates: Record<string, unknown> = { ...updates };
+      const explicitUnlink = ("systemId" in updates) && !updates.systemId;
+
+      if (explicitUnlink && bias?.systemId) {
+        if (globalState.biasChecklists.find(c => c.id === id)) {
+          mutate(s => ({ ...s, biasChecklists: s.biasChecklists.filter(c => c.id !== id) }));
+          apiCall('DELETE', `/api/bias-checklists/${id}`);
+        }
+        nextUpdates.systemId = null;
+      } else if (updates.systemId && bias && !globalState.biasChecklists.find(c => c.id === id)) {
         const sys = globalState.tradingSystems.find(t => t.id === updates.systemId);
         const items = (sys?.checklistItems || []).map(i => ({ id: i.id, text: i.text }));
         if (items.length) {
@@ -1553,6 +1560,7 @@ export function useStore() {
           apiCall('POST', '/api/bias-checklists', { biasId: id, items, marks: {} });
         }
       }
+
       mutate(s => ({ ...s, dailyBiases: s.dailyBiases.map(b => b.id === id ? { ...b, ...nextUpdates } : b) }));
       return apiCall('PATCH', `/api/bias/${id}`, nextUpdates);
     }, []),
