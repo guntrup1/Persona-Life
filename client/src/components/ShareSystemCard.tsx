@@ -3,7 +3,6 @@ import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import { Share2, FileDown, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { SystemView } from "./TradingSystemDialog";
 import { useStore, TradingSystem } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
@@ -86,31 +85,16 @@ export function TradingSystemShareCard({ system }: { system: TradingSystem }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-end gap-1.5">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button type="button" size="icon" variant="ghost" onClick={onShare} aria-label="Поделиться ссылкой">
-              <Share2 className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Поделиться ссылкой</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button type="button" size="icon" variant="ghost" onClick={downloadPdf} aria-label="Скачать PDF">
-              <FileDown className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Скачать PDF</TooltipContent>
-        </Tooltip>
+        <Button type="button" size="icon" variant="ghost" onClick={onShare} title="Поделиться ссылкой" aria-label="Поделиться ссылкой">
+          <Share2 className="h-4 w-4" />
+        </Button>
+        <Button type="button" size="icon" variant="ghost" onClick={downloadPdf} title="Скачать PDF" aria-label="Скачать PDF">
+          <FileDown className="h-4 w-4" />
+        </Button>
         {user ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button type="button" size="icon" variant="ghost" onClick={onImport} aria-label="Импортировать себе">
-                <Download className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Импортировать себе</TooltipContent>
-          </Tooltip>
+          <Button type="button" size="icon" variant="ghost" onClick={onImport} title="Импортировать себе" aria-label="Импортировать себе">
+            <Download className="h-4 w-4" />
+          </Button>
         ) : (
           <span className="text-xs text-muted-foreground">Войдите, чтобы импортировать</span>
         )}
