@@ -516,7 +516,23 @@ export default function BrainstormPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Ошибка генерации");
+      if (!res.ok) {
+        const isQuota =
+          data?.kind === "quota" ||
+          res.status === 429 ||
+          /лимит|quota|resource_exhausted|429/i.test(data?.error || "");
+        if (isQuota) {
+          toast({
+            title: "⚠️ Лимит вашего API нейросети исчерпан",
+            description: "Подождите несколько минут или обновите ключ API в настройках, затем попробуйте снова.",
+            variant: "destructive",
+            suppressReport: true,
+          });
+          setPrompt(currentPrompt);
+          return;
+        }
+        throw new Error(data.error || "Ошибка генерации");
+      }
 
       toast({ title: mode === "chat" ? "✅ Personedge ответила" : "✅ Брейншторм завершен!" });
       // The first brainstorm is done — the next messages naturally continue as an informal discussion

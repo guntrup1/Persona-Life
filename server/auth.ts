@@ -685,6 +685,9 @@ export function registerAuthRoutes(app: Express) {
       ];
       if (stack) lines.push("", "🧵 Стек:", String(stack).slice(0, 2000));
       const delivered = await sendTelegramMessage(chatId, lines.join("\n"));
+      if (!delivered) {
+        return res.status(502).json({ ok: false, message: "Доставка в Telegram не настроена" });
+      }
       return res.json({ ok: true, delivered });
     } catch (err) {
       console.error("Report error failed:", err);

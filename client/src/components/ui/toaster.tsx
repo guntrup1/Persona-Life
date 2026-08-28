@@ -15,7 +15,7 @@ export function Toaster() {
 
   return (
     <ToastProvider>
-      {toasts.map(function ({ id, title, description, action, ...props }) {
+      {toasts.map(function ({ id, title, description, action, suppressReport, ...props }) {
         const isError = props.variant === "destructive"
         return (
           <Toast key={id} {...props}>
@@ -26,7 +26,7 @@ export function Toaster() {
               )}
             </div>
             <div className="flex items-center gap-2">
-              {isError && (
+              {isError && !suppressReport && (
                 <Button
                   size="sm"
                   variant="outline"

@@ -692,15 +692,15 @@ ${contextData}
       
       if (!raw) {
         if (rateLimitError) {
-          return res.status(429).json({ error: rateLimitError });
+          return res.status(429).json({ error: rateLimitError, kind: "quota" });
         }
-        
+
         // Determine if it's a quota issue or model issue based on lastErrText
         const isQuota = lastErrText.includes("429") || lastErrText.includes("RESOURCE_EXHAUSTED") || lastErrText.includes("quota");
         const friendlyMsg = isQuota
           ? "Квота Gemini API исчерпана (лимит запросов в минуту). Подождите минуту и попробуйте снова."
           : "Не удалось получить ответ от Gemini. Попробуйте позже.";
-        return res.status(502).json({ error: friendlyMsg });
+        return res.status(isQuota ? 429 : 502).json({ error: friendlyMsg, kind: isQuota ? "quota" : "error" });
       }
 
       // 6. Parse JSON with multi-strategy extraction
