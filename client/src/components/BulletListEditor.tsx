@@ -89,3 +89,8 @@ export function BulletText({ text, className }: { text?: string; className?: str
     </ul>
   );
 }
+
+export function FormattedText({ text, className }: { text?: string; className?: string }) {
+  if (!text || !text.trim()) return <span className="text-muted-foreground">—</span>;
+  return <div className={className || "whitespace-pre-wrap leading-relaxed"}>{renderInline(text)}</div>;
+}

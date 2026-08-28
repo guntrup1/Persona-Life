@@ -21,7 +21,7 @@ export function decodeSystem(code: string): TradingSystem | null {
 }
 
 export function shareUrl(system: TradingSystem): string {
-  return `${window.location.origin}/?shared=${encodeSystem(system)}`;
+  return `${window.location.origin}/?shared=${encodeURIComponent(encodeSystem(system))}`;
 }
 
 export async function copyShareLink(system: TradingSystem) {
@@ -84,9 +84,6 @@ export function TradingSystemShareCard({ system }: { system: TradingSystem }) {
 
   return (
     <div className="space-y-3">
-      <div ref={ref} className="rounded-lg">
-        <SystemView system={system} />
-      </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button type="button" size="sm" variant="outline" onClick={onShare}>
           <Share2 className="h-3.5 w-3.5" />Поделиться ссылкой
@@ -103,6 +100,9 @@ export function TradingSystemShareCard({ system }: { system: TradingSystem }) {
             <LogIn className="h-3 w-3" />Войдите, чтобы импортировать
           </span>
         )}
+      </div>
+      <div ref={ref} className="rounded-lg">
+        <SystemView system={system} />
       </div>
     </div>
   );
