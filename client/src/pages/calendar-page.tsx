@@ -11,7 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { ChevronLeft, ChevronRight, Plus, Hourglass, CheckCircle, Circle, ArrowUpCircle, ArrowDownCircle, MinusCircle, FileText, CandlestickChart, Edit2, CalendarDays, Brain } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ChevronLeft, ChevronRight, Plus, Hourglass, CheckCircle, Circle, ArrowUpCircle, ArrowDownCircle, MinusCircle, FileText, CandlestickChart, Edit2, CalendarDays, Brain, Eye } from "lucide-react";
 import { getTodayDate, formatUserClock, getGoodDayAssets } from "@/lib/store";
 import { BiasChecklistView } from "@/components/BiasChecklistView";
 import { FormattedText } from "@/components/BulletListEditor";
@@ -660,7 +661,7 @@ export default function CalendarPage() {
               )}
             </Card>
 
-            <DayDetails selectedDate={selectedDate} brainstormSessions={brainstormSessions} />
+            <DayDetailsSummary selectedDate={selectedDate} brainstormSessions={brainstormSessions} />
 
             <Card className="p-3 border-card-border">
               <div className="font-display text-xs text-muted-foreground uppercase tracking-widest mb-2">{t.calendar.legend}</div>
@@ -730,6 +731,81 @@ export default function CalendarPage() {
         />
       </div>
     </div>
+  );
+}
+
+function DayDetailsSummary({ selectedDate, brainstormSessions = [] }: { selectedDate: string, brainstormSessions?: any[] }) {
+  const { state } = useStore();
+  const [open, setOpen] = useState(false);
+  const tradingNotes = state.tradingNotes.filter(n => n.date === selectedDate);
+  const dailyBiases = state.dailyBiases.filter(b => b.date === selectedDate);
+  const dayNotes = state.dayNotes.filter(n => n.date === selectedDate);
+  const brainstorms = brainstormSessions
+    .filter((s: any) => !s.parentSessionId)
+    .filter((s: any) => new Date(s.createdAt).toISOString().slice(0, 10) === selectedDate);
+  const goodAssets = getGoodDayAssets(selectedDate, state.dailyBiases, state.biasChecklists);
+
+  const hasAny = tradingNotes.length > 0 || dailyBiases.length > 0 || dayNotes.length > 0 || brainstorms.length > 0 || goodAssets.length > 0;
+  if (!hasAny) return null;
+
+  return (
+    <>
+      <Card className="p-3 border-card-border">
+        <div className="flex items-center justify-between mb-2">
+          <div className="font-display text-xs text-muted-foreground uppercase tracking-widest">Записи дня</div>
+          <Button size="sm" variant="ghost" className="h-7 gap-1.5 text-xs text-primary" onClick={() => setOpen(true)}>
+            <Eye className="w-3 h-3" />
+            Подробнее
+          </Button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {dayNotes.length > 0 && (
+            <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              <FileText className="w-3 h-3 text-primary/70" />
+              <span>{dayNotes.length} {dayNotes.length === 1 ? "заметка" : "заметки"}</span>
+            </div>
+          )}
+          {dailyBiases.length > 0 && (
+            <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              <CandlestickChart className="w-3 h-3 text-primary/70" />
+              <span>{dailyBiases.length} {dailyBiases.length === 1 ? "биас" : "биаса"}</span>
+            </div>
+          )}
+          {tradingNotes.length > 0 && (
+            <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              <CandlestickChart className="w-3 h-3 text-yellow-500/70" />
+              <span>{tradingNotes.length} трейд{tradingNotes.length === 1 ? "" : "а"}</span>
+            </div>
+          )}
+          {brainstorms.length > 0 && (
+            <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              <Brain className="w-3 h-3 text-purple-400/70" />
+              <span>{brainstorms.length} сессия</span>
+            </div>
+          )}
+          {goodAssets.length > 0 && (
+            <div className="flex items-center gap-1 text-[11px] text-green-400">
+              <CheckCircle className="w-3 h-3" />
+              <span>{goodAssets.join(", ")}</span>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] p-0">
+          <DialogHeader className="p-4 pb-2">
+            <DialogTitle className="font-display text-sm uppercase tracking-wider flex items-center gap-2">
+              <CalendarDays className="w-4 h-4 text-primary" />
+              Детали дня — {new Date(selectedDate + "T12:00:00").toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="h-[65vh] px-4 pb-4">
+            <DayDetails selectedDate={selectedDate} brainstormSessions={brainstormSessions} />
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

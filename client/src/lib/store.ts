@@ -836,6 +836,7 @@ function autoLoadRoutine(state: AppState): AppState {
   });
   if (enabledRoutines.length === 0) return state;
 
+  const now = new Date().toISOString();
   const newTasks: TodayTask[] = enabledRoutines.map(r => ({
     id: crypto.randomUUID(),
     name: r.name,
@@ -848,6 +849,8 @@ function autoLoadRoutine(state: AppState): AppState {
     routineId: r.id,
     weekGoalId: r.goalId,
     noDeadline: true,
+    createdAt: now,
+    updatedAt: now,
   }));
 
   if (typeof window !== "undefined") {
@@ -930,7 +933,11 @@ function mergeArraysById<T extends { id: string }>(local: T[], server: T[], dele
       // Safely compare update timestamps. If missing, prefer the local one.
       const serverTime = (existing as any).updatedAt || (existing as any).completedAt || (existing as any).createdAt || "";
       const localTime = (item as any).updatedAt || (item as any).completedAt || (item as any).createdAt || "";
-      const winner = (localTime && serverTime && localTime < serverTime) ? existing : item;
+      
+      let winner = item;
+      if (serverTime && !localTime) winner = existing;
+      else if (localTime && serverTime && localTime < serverTime) winner = existing;
+      
       map.set(winner.id, winner);
     } else {
       map.set(item.id, item);
@@ -961,7 +968,11 @@ function mergeArraysByKey<T extends { id: string }>(local: T[], server: T[], key
     if (existing) {
       const serverTime = (existing as any).updatedAt || (existing as any).completedAt || (existing as any).createdAt || "";
       const localTime = (item as any).updatedAt || (item as any).completedAt || (item as any).createdAt || "";
-      const winner = (localTime && serverTime && localTime < serverTime) ? existing : item;
+      
+      let winner = item;
+      if (serverTime && !localTime) winner = existing;
+      else if (localTime && serverTime && localTime < serverTime) winner = existing;
+      
       byId.set(winner.id, winner);
       byKey.set(key, winner);
     } else {
@@ -1282,11 +1293,13 @@ export function useStore() {
           return true;
         });
         if (enabledRoutines.length === 0) return s;
+        const now = new Date().toISOString();
         createdTasks = enabledRoutines.map(r => ({
           id: crypto.randomUUID(), name: r.name, description: r.description,
           category: r.category, xp: r.xp, completed: false,
           date: today, type: "routine" as TaskType, routineId: r.id,
           weekGoalId: r.goalId, noDeadline: true,
+          createdAt: now, updatedAt: now,
         }));
         return {
           ...s,
@@ -1300,7 +1313,8 @@ export function useStore() {
     }, []),
 
     addTodayTask: useCallback((task: Omit<TodayTask, "id" | "completed">) => {
-      const newTask: TodayTask = { ...task, id: crypto.randomUUID(), completed: false };
+      const now = new Date().toISOString();
+      const newTask: TodayTask = { ...task, id: crypto.randomUUID(), completed: false, createdAt: now, updatedAt: now };
       mutate(s => ({ ...s, todayTasks: [...s.todayTasks, newTask] }));
       apiCall('POST', '/api/tasks', newTask);
 
