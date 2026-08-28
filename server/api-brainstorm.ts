@@ -766,7 +766,8 @@ ${contextData}
 
     } catch (err: any) {
       console.error("[brainstorm] generate error:", err);
-      return res.status(500).json({ error: "Внутренняя ошибка сервера" });
+      const msg = err?.message ? String(err.message).slice(0, 200) : "Неизвестная ошибка сервера";
+      return res.status(500).json({ error: `Ошибка сервера: ${msg}`, kind: "error" });
     }
   });
 

@@ -498,8 +498,12 @@ export default function BrainstormPage() {
         return;
       }
     }
-    if (mode === "chat" && !prompt.trim()) {
-      toast({ title: "Напишите сообщение для Personedge", variant: "destructive" });
+    if (!prompt.trim()) {
+      toast({
+        title: mode === "chat" ? "Напишите сообщение для Personedge" : "Опишите, что нужно проанализировать",
+        variant: "destructive",
+        suppressReport: true,
+      });
       return;
     }
 
@@ -542,7 +546,7 @@ export default function BrainstormPage() {
       await loadSessions();
 
     } catch (err: any) {
-      toast({ title: err.message, variant: "destructive" });
+      toast({ title: err.message, description: "Раздел: Брейншторм", variant: "destructive" });
       setPrompt(currentPrompt); // Restore input on error
     } finally {
       setIsGenerating(false);
