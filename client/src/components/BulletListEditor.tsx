@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Plus, X, ChevronUp, ChevronDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -92,5 +92,42 @@ export function BulletText({ text, className }: { text?: string; className?: str
 
 export function FormattedText({ text, className }: { text?: string; className?: string }) {
   if (!text || !text.trim()) return <span className="text-muted-foreground">—</span>;
-  return <div className={className || "whitespace-pre-wrap leading-relaxed"}>{renderInline(text)}</div>;
+
+  const lines = text.split("\n");
+  const blocks: ReactNode[] = [];
+  let bullets: string[] = [];
+  const flushBullets = () => {
+    if (bullets.length) {
+      const items = bullets;
+      blocks.push(
+        <ul key={`ul-${blocks.length}`} className="list-disc pl-4 space-y-0.5 my-1">
+          {items.map((b, i) => (
+            <li key={i}>{renderInline(b)}</li>
+          ))}
+        </ul>
+      );
+      bullets = [];
+    }
+  };
+
+  lines.forEach((line, idx) => {
+    const m = line.match(/^\s*[-*•]\s+(.*)$/);
+    if (m) {
+      bullets.push(m[1]);
+    } else {
+      flushBullets();
+      if (line.trim() === "") {
+        blocks.push(<br key={`br-${idx}`} />);
+      } else {
+        blocks.push(
+          <div key={`d-${idx}`} className="whitespace-pre-wrap">
+            {renderInline(line)}
+          </div>
+        );
+      }
+    }
+  });
+  flushBullets();
+
+  return <div className={`${className || ""} leading-relaxed`}>{blocks}</div>;
 }
