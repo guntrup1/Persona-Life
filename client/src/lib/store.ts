@@ -1650,6 +1650,23 @@ export function useStore() {
       return apiCall('DELETE', `/api/trading-systems/${id}`);
     }, []),
 
+    createSharedSystem: useCallback(async (system: TradingSystem): Promise<string | null> => {
+      try {
+        const res = await fetch('/api/shared-system', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(system),
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data.code || null;
+      } catch (e) {
+        console.error('createSharedSystem error', e);
+        return null;
+      }
+    }, []),
+
     rescheduleTask: useCallback((id: string, newDate: string) => {
       mutate(s => ({ ...s, todayTasks: s.todayTasks.map(t => t.id === id ? { ...t, date: newDate, completed: false, completedAt: undefined, wasRescheduled: true } : t) }));
       apiCall('PATCH', `/api/tasks/${id}`, { date: newDate, completed: false, wasRescheduled: true });

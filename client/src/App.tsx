@@ -682,14 +682,18 @@ function App() {
     };
   }, []);
 
-  const shared = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("shared") : null;
+  const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+  const sharedCode = params?.get("s") || null;
+  const sharedData = params?.get("shared") || null;
+  const shared = sharedCode || sharedData;
+  const sharedIsCode = !!sharedCode;
 
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <I18nProvider>
           <AuthProvider onLogin={handleLogin}>
-            {shared ? <SharedSystemViewer code={shared} /> : <AppShell />}
+            {shared ? <SharedSystemViewer code={sharedIsCode ? shared : undefined} shared={sharedIsCode ? undefined : shared} /> : <AppShell />}
             <FloatingTimerWidget />
             <Toaster />
           </AuthProvider>

@@ -333,3 +333,12 @@ const processedAudioSchema = new mongoose.Schema({
 
 export const ProcessedAudio = mongoose.model("ProcessedAudio", processedAudioSchema);
 
+const sharedSystemSchema = new mongoose.Schema({
+  code: { type: String, required: true, unique: true, index: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  system: { type: mongoose.Schema.Types.Mixed, required: true },
+  createdAt: { type: Date, default: Date.now, index: { expires: "180d" } },
+});
+
+export const SharedSystem = mongoose.model("SharedSystem", sharedSystemSchema);
+

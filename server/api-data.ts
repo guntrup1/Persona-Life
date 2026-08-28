@@ -1,11 +1,12 @@
 import type { Express } from "express";
+import { randomBytes } from "crypto";
 import { requireAuth } from "./auth";
 import { z } from "zod";
 import { bumpRevision, recordDeletion } from "./revision";
 import { findDuplicateTask, findDuplicateGoal, findDuplicateDayNote } from "./dedupe";
 import {
   Task, Goal, DayNote, TradingNote, DailyBias,
-  FocusSession, RoutineTemplate,   Simulation, UserData, UserDataBackup, BiasChecklist, TradingSystem
+  FocusSession, RoutineTemplate,   Simulation, UserData, UserDataBackup, BiasChecklist, TradingSystem, SharedSystem
 } from "./mongodb";
 
 // Zod schemas for validation
@@ -882,6 +883,46 @@ export function registerDataRoutes(app: Express) {
       res.json({ ok: true });
     } catch {
       res.status(400).json({ ok: false });
+    }
+  });
+
+  // --- SHARED SYSTEMS (short share links) ---
+  async function generateSharedCode(): Promise<string> {
+    for (let i = 0; i < 6; i++) {
+      const code = randomBytes(5).toString("base64url").slice(0, 8);
+      const existing = await SharedSystem.findOne({ code }).lean();
+      if (!existing) return code;
+    }
+    return randomBytes(6).toString("base64url").slice(0, 10);
+  }
+
+  app.post("/api/shared-system", requireAuth, async (req: any, res) => {
+    try {
+      const sys = req.body;
+      if (!sys || typeof sys !== "object" || !sys.asset || !sys.type || !Array.isArray(sys.sessions)) {
+        return res.status(400).json({ ok: false, message: "Некорректные данные" });
+      }
+      const code = await generateSharedCode();
+      await SharedSystem.findOneAndUpdate(
+        { code },
+        { code, userId: req.session.userId, system: sys, createdAt: new Date() },
+        { upsert: true, new: true }
+      );
+      res.json({ ok: true, code });
+    } catch (e) {
+      console.error("shared-system POST error", e);
+      res.status(500).json({ ok: false });
+    }
+  });
+
+  app.get("/api/shared-system/:code", async (req, res) => {
+    try {
+      const doc = await SharedSystem.findOne({ code: req.params.code }).lean();
+      if (!doc) return res.status(404).json({ ok: false });
+      res.json({ ok: true, system: (doc as any).system });
+    } catch (e) {
+      console.error("shared-system GET error", e);
+      res.status(500).json({ ok: false });
     }
   });
   

@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { MotionDialogContent } from "@/components/motion";
 import { useStore, ASSETS, TradeAsset, TradingSystem } from "@/lib/store";
-import { copyShareLink, TradingSystemShareCard } from "@/components/ShareSystemCard";
+import { TradingSystemShareCard } from "@/components/ShareSystemCard";
 import { useToast } from "@/hooks/use-toast";
 
 export function TradingSystemsPanel({
@@ -63,7 +63,12 @@ export function TradingSystemsPanel({
                 <Button size="sm" variant="outline" onClick={() => onEdit({ systemId: sys.id })}>Открыть</Button>
                 <Button size="icon" variant="ghost" className="h-8 w-8"
                   title="Поделиться ссылкой"
-                  onClick={async () => { await copyShareLink(sys); toast({ title: "Ссылка скопирована" }); }}>
+                  onClick={async () => {
+                    const code = await actions.createSharedSystem(sys);
+                    if (!code) { toast({ title: "Не удалось создать ссылку" }); return; }
+                    try { await navigator.clipboard.writeText(`${window.location.origin}/?s=${code}`); } catch {}
+                    toast({ title: "Короткая ссылка скопирована" });
+                  }}>
                   <Share2 className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />
                 </Button>
                 <Button size="icon" variant="ghost" className="h-8 w-8"

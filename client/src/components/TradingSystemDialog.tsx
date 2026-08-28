@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Plus, X, Clock, Trash2, BookOpen, ExternalLink, Check } from "lucide-react";
 import { RemoteImage } from "./remote-image";
 import {
@@ -315,15 +315,25 @@ export function TradingSystemDialog({
   );
 }
 
+function ConditionCell({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="rounded-lg border border-border bg-card/40 p-2.5">
+      <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="text-sm text-foreground">{children}</div>
+    </div>
+  );
+}
+
 export function SystemView({ system }: { system: TradingSystem }) {
   const enabledSessions = system.sessions?.filter((s) => s.enabled) || [];
+  const isIntraday = system.type !== "swing";
   return (
     <div className="space-y-4 py-2">
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-semibold text-primary">{system.asset}</span>
         {system.name && <span className="text-sm font-medium text-foreground">{system.name}</span>}
         <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
-          {system.type === "intraday" ? "Внутридневная" : "Свинг"}
+          {isIntraday ? "Внутридневная" : "Свинг"}
         </span>
       </div>
 
@@ -334,27 +344,43 @@ export function SystemView({ system }: { system: TradingSystem }) {
         </a>
       )}
 
-      {system.type !== "swing" && (system.holdFrom || system.holdTo) && (
-        <div className="space-y-1.5">
-          <div className="text-xs uppercase tracking-wide text-muted-foreground">Удержание позиции</div>
-          <div className="rounded-md bg-muted px-2 py-1 text-sm text-foreground">
-            {system.holdFrom || "—"} – {system.holdTo || "—"}
-          </div>
-        </div>
-      )}
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {isIntraday && enabledSessions.length > 0 && (
+          <ConditionCell label="Торговые сессии">
+            <div className="flex flex-wrap gap-1.5">
+              {enabledSessions.map((s) => (
+                <span key={s.id} className="rounded-md bg-muted px-2 py-1 text-xs text-foreground">
+                  {s.label}: {s.start}–{s.end}
+                </span>
+              ))}
+            </div>
+          </ConditionCell>
+        )}
 
-      {enabledSessions.length > 0 && (
-        <div className="space-y-1.5">
-          <div className="text-xs uppercase tracking-wide text-muted-foreground">Торговые сессии</div>
-          <div className="flex flex-wrap gap-1.5">
-            {enabledSessions.map((s) => (
-              <span key={s.id} className="rounded-md bg-muted px-2 py-1 text-xs text-foreground">
-                {s.label}: {s.start}–{s.end}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
+        {isIntraday && (system.holdFrom || system.holdTo) && (
+          <ConditionCell label="Удержание позиции">
+            <span className="rounded-md bg-muted px-2 py-0.5 text-sm text-foreground">
+              {system.holdFrom || "—"} – {system.holdTo || "—"}
+            </span>
+          </ConditionCell>
+        )}
+
+        <ConditionCell label="Условия без убытка">
+          {system.breakevenRules?.trim() ? (
+            <p className="whitespace-pre-wrap leading-relaxed text-sm text-foreground">{system.breakevenRules}</p>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          )}
+        </ConditionCell>
+
+        <ConditionCell label="Условия Skip-day">
+          {system.skipDayRules?.trim() ? (
+            <p className="whitespace-pre-wrap leading-relaxed text-sm text-foreground">{system.skipDayRules}</p>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          )}
+        </ConditionCell>
+      </div>
 
       {system.timeframeDescriptions?.length > 0 && (
         <div className="space-y-2">
@@ -392,20 +418,6 @@ export function SystemView({ system }: { system: TradingSystem }) {
               </li>
             ))}
           </ul>
-        </div>
-      )}
-
-      {system.breakevenRules && (
-        <div className="space-y-1.5">
-          <div className="text-xs uppercase tracking-wide text-muted-foreground">Условия без убытка</div>
-          <p className="whitespace-pre-wrap rounded-md border border-border p-2 text-sm text-foreground">{system.breakevenRules}</p>
-        </div>
-      )}
-
-      {system.skipDayRules && (
-        <div className="space-y-1.5">
-          <div className="text-xs uppercase tracking-wide text-muted-foreground">Условия Skip-day</div>
-          <p className="whitespace-pre-wrap rounded-md border border-border p-2 text-sm text-foreground">{system.skipDayRules}</p>
         </div>
       )}
     </div>

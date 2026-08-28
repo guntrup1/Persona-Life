@@ -8,10 +8,6 @@ import { useStore, TradingSystem } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 
-export function encodeSystem(system: TradingSystem): string {
-  return btoa(unescape(encodeURIComponent(JSON.stringify(system))));
-}
-
 export function decodeSystem(code: string): TradingSystem | null {
   try {
     return JSON.parse(decodeURIComponent(escape(atob(code)))) as TradingSystem;
@@ -20,18 +16,12 @@ export function decodeSystem(code: string): TradingSystem | null {
   }
 }
 
-export function shareUrl(system: TradingSystem): string {
-  return `${window.location.origin}/?shared=${encodeURIComponent(encodeSystem(system))}`;
-}
-
-export async function copyShareLink(system: TradingSystem) {
-  const url = shareUrl(system);
+async function copyText(text: string) {
   try {
-    await navigator.clipboard.writeText(url);
+    await navigator.clipboard.writeText(text);
   } catch {
-    // fallback
     const ta = document.createElement("textarea");
-    ta.value = url;
+    ta.value = text;
     document.body.appendChild(ta);
     ta.select();
     document.execCommand("copy");
@@ -73,8 +63,13 @@ export function TradingSystemShareCard({ system }: { system: TradingSystem }) {
   };
 
   const onShare = async () => {
-    await copyShareLink(system);
-    toast({ title: "Ссылка скопирована", description: "Отправьте её любому человеку — открыть можно без регистрации." });
+    const code = await actions.createSharedSystem(system);
+    if (!code) {
+      toast({ title: "Не удалось создать ссылку", description: "Попробуйте ещё раз." });
+      return;
+    }
+    await copyText(`${window.location.origin}/?s=${code}`);
+    toast({ title: "Короткая ссылка скопирована", description: "Отправьте её любому человеку — открыть можно без регистрации." });
   };
 
   const onImport = () => {
