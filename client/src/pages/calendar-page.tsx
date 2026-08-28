@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { ChevronLeft, ChevronRight, Plus, Hourglass, CheckCircle, Circle, ArrowUpCircle, ArrowDownCircle, MinusCircle, FileText, CandlestickChart, Edit2, CalendarDays, Brain } from "lucide-react";
 import { getTodayDate, formatUserClock, getGoodDayAssets } from "@/lib/store";
 import { BiasChecklistView } from "@/components/BiasChecklistView";
+import { BulletText } from "@/components/BulletListEditor";
 import { RemoteImage } from "@/components/remote-image";
 import { Link } from "wouter";
 
@@ -848,10 +849,14 @@ function DayDetails({ selectedDate, brainstormSessions = [] }: { selectedDate: s
                   </div>
                 </div>
                 {bias.pros && (
-                  <div className="text-[10px] text-green-400/80 line-clamp-2">▲ {t.calendar.pros}: {bias.pros}</div>
+                  <div className="text-[10px] text-green-400/80">▲ {t.calendar.pros}:
+                    <BulletText text={bias.pros} className="text-green-300/90 mt-0.5 space-y-0.5" />
+                  </div>
                 )}
                 {bias.cons && (
-                  <div className="text-[10px] text-red-400/80 line-clamp-2">▼ {t.calendar.cons}: {bias.cons}</div>
+                  <div className="text-[10px] text-red-400/80">▼ {t.calendar.cons}:
+                    <BulletText text={bias.cons} className="text-red-300/90 mt-0.5 space-y-0.5" />
+                  </div>
                 )}
                 {(bias.screenshots?.length ? bias.screenshots : (bias.screenshotUrl ? [{ tf: "1D", url: bias.screenshotUrl }] : [])).map((s, i) => (
                   <div key={i} className="mt-1 relative">

@@ -231,6 +231,10 @@ export interface TradingSystem {
   name: string;
   type: "intraday" | "swing";
   sessions: TradeSession[];
+  holdFrom: string; // "HH:MM" — position may be active from
+  holdTo: string; // "HH:MM" — position must be closed by
+  breakevenRules: string; // условия без убытка
+  skipDayRules: string; // условия Skip-day
   backtestLink: string;
   timeframeDescriptions: TimeframeDescription[];
   checklistItems: ChecklistItem[];

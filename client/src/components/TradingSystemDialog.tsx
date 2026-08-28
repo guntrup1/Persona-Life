@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { EditableChecklist, ChecklistItemData } from "@/components/EditableChecklist";
 import { MotionDialogContent, MotionItem, MotionList } from "@/components/motion";
+import { TradingSystemShareCard } from "@/components/ShareSystemCard";
 import { useStore, ASSETS, TradeAsset, TradeSession, TimeframeDescription, TradingSystem } from "@/lib/store";
 
 const SESSION_PRESETS: { label: string; start: string; end: string }[] = [
@@ -65,6 +66,10 @@ export function TradingSystemDialog({
           { id: crypto.randomUUID(), label: "Нью-Йорк", start: "15:30", end: "18:00", enabled: true },
         ]
   );
+  const [holdFrom, setHoldFrom] = useState(existing?.holdFrom ?? "");
+  const [holdTo, setHoldTo] = useState(existing?.holdTo ?? "");
+  const [breakevenRules, setBreakevenRules] = useState(existing?.breakevenRules ?? "");
+  const [skipDayRules, setSkipDayRules] = useState(existing?.skipDayRules ?? "");
   const [backtestLink, setBacktestLink] = useState(existing?.backtestLink ?? "");
   const [timeframeDescriptions, setTimeframeDescriptions] = useState<TimeframeDescription[]>(
     existing?.timeframeDescriptions?.length
@@ -93,6 +98,10 @@ export function TradingSystemDialog({
       name: name.trim(),
       type,
       sessions,
+      holdFrom,
+      holdTo,
+      breakevenRules: breakevenRules.trim(),
+      skipDayRules: skipDayRules.trim(),
       backtestLink: backtestLink.trim(),
       timeframeDescriptions,
       checklistItems,
@@ -123,7 +132,7 @@ export function TradingSystemDialog({
         </DialogHeader>
 
         {isView && existing ? (
-          <SystemView system={existing} />
+          <TradingSystemShareCard system={existing} />
         ) : (
           <div className="space-y-5 py-2">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -153,7 +162,14 @@ export function TradingSystemDialog({
                   type="button"
                   size="sm"
                   variant={type === t ? "default" : "outline"}
-                  onClick={() => setType(t)}
+                  onClick={() => {
+                    setType(t);
+                    if (t === "swing") {
+                      setSessions([]);
+                      setHoldFrom("");
+                      setHoldTo("");
+                    }
+                  }}
                 >
                   {t === "intraday" ? "Внутридневная" : "Свинг"}
                 </Button>
@@ -163,44 +179,56 @@ export function TradingSystemDialog({
 
           <Separator />
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />Торговые сессии</Label>
-              <div className="flex flex-wrap gap-1">
-                {SESSION_PRESETS.map((p) => (
-                  <Button key={p.label} type="button" size="sm" variant="ghost" className="h-7 text-xs"
-                    onClick={() => addSession(p.label, p.start, p.end)}>
-                    <Plus className="h-3 w-3" />{p.label}
-                  </Button>
-                ))}
-              </div>
-            </div>
-            <MotionList className="space-y-2">
-              {sessions.map((s) => (
-                <MotionItem key={s.id}>
-                  <div className="flex items-center gap-2 rounded-md border border-border p-2">
-                    <Input
-                      value={s.label}
-                      onChange={(e) => updateSession(s.id, { label: e.target.value })}
-                      placeholder="Метка"
-                      className="h-8 w-28 text-sm"
-                    />
-                    <Input type="time" value={s.start} onChange={(e) => updateSession(s.id, { start: e.target.value })} className="h-8 w-24 text-sm" />
-                    <span className="text-xs text-muted-foreground">—</span>
-                    <Input type="time" value={s.end} onChange={(e) => updateSession(s.id, { end: e.target.value })} className="h-8 w-24 text-sm" />
-                    <Switch checked={s.enabled} onCheckedChange={(v) => updateSession(s.id, { enabled: v })} />
-                    <Button type="button" size="icon" variant="ghost" className="h-8 w-8"
-                      onClick={() => removeSession(s.id)}>
-                      <X className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+          {type !== "swing" ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />Торговые сессии</Label>
+                <div className="flex flex-wrap gap-1">
+                  {SESSION_PRESETS.map((p) => (
+                    <Button key={p.label} type="button" size="sm" variant="ghost" className="h-7 text-xs"
+                      onClick={() => addSession(p.label, p.start, p.end)}>
+                      <Plus className="h-3 w-3" />{p.label}
                     </Button>
-                  </div>
-                </MotionItem>
-              ))}
-            </MotionList>
-            {sessions.length === 0 && (
-              <p className="text-xs text-muted-foreground">Нет сессий. Добавьте пресет или опишите свои окна.</p>
-            )}
-          </div>
+                  ))}
+                </div>
+              </div>
+              <MotionList className="space-y-2">
+                {sessions.map((s) => (
+                  <MotionItem key={s.id}>
+                    <div className="flex items-center gap-2 rounded-md border border-border p-2">
+                      <Input
+                        value={s.label}
+                        onChange={(e) => updateSession(s.id, { label: e.target.value })}
+                        placeholder="Метка"
+                        className="h-8 w-28 text-sm"
+                      />
+                      <Input type="time" value={s.start} onChange={(e) => updateSession(s.id, { start: e.target.value })} className="h-8 w-24 text-sm" />
+                      <span className="text-xs text-muted-foreground">—</span>
+                      <Input type="time" value={s.end} onChange={(e) => updateSession(s.id, { end: e.target.value })} className="h-8 w-24 text-sm" />
+                      <Switch checked={s.enabled} onCheckedChange={(v) => updateSession(s.id, { enabled: v })} />
+                      <Button type="button" size="icon" variant="ghost" className="h-8 w-8"
+                        onClick={() => removeSession(s.id)}>
+                        <X className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                      </Button>
+                    </div>
+                  </MotionItem>
+                ))}
+              </MotionList>
+              {sessions.length === 0 && (
+                <p className="text-xs text-muted-foreground">Нет сессий. Добавьте пресет или опишите свои окна.</p>
+              )}
+
+              <div className="flex items-center gap-2 pt-1">
+                <Label className="flex items-center gap-1.5 text-sm"><Clock className="h-3.5 w-3.5" />Удержание позиции (от — до)</Label>
+                <Input type="time" value={holdFrom} onChange={(e) => setHoldFrom(e.target.value)} className="h-8 w-24 text-sm" />
+                <span className="text-xs text-muted-foreground">—</span>
+                <Input type="time" value={holdTo} onChange={(e) => setHoldTo(e.target.value)} className="h-8 w-24 text-sm" />
+              </div>
+              <p className="text-xs text-muted-foreground">Время, когда позиция может быть активна, и до которого она должна быть закрыта.</p>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">Свинг-система: торговые сессии и удержание позиции не применяются.</p>
+          )}
 
           <Separator />
 
@@ -242,6 +270,20 @@ export function TradingSystemDialog({
 
           <Separator />
 
+          <div className="space-y-2">
+            <Label>Условия без убытка</Label>
+            <Textarea value={breakevenRules} onChange={(e) => setBreakevenRules(e.target.value)}
+              placeholder="Когда и как переводить сделку в безубыток (уровни, правила)…" className="min-h-[64px] text-sm" />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Условия Skip-day</Label>
+            <Textarea value={skipDayRules} onChange={(e) => setSkipDayRules(e.target.value)}
+              placeholder="В какие дни/условия не входить в сделку (новости, дни недели)…" className="min-h-[64px] text-sm" />
+          </div>
+
+          <Separator />
+
             <div className="space-y-2">
               <Label>Чек-лист (подставляется в биасы)</Label>
               <EditableChecklist items={checklistItems} onChange={setChecklistItems} />
@@ -273,7 +315,7 @@ export function TradingSystemDialog({
   );
 }
 
-function SystemView({ system }: { system: TradingSystem }) {
+export function SystemView({ system }: { system: TradingSystem }) {
   const enabledSessions = system.sessions?.filter((s) => s.enabled) || [];
   return (
     <div className="space-y-4 py-2">
@@ -290,6 +332,15 @@ function SystemView({ system }: { system: TradingSystem }) {
            className="inline-flex items-center gap-1.5 text-sm text-primary underline">
           <ExternalLink className="h-3.5 w-3.5" />Бэктест
         </a>
+      )}
+
+      {system.type !== "swing" && (system.holdFrom || system.holdTo) && (
+        <div className="space-y-1.5">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">Удержание позиции</div>
+          <div className="rounded-md bg-muted px-2 py-1 text-sm text-foreground">
+            {system.holdFrom || "—"} – {system.holdTo || "—"}
+          </div>
+        </div>
       )}
 
       {enabledSessions.length > 0 && (
@@ -341,6 +392,20 @@ function SystemView({ system }: { system: TradingSystem }) {
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {system.breakevenRules && (
+        <div className="space-y-1.5">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">Условия без убытка</div>
+          <p className="whitespace-pre-wrap rounded-md border border-border p-2 text-sm text-foreground">{system.breakevenRules}</p>
+        </div>
+      )}
+
+      {system.skipDayRules && (
+        <div className="space-y-1.5">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">Условия Skip-day</div>
+          <p className="whitespace-pre-wrap rounded-md border border-border p-2 text-sm text-foreground">{system.skipDayRules}</p>
         </div>
       )}
     </div>

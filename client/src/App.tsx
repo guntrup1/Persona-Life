@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { FloatingTimerWidget } from "@/components/FloatingTimerWidget";
+import { SharedSystemViewer } from "@/components/SharedSystemViewer";
 
 function Router() {
   return (
@@ -681,12 +682,14 @@ function App() {
     };
   }, []);
 
+  const shared = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("shared") : null;
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <I18nProvider>
           <AuthProvider onLogin={handleLogin}>
-            <AppShell />
+            {shared ? <SharedSystemViewer code={shared} /> : <AppShell />}
             <FloatingTimerWidget />
             <Toaster />
           </AuthProvider>

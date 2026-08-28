@@ -1,4 +1,5 @@
-import { Plus, BookOpen, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { Plus, BookOpen, Trash2, Share2, FileDown } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +11,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { MotionDialogContent } from "@/components/motion";
-import { useStore, ASSETS, TradeAsset } from "@/lib/store";
+import { useStore, ASSETS, TradeAsset, TradingSystem } from "@/lib/store";
+import { copyShareLink, TradingSystemShareCard } from "@/components/ShareSystemCard";
+import { useToast } from "@/hooks/use-toast";
 
 export function TradingSystemsPanel({
   open,
@@ -22,9 +25,12 @@ export function TradingSystemsPanel({
   onEdit: (e: { systemId?: string; asset?: TradeAsset }) => void;
 }) {
   const { state, actions } = useStore();
+  const { toast } = useToast();
   const systems = state.tradingSystems;
+  const [pdfSystem, setPdfSystem] = useState<TradingSystem | null>(null);
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto rounded-2xl">
       <MotionDialogContent>
@@ -56,6 +62,16 @@ export function TradingSystemsPanel({
               <div className="flex items-center gap-1">
                 <Button size="sm" variant="outline" onClick={() => onEdit({ systemId: sys.id })}>Открыть</Button>
                 <Button size="icon" variant="ghost" className="h-8 w-8"
+                  title="Поделиться ссылкой"
+                  onClick={async () => { await copyShareLink(sys); toast({ title: "Ссылка скопирована" }); }}>
+                  <Share2 className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />
+                </Button>
+                <Button size="icon" variant="ghost" className="h-8 w-8"
+                  title="Скачать PDF / импортировать"
+                  onClick={() => setPdfSystem(sys)}>
+                  <FileDown className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />
+                </Button>
+                <Button size="icon" variant="ghost" className="h-8 w-8"
                   onClick={() => actions.deleteTradingSystem(sys.id)}>
                   <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
                 </Button>
@@ -80,5 +96,21 @@ export function TradingSystemsPanel({
       </MotionDialogContent>
       </DialogContent>
     </Dialog>
+
+    <Dialog open={!!pdfSystem} onOpenChange={(o) => { if (!o) setPdfSystem(null); }}>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl">
+        <MotionDialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BookOpen className="h-4 w-4" />
+              {pdfSystem?.asset} · {pdfSystem?.name || "Система"}
+            </DialogTitle>
+            <DialogDescription>Поделиться ссылкой, скачать PDF или импортировать себе.</DialogDescription>
+          </DialogHeader>
+          {pdfSystem && <TradingSystemShareCard system={pdfSystem} />}
+        </MotionDialogContent>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

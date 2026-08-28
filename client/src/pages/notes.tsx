@@ -17,6 +17,7 @@ import { MonteCarloSimulator } from "@/components/MonteCarloSimulator";
 import { RemoteImage } from "@/components/remote-image";
 import { ZoomableImage } from "@/components/zoomable-image";
 import { BiasChecklistView } from "@/components/BiasChecklistView";
+import { BulletListEditor, BulletText } from "@/components/BulletListEditor";
 import { TradingSystemsPanel } from "@/components/TradingSystemsPanel";
 import { TradingSystemDialog } from "@/components/TradingSystemDialog";
 import { TradingSystemMissingDialog } from "@/components/TradingSystemMissingDialog";
@@ -172,23 +173,21 @@ function AddBiasDialog({ onAdd, editBias }: { onAdd: (b: any) => any; editBias?:
 
           <div className="space-y-1.5">
             <Label className="text-green-500">{t.notes.pros}</Label>
-            <Textarea
+            <BulletListEditor
               value={pros}
-              onChange={e => setPros(e.target.value)}
+              onChange={setPros}
               placeholder={t.notes.prosPlaceholder}
-              className="min-h-[80px] text-sm"
-              data-testid="input-bias-pros"
+              testId="input-bias-pros"
             />
           </div>
 
           <div className="space-y-1.5">
             <Label className="text-red-500">{t.notes.cons}</Label>
-            <Textarea
+            <BulletListEditor
               value={cons}
-              onChange={e => setCons(e.target.value)}
+              onChange={setCons}
               placeholder={t.notes.consPlaceholder}
-              className="min-h-[80px] text-sm"
-              data-testid="input-bias-cons"
+              testId="input-bias-cons"
             />
           </div>
 
@@ -625,11 +624,11 @@ export default function NotesPage() {
                   <div className="grid grid-cols-2 gap-4 text-xs">
                     <div className="space-y-1">
                       <span className="font-bold text-green-500 uppercase tracking-tight">Pros</span>
-                      <p className="text-muted-foreground line-clamp-3">{bias.pros || "—"}</p>
+                      <BulletText text={bias.pros} className="text-green-300/90 space-y-0.5" />
                     </div>
                     <div className="space-y-1">
                       <span className="font-bold text-red-500 uppercase tracking-tight">Cons</span>
-                      <p className="text-muted-foreground line-clamp-3">{bias.cons || "—"}</p>
+                      <BulletText text={bias.cons} className="text-red-300/90 space-y-0.5" />
                     </div>
                   </div>
 
