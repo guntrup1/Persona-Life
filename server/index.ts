@@ -11,6 +11,7 @@ import rateLimit from "express-rate-limit";
 import mongoSanitize from "express-mongo-sanitize";
 import mongoose from "mongoose";
 import { startBot } from "./bot";
+import { notifyOwner } from "./telegram";
 
 const app = express();
 const httpServer = createServer(app);
@@ -200,11 +201,29 @@ app.use((req, res, next) => {
   cleanupOldAudio(); // once at startup
   setInterval(cleanupOldAudio, 6 * 60 * 60 * 1000); // then every 6 hours
 
-  app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
+  // Track last owner error notification time to avoid spam
+  let lastOwnerNotify = 0;
+
+  app.use((err: any, req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
 
     // Log the full error server-side but never leak internal details to clients
     console.error("Internal Server Error:", err);
+
+    // Notify owner via Telegram for 5xx errors (rate-limited: max 1 per 30s)
+    if (status >= 500) {
+      const now = Date.now();
+      if (now - lastOwnerNotify > 30_000) {
+        lastOwnerNotify = now;
+        const esc = (s: string) => String(s || "").replace(/[<>&]/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]!));
+        notifyOwner(
+          `⚠️ <b>Серверная ошибка ${status} — Persona Life</b>\n` +
+          `📍 <code>${esc(req.method)} ${esc(req.path)}</code>\n` +
+          `❌ <code>${esc(String(err?.message || err).slice(0, 500))}</code>\n` +
+          `📅 ${new Date().toISOString()}`
+        ).catch(() => {}); // non-blocking
+      }
+    }
 
     if (res.headersSent) {
       return next(err);

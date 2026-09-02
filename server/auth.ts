@@ -669,25 +669,32 @@ export function registerAuthRoutes(app: Express) {
   // ── Error report → owner's Telegram (support bot) ──
   app.post("/api/report-error", requireAuth, async (req: Request, res: Response) => {
     try {
-      const { errorId, title, description, url, userAgent, stack, timestamp } = req.body || {};
+      const { errorId, title, description, url, userAgent, stack, timestamp, kind } = req.body || {};
+
+      // Rate-limit errors: DO NOT spam the owner, just acknowledge so the client
+      // can show a user-facing "quota exceeded" message.
+      if (kind === "quota") {
+        return res.json({ ok: true, delivered: false, kind: "quota" });
+      }
+
       const user = await mongoose.model("User").findById(req.session.userId).select("email").lean();
       const chatId = process.env.SUPPORT_CHAT_ID;
+
+      const esc = (s: string) => String(s || "—").replace(/[<>&]/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]!));
+
       const lines = [
-        "🚨 Отчёт об ошибке — Persona Life",
-        `🆔 Номер: ${errorId || "—"}`,
-        `📅 Дата: ${timestamp || new Date().toISOString()}`,
-        `👤 Пользователь: ${user?.email || req.session.userId || "—"}`,
-        `🌐 URL: ${url || "—"}`,
-        `🖥 UA: ${userAgent || "—"}`,
+        "🚨 <b>Отчёт об ошибке — Persona Life</b>",
+        `🆔 Номер: <code>${esc(errorId)}</code>`,
+        `📅 Дата: ${esc(timestamp || new Date().toISOString())}`,
+        `👤 Пользователь: ${esc((user as any)?.email || req.session.userId)}`,
+        `🌐 URL: <code>${esc(url)}</code>`,
         "",
-        `📌 Заголовок: ${title || "—"}`,
-        `📝 Описание: ${description || "—"}`,
+        `📌 <b>${esc(title)}</b>`,
+        `📝 ${esc(description)}`,
       ];
-      if (stack) lines.push("", "🧵 Стек:", String(stack).slice(0, 2000));
+      if (stack) lines.push("", "🧵 <b>Стек:</b>", `<pre>${esc(String(stack).slice(0, 1500))}</pre>`);
+
       const delivered = await sendTelegramMessage(chatId, lines.join("\n"));
-      if (!delivered) {
-        return res.status(502).json({ ok: false, message: "Доставка в Telegram не настроена" });
-      }
       return res.json({ ok: true, delivered });
     } catch (err) {
       console.error("Report error failed:", err);

@@ -5,6 +5,7 @@ import { registerAuthRoutes, requireAuth } from "./auth";
 import { registerTelegramRoutes } from "./telegram-auth";
 import { registerDataRoutes } from "./api-data";
 import { encryptSecret } from "./crypto";
+import { notifyOwner } from "./telegram";
 
 interface NewsItem {
   title: string;
@@ -473,8 +474,16 @@ export async function registerRoutes(
       if (!response.ok) {
         const err = await response.text();
         console.error("Feedback email error:", err);
-        return res.status(500).json({ message: "Ошибка отправки" });
+        // Don't fail — still try Telegram below
       }
+
+      // Also notify via Telegram (reliable fallback even if email fails)
+      await notifyOwner(
+        `💬 <b>Фидбек от пользователя</b>\n` +
+        `👤 От: <code>${esc(safeEmail)}</code>\n` +
+        `📅 ${new Date().toLocaleString("ru-RU")}\n\n` +
+        `<pre>${esc(message.slice(0, 3000))}</pre>`
+      );
 
       return res.json({ ok: true });
     } catch (err) {
