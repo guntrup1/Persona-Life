@@ -1,24 +1,26 @@
 // One-way delivery of support reports and error notifications to the owner's Telegram chat.
-// Token + chat id are read from env (never hardcoded). Only SUPPORT_CHAT_ID / OWNER_CHAT_ID
+// Token + chat id are read from env (never hardcoded). Only SUPPORT_CHAT_ID
 // ever receives messages, so access to incoming reports stays with the owner.
+//
+// Required env vars (set in Render):
+//   SUPPORT_BOT_TOKEN  — token of the OWNER's bot (your bot for receiving reports)
+//   SUPPORT_CHAT_ID    — your Telegram user ID (where the bot sends reports to you)
+//
+// NOTE: TELEGRAM_BOT_TOKEN belongs to each USER's personal assistant bot — do NOT use it here.
 
 /**
- * Send a message to an arbitrary Telegram chat.
- * Falls back: SUPPORT_BOT_TOKEN → TELEGRAM_BOT_TOKEN (the main bot can be reused).
+ * Send a message to an arbitrary Telegram chat via the owner's support bot.
  */
 export async function sendTelegramMessage(
   chatId: string | undefined,
   text: string,
   token?: string
 ): Promise<boolean> {
-  const botToken =
-    token ||
-    process.env.SUPPORT_BOT_TOKEN ||
-    process.env.TELEGRAM_BOT_TOKEN; // fallback to main bot
+  const botToken = token || process.env.SUPPORT_BOT_TOKEN;
 
   if (!botToken || !chatId) {
     console.warn(
-      "[support] No bot token (SUPPORT_BOT_TOKEN / TELEGRAM_BOT_TOKEN) or SUPPORT_CHAT_ID — skipping Telegram delivery"
+      "[support] SUPPORT_BOT_TOKEN or SUPPORT_CHAT_ID not set — skipping Telegram delivery"
     );
     return false;
   }
@@ -46,8 +48,7 @@ export async function sendTelegramMessage(
 }
 
 /**
- * Convenience helper — sends to the configured owner chat.
- * SUPPORT_CHAT_ID should be set in env to the owner's Telegram user/chat ID.
+ * Convenience helper — sends to the configured owner chat (SUPPORT_CHAT_ID).
  */
 export async function notifyOwner(text: string): Promise<boolean> {
   const chatId = process.env.SUPPORT_CHAT_ID;
