@@ -937,6 +937,9 @@ function mergeArraysById<T extends { id: string }>(local: T[], server: T[], dele
       let winner = item;
       if (serverTime && !localTime) winner = existing;
       else if (localTime && serverTime && localTime < serverTime) winner = existing;
+      // Server explicitly marked completed — local 'false' is just the auto-generated default,
+      // not an intentional user action. Server wins to avoid cross-device completion loss.
+      else if ((existing as any).completed === true && !(item as any).completed) winner = existing;
       
       map.set(winner.id, winner);
     } else {
@@ -972,6 +975,9 @@ function mergeArraysByKey<T extends { id: string }>(local: T[], server: T[], key
       let winner = item;
       if (serverTime && !localTime) winner = existing;
       else if (localTime && serverTime && localTime < serverTime) winner = existing;
+      // Server explicitly marked completed — local 'false' is just the auto-generated default
+      // (routine tasks are created as false on each device). Server wins unconditionally.
+      else if ((existing as any).completed === true && !(item as any).completed) winner = existing;
       
       byId.set(winner.id, winner);
       byKey.set(key, winner);
