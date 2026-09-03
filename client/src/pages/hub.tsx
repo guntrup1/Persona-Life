@@ -169,7 +169,7 @@ const CollapsibleBlock = memo(function CollapsibleBlock({
             className="overflow-hidden"
             data-testid={`collapse-content-${title}`}
           >
-            <div className={stretch ? "max-h-[55vh] overflow-y-auto px-4 pb-4 pt-1" : "px-4 pb-4 pt-1"}>
+            <div className={stretch ? "max-h-[80vh] overflow-y-auto px-4 pb-4 pt-1" : "px-4 pb-4 pt-1"}>
               {children}
             </div>
           </motion.div>
